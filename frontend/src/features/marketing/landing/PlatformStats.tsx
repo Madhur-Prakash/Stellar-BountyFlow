@@ -84,9 +84,7 @@ function Figure({ label, value, className }: { label: string; value: ReactNode; 
       )}
     >
       <dt className="text-[0.9375rem] text-muted-foreground">{label}</dt>
-      <dd className="text-[2.25rem] leading-none font-normal tracking-[-0.03em] tabular-nums sm:text-[2.75rem]">
-        {value}
-      </dd>
+      <dd className="font-display text-[2.25rem] leading-none tabular-nums sm:text-[2.75rem]">{value}</dd>
     </div>
   )
 }

@@ -2,12 +2,14 @@ import {
   ArrowRight,
   BadgeCheck,
   ExternalLink,
+  FileCode2,
   Hammer,
   LockKeyhole,
   Megaphone,
   PenLine,
   ScanSearch,
   SearchCheck,
+  UserRound,
   type LucideIcon,
 } from 'lucide-react'
 import {
@@ -29,7 +31,7 @@ import { UserAvatar } from '@/components/common/UserAvatar'
 import { Bones } from '@/components/layout/Bones'
 import { PageContainer } from '@/components/layout/PageContainer'
 import { AppWindow } from '@/components/marketing/AppWindow'
-import { Atmosphere } from '@/components/marketing/Atmosphere'
+import { Scene } from '@/components/three/Scene'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Skeleton } from '@/components/ui/skeleton'
@@ -72,13 +74,61 @@ const STAGE_OF: Partial<Record<BountyStatus, number>> = {
   COMPLETED: 4,
 }
 
-/** The board's columns: the statuses each one lists, its icon, and what it says when nothing real is in it. */
-const COLUMNS: { statuses: BountyStatus[]; icon: LucideIcon; empty: string }[] = [
-  { statuses: ['OPEN', 'FUNDING_PENDING'], icon: Megaphone, empty: 'No other open bounties' },
-  { statuses: ['FUNDED'], icon: LockKeyhole, empty: 'None funded yet' },
-  { statuses: ['IN_PROGRESS'], icon: Hammer, empty: 'None in progress' },
-  { statuses: ['UNDER_REVIEW'], icon: ScanSearch, empty: 'None in review' },
-  { statuses: ['COMPLETED'], icon: BadgeCheck, empty: 'None paid out yet' },
+/** What happens at a stage and who acts on it, shown in a column with no real bounties in it. */
+type StageNote = { title: string; text: string; actor: string; actorIcon: LucideIcon }
+
+/** The board's columns: the statuses each one lists, its icon, and its note for when nothing real is in it. */
+const COLUMNS: { statuses: BountyStatus[]; icon: LucideIcon; note: StageNote }[] = [
+  {
+    statuses: ['OPEN', 'FUNDING_PENDING'],
+    icon: Megaphone,
+    note: {
+      title: 'Open for applications',
+      text: 'Contributors apply with a short pitch, and the requester accepts who does the work.',
+      actor: 'Requester',
+      actorIcon: UserRound,
+    },
+  },
+  {
+    statuses: ['FUNDED'],
+    icon: LockKeyhole,
+    note: {
+      title: 'Reward locked',
+      text: 'The full reward is deposited into the escrow contract before anyone starts.',
+      actor: 'Requester signs',
+      actorIcon: UserRound,
+    },
+  },
+  {
+    statuses: ['IN_PROGRESS'],
+    icon: Hammer,
+    note: {
+      title: 'Work under way',
+      text: 'The accepted contributor builds and submits. The reward cannot be withdrawn meanwhile.',
+      actor: 'Contributor',
+      actorIcon: UserRound,
+    },
+  },
+  {
+    statuses: ['UNDER_REVIEW'],
+    icon: ScanSearch,
+    note: {
+      title: 'Checked against the criteria',
+      text: 'The requester approves, asks for changes or rejects. A dispute goes to a moderator.',
+      actor: 'Requester',
+      actorIcon: UserRound,
+    },
+  },
+  {
+    statuses: ['COMPLETED'],
+    icon: BadgeCheck,
+    note: {
+      title: 'Released on chain',
+      text: 'The contract pays the contributor’s wallet, and the transaction is public on Stellar.',
+      actor: 'Escrow contract',
+      actorIcon: FileCode2,
+    },
+  },
 ]
 
 /** True one frame after mount, so CSS transitions run from their initial state. */
@@ -390,9 +440,25 @@ function BoardRow({ bounty }: { bounty: BountySummary }) {
   )
 }
 
+/** What happens at a stage, in a column that has no real bounties to list. */
+function StageNoteCard({ note }: { note: StageNote }) {
+  const Actor = note.actorIcon
+  return (
+    <div className="animate-in rounded-lg border bg-surface/60 px-3 py-3 duration-500 fade-in-0 dark:bg-background/40">
+      <p className="text-[0.8125rem] leading-snug font-medium">{note.title}</p>
+      <p className="mt-1 text-xs leading-snug text-muted-foreground">{note.text}</p>
+      <p className="mt-2.5 flex items-center gap-1.5 border-t pt-2 font-mono text-[0.6875rem] text-muted-foreground">
+        <Actor aria-hidden className="size-3 shrink-0" />
+        {note.actor}
+      </p>
+    </div>
+  )
+}
+
 /**
  * One stage of the board with the real bounties in it (the live card's own bounty aside). A stage with nothing
- * real in it says so quietly; the column holding the live card leaves its first slot to the card.
+ * real in it describes what happens there instead; the column holding the live card leaves its first slot to
+ * the card and shows nothing else.
  */
 function BoardColumn({
   index,
@@ -453,11 +519,7 @@ function BoardColumn({
             ))}
           </ul>
         ) : (
-          !active && (
-            <p className="rounded-lg border border-dashed px-3 py-3 text-xs leading-snug text-muted-foreground">
-              {column.empty}
-            </p>
-          )
+          !active && <StageNoteCard note={column.note} />
         )}
       </div>
     </div>
@@ -650,7 +712,7 @@ function HeroWindow({ stage, board }: { stage: number | null; board: boolean }) 
   )
 }
 
-/** The board's panel: the window on its atmospheric backdrop. */
+/** The board's panel: the window on the page itself, with room around it for its shadow. */
 function HeroPanel({
   stage,
   board,
@@ -661,12 +723,18 @@ function HeroPanel({
   panelRef?: RefObject<HTMLDivElement | null>
 }) {
   return (
-    <div ref={panelRef}>
-      <Atmosphere tone="dusk" className="px-3 py-4 sm:px-8 sm:py-10 xl:px-12 xl:py-14">
-        <HeroWindow stage={stage} board={board} />
-      </Atmosphere>
+    <div ref={panelRef} className="py-2">
+      <HeroWindow stage={stage} board={board} />
     </div>
   )
+}
+
+/** Keeps the network clear of the headline's middle and lets it fade out before the board. */
+const HERO_SCENE_MASK: CSSProperties = {
+  maskImage:
+    'linear-gradient(to bottom, black 55%, transparent 92%), radial-gradient(ellipse 46% 34% at 50% 40%, rgb(0 0 0 / 0.28), black 100%)',
+  maskComposite: 'intersect',
+  WebkitMaskComposite: 'source-in',
 }
 
 /** The hero story has no scrubbed tweens of its own; the card follows the reported progress. */
@@ -675,7 +743,7 @@ function buildHeroTimeline({ gsap }: ScrollStoryTools) {
 }
 
 /**
- * The first screen: the headline and actions, then the product board on its backdrop. On large screens with
+ * The first screen: the headline and actions over a slowly moving network of nodes, then the product board. On large screens with
  * motion, the board stays in view for a short scroll while the live card walks its bounty through the lifecycle
  * (published → funded → in progress → in review → paid out), moving column to column. Elsewhere the card shows
  * the bounty as it is.
@@ -683,6 +751,7 @@ function buildHeroTimeline({ gsap }: ScrollStoryTools) {
 export function Hero() {
   const story = useScrollStoryEnabled('1024px')
   const board = useMediaQuery('(min-width: 1024px)')
+  const small = useMediaQuery('(max-width: 767px)')
   const wrapper = useRef<HTMLDivElement>(null)
   const panel = useRef<HTMLDivElement>(null)
   const [stage, setStage] = useState(0)
@@ -699,10 +768,22 @@ export function Hero() {
 
   return (
     <section aria-labelledby="hero-title" className="relative isolate overflow-clip">
+      {/* A faint wash of the brand colour behind the top of the page. */}
+      <div
+        aria-hidden
+        className="pointer-events-none absolute inset-x-0 top-0 -z-10 h-[34rem] bg-[radial-gradient(60%_60%_at_50%_0%,color-mix(in_oklab,var(--primary)_9%,transparent),transparent)]"
+      />
+      {/* The network behind the headline, faded where the text sits and towards the board. */}
+      <Scene
+        name="constellation"
+        density={small ? 90 : 170}
+        className="pointer-events-none absolute inset-x-0 top-0 -z-10 h-[40rem] animate-in duration-1000 fade-in-0 sm:h-[44rem]"
+        style={HERO_SCENE_MASK}
+      />
       <PageContainer className="pt-14 pb-12 text-center sm:pt-24 sm:pb-16 lg:pt-28">
         <h1
           id="hero-title"
-          className="font-display mx-auto max-w-5xl text-[2.75rem] leading-[1.02] font-normal tracking-[-0.032em] sm:text-[4rem] lg:text-[4.75rem]"
+          className="mx-auto max-w-5xl font-display text-[2.75rem] leading-[0.98] tracking-[-0.03em] sm:text-[4.25rem] lg:text-[5.25rem]"
         >
           Bounties with the reward held in escrow
         </h1>

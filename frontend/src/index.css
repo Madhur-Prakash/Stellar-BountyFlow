@@ -2,6 +2,7 @@
 @import 'tw-animate-css';
 @import 'shadcn/tailwind.css';
 @import '@fontsource-variable/geist';
+@import '@fontsource-variable/bricolage-grotesque/opsz.css';
 @import '@fontsource/ibm-plex-mono/400.css';
 @import '@fontsource/ibm-plex-mono/500.css';
 
@@ -16,9 +17,10 @@
 @custom-variant light (&:not(:where(.dark, .dark *)));
 
 @theme inline {
-  /* Geist for the interface and headlines; IBM Plex Mono for small labels and machine data (hashes, addresses,
-     contract ids). */
-  --font-heading: var(--font-sans);
+  /* Bricolage Grotesque, set bold, for headlines; Geist for the interface; IBM Plex Mono for small labels and
+     machine data (hashes, addresses, contract ids). */
+  --font-heading: var(--font-display);
+  --font-display: 'Bricolage Grotesque Variable', 'Geist Variable', ui-sans-serif, system-ui, sans-serif;
   --font-sans: 'Geist Variable', ui-sans-serif, system-ui, -apple-system, 'Segoe UI', sans-serif;
   --font-mono: 'IBM Plex Mono', ui-monospace, SFMono-Regular, Menlo, monospace;
 
@@ -271,12 +273,13 @@
 
 /* Type roles live below the utilities layer, so utilities such as font-light or tracking-tight can adjust them. */
 @layer components {
-  /* Headlines: Geist, medium weight, tight tracking. Large marketing headlines drop to regular weight at the
-     call site; sizes come from the call site. */
+  /* Headlines: Bricolage Grotesque, bold and tightly tracked, with optical sizing so large headlines get the
+     display cut. Sizes come from the call site. */
   .font-display {
-    font-family: var(--font-sans);
-    font-weight: 500;
-    letter-spacing: -0.03em;
+    font-family: var(--font-display);
+    font-weight: 700;
+    font-optical-sizing: auto;
+    letter-spacing: -0.025em;
   }
   /* Small section labels in Plex Mono (e.g. "Escrow"), used sparingly above a section heading. */
   .label-mono {

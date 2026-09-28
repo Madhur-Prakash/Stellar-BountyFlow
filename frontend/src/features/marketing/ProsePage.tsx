@@ -88,7 +88,7 @@ export function ProsePage({
         {eyebrow && <p className="label-mono">{eyebrow}</p>}
         <h1
           className={cn(
-            'text-[2.5rem] leading-[1.04] font-normal tracking-[-0.02em] sm:text-[3.5rem] lg:text-[4rem]',
+            'font-display text-[2.5rem] leading-[1.02] tracking-[-0.03em] sm:text-[3.5rem] lg:text-[4rem]',
             eyebrow && 'mt-4',
           )}
         >

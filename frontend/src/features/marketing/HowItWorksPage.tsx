@@ -17,7 +17,7 @@ export default function HowItWorksPage() {
           <MonoLabel>How it works</MonoLabel>
           <h1
             id="how-page-title"
-            className="mt-5 max-w-4xl text-[2.5rem] leading-[1.02] font-normal tracking-[-0.02em] sm:text-[3.75rem] lg:text-[4.5rem]"
+            className="mt-5 max-w-4xl font-display text-[2.5rem] leading-[1] tracking-[-0.03em] sm:text-[3.75rem] lg:text-[4.5rem]"
           >
             From posted task to verified payout
           </h1>

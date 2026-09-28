@@ -96,9 +96,7 @@ export default function MarketplacePage() {
   return (
     <PageContainer className="pt-10 pb-16 sm:pt-16 sm:pb-20">
       <header className="pb-8 sm:pb-10">
-        <h1 className="text-[2.25rem] leading-[1.05] font-normal tracking-[-0.02em] sm:text-[3rem]">
-          Bounty marketplace
-        </h1>
+        <h1 className="font-display text-[2.25rem] leading-[1.02] sm:text-[3rem]">Bounty marketplace</h1>
         <p className="mt-3 max-w-2xl text-base text-muted-foreground sm:text-lg">
           Paid tasks from requesters on BountyFlow.
         </p>

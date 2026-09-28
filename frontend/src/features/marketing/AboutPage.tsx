@@ -142,7 +142,7 @@ function Heading({ id, label, title }: { id: string; label: string; title: strin
   return (
     <div className="max-w-3xl">
       <MonoLabel>{label}</MonoLabel>
-      <h2 id={id} className="font-display mt-3 text-[2rem] leading-[1.1] tracking-tight sm:text-[2.5rem]">
+      <h2 id={id} className="mt-3 font-display text-[2rem] leading-[1.1] sm:text-[2.5rem]">
         {title}
       </h2>
     </div>
@@ -192,7 +192,7 @@ export default function AboutPage() {
             <MonoLabel>About</MonoLabel>
             <h1
               id="about-title"
-              className="mt-4 text-[2.5rem] leading-[1.02] font-normal tracking-[-0.02em] sm:text-[3.5rem] xl:text-[4.25rem]"
+              className="mt-4 font-display text-[2.5rem] leading-[1] tracking-[-0.03em] sm:text-[3.5rem] xl:text-[4.25rem]"
             >
               Why we built BountyFlow
             </h1>

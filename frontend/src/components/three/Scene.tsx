@@ -1,16 +1,27 @@
-import { lazy, Suspense, useEffect, useState, type ComponentType, type LazyExoticComponent } from 'react'
+import {
+  lazy,
+  Suspense,
+  useEffect,
+  useState,
+  type ComponentType,
+  type CSSProperties,
+  type LazyExoticComponent,
+} from 'react'
 
 import { webglAvailable } from './useThreeTheme'
 
 /** Options a scene may use; each scene ignores the ones it has no use for. */
 export type SceneOptions = { density?: number; dotSize?: number; markerScale?: number }
 
-type SceneComponent = LazyExoticComponent<ComponentType<SceneOptions & { className?: string }>>
+type SceneComponent = LazyExoticComponent<
+  ComponentType<SceneOptions & { className?: string; style?: CSSProperties }>
+>
 
 // Three.js and React Three Fiber live in these chunks; nothing 3D is in a page's own bundle.
-const scenes: Record<'globe' | 'ledger', SceneComponent> = {
+const scenes: Record<'globe' | 'ledger' | 'constellation', SceneComponent> = {
   globe: lazy(() => import('./PaymentsGlobe')),
   ledger: lazy(() => import('./LedgerField')),
+  constellation: lazy(() => import('./Constellation')),
 }
 
 declare global {
@@ -26,8 +37,9 @@ declare global {
 export function Scene({
   name,
   className,
+  style,
   ...options
-}: { name: keyof typeof scenes; className?: string } & SceneOptions) {
+}: { name: keyof typeof scenes; className?: string; style?: CSSProperties } & SceneOptions) {
   const [ready, setReady] = useState(false)
   useEffect(() => {
     if (window.__BONEYARD_BUILD || !webglAvailable()) return
@@ -38,7 +50,7 @@ export function Scene({
   const Component = scenes[name]
   return (
     <Suspense fallback={null}>
-      <Component className={className} {...options} />
+      <Component className={className} style={style} {...options} />
     </Suspense>
   )
 }

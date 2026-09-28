@@ -55,7 +55,7 @@ export function AuthCard({
             <Icon className={cn('size-5', iconClassName)} aria-hidden />
           </div>
         )}
-        <h1 className="font-display text-[2rem] leading-[1.08] tracking-[-0.04em] sm:text-[2.375rem]">
+        <h1 className="font-display text-[2rem] leading-[1.08] sm:text-[2.375rem]">
           {title}
         </h1>
         {description && (

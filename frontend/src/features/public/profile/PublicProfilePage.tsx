@@ -198,7 +198,7 @@ function ProfileView({ profile }: { profile: PublicProfile }) {
       <header className="flex flex-col gap-6 sm:flex-row sm:items-start sm:gap-8">
         <UserAvatar user={profile} className="size-16 text-base sm:size-20 sm:text-lg" />
         <div className="min-w-0 flex-1">
-          <h1 className="text-[2.25rem] leading-[1.05] font-normal tracking-[-0.02em] wrap-break-word sm:text-[3rem]">
+          <h1 className="font-display text-[2.25rem] leading-[1.02] wrap-break-word sm:text-[3rem]">
             {profile.display_name}
           </h1>
           <p className="mt-2 font-mono text-sm text-muted-foreground">@{profile.username}</p>

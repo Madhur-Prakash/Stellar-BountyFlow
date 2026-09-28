@@ -2,21 +2,17 @@ import { BriefcaseBusiness, PenLine, UserRound, type LucideIcon } from 'lucide-r
 import { useCallback, useLayoutEffect, useRef, useState } from 'react'
 
 import { PageContainer } from '@/components/layout/PageContainer'
-import { AppWindow } from '@/components/marketing/AppWindow'
-import { Atmosphere } from '@/components/marketing/Atmosphere'
-import { MonoLabel } from '@/components/marketing/MonoLabel'
 import {
   storyScrollTarget,
   useScrollStory,
   useScrollStoryEnabled,
-  useStageTop,
   type ScrollStoryTools,
 } from '@/hooks/useScrollStory'
 import { scrollToY } from '@/lib/scroll'
 import { cn } from '@/lib/utils'
 
 import { CONTRIBUTOR_STEPS, REQUESTER_STEPS, type Step } from './howItWorksData'
-import { SECTION, SECTION_LEAD, SECTION_TITLE, SectionHeading } from './SectionHeading'
+import { SECTION, SectionHeading } from './SectionHeading'
 
 type Track = { id: string; title: string; icon: LucideIcon; steps: readonly Step[] }
 
@@ -26,7 +22,6 @@ const TRACKS: [Track, Track] = [
 ]
 
 const HEADING = {
-  label: 'Lifecycle',
   title: 'How a bounty moves',
   description: 'The same bounty from both sides, from posting the work to the payout.',
 }
@@ -62,17 +57,18 @@ function SignedNote() {
   )
 }
 
-/** A track's name for the window title bar. */
-function TrackTitle({ track, headingId }: { track: Track; headingId?: string }) {
+function TrackHeader({ track, meta, headingId }: { track: Track; meta?: string; headingId?: string }) {
   const Icon = track.icon
-  const Heading = headingId ? 'h3' : 'span'
   return (
-    <>
-      <Icon className="size-3.5 shrink-0 text-primary-emphasis" aria-hidden />
-      <Heading id={headingId} className="truncate text-[0.8125rem] font-medium">
+    <div className="flex items-center gap-3 border-b px-5 py-4">
+      <span className="flex size-8 items-center justify-center rounded-lg bg-primary/10 text-primary">
+        <Icon className="size-4" aria-hidden />
+      </span>
+      <h3 id={headingId} className="text-[0.9375rem] font-semibold">
         {track.title}
-      </Heading>
-    </>
+      </h3>
+      <span className="ml-auto text-xs text-muted-foreground">{meta ?? `${track.steps.length} steps`}</span>
+    </div>
   )
 }
 
@@ -80,11 +76,9 @@ function TrackTitle({ track, headingId }: { track: Track; headingId?: string }) 
 function StaticTrack({ track }: { track: Track }) {
   const headingId = `track-${track.id}`
   return (
-    <AppWindow
-      title={<TrackTitle track={track} headingId={headingId} />}
-      toolbar={<span className="text-xs text-muted-foreground">{track.steps.length} steps</span>}
-    >
-      <ol aria-labelledby={headingId} className="px-4 py-2 sm:px-5">
+    <div className="rounded-xl border bg-card shadow-soft">
+      <TrackHeader track={track} headingId={headingId} />
+      <ol aria-labelledby={headingId} className="px-5 py-2">
         {track.steps.map((step, i) => (
           <li key={step.title} className="relative grid grid-cols-[1.75rem_minmax(0,1fr)] gap-x-3 py-3.5">
             {i < track.steps.length - 1 && (
@@ -106,7 +100,7 @@ function StaticTrack({ track }: { track: Track }) {
           </li>
         ))}
       </ol>
-    </AppWindow>
+    </div>
   )
 }
 
@@ -149,7 +143,7 @@ function StoryTrack({
 
   return (
     <div data-story-track={index} className="col-start-1 row-start-1">
-      <div ref={box} className="relative px-4 py-3 xl:px-5">
+      <div ref={box} className="relative px-5 py-3">
         <span ref={rail} aria-hidden className="absolute w-px bg-border">
           <span data-rail-fill className="absolute inset-0 origin-top scale-y-0 bg-primary" />
         </span>
@@ -243,35 +237,29 @@ function StoryMode() {
     last.current = next
     setPosition(next)
   }, [])
-  const stage = useRef<HTMLDivElement>(null)
-  const top = useStageTop(stage, true)
-  useScrollStory(wrapper, true, buildTimeline, onProgress, top)
+  useScrollStory(wrapper, true, buildTimeline, onProgress)
 
   const scrollToProgress = (p: number) => {
     const el = wrapper.current
-    if (el) scrollToY(storyScrollTarget(el, p, top))
+    if (el) scrollToY(storyScrollTarget(el, p))
   }
 
   const track = TRACKS[position.track]
   return (
     <div ref={wrapper} data-how-story className="relative">
-      <div ref={stage} className="sticky" style={{ top }}>
-        <PageContainer className="grid w-full grid-cols-[minmax(0,0.85fr)_minmax(0,1.15fr)] items-center gap-12 xl:gap-20">
+      <div className="sticky top-20">
+        <PageContainer className="grid w-full grid-cols-[minmax(0,0.9fr)_minmax(0,1.1fr)] items-center gap-14">
           <div>
-            <MonoLabel className="mb-3">{HEADING.label}</MonoLabel>
-            <h2 id="how-title" className={SECTION_TITLE}>
-              {HEADING.title}
-            </h2>
-            <p className={cn('mt-4 max-w-lg', SECTION_LEAD)}>{HEADING.description}</p>
+            <SectionHeading id="how-title" {...HEADING} />
             <div
-              className="relative isolate mt-8 inline-grid w-fit grid-cols-2 gap-1 rounded-full border bg-card p-1"
+              className="relative isolate mt-8 inline-grid w-fit grid-cols-2 gap-1 rounded-lg border bg-card p-1 shadow-soft"
               role="group"
               aria-label="Track"
             >
               <span
                 aria-hidden
                 className={cn(
-                  'absolute inset-y-1 left-1 -z-10 w-[calc(50%-0.375rem)] rounded-full bg-foreground transition-transform duration-500 ease-out',
+                  'absolute inset-y-1 left-1 -z-10 w-[calc(50%-0.375rem)] rounded-md bg-foreground transition-transform duration-500 ease-out',
                   position.track === 1 && 'translate-x-[calc(100%+0.25rem)]',
                 )}
               />
@@ -282,7 +270,7 @@ function StoryMode() {
                   aria-pressed={position.track === i}
                   onClick={() => scrollToProgress(i === 0 ? 0 : (REQ + HANDOFF) / UNITS + 0.001)}
                   className={cn(
-                    'rounded-full px-4 py-2 text-sm font-medium whitespace-nowrap transition-colors duration-300',
+                    'rounded-md px-4 py-2 text-sm font-medium whitespace-nowrap transition-colors duration-300',
                     position.track === i ? 'text-background' : 'text-muted-foreground hover:text-foreground',
                   )}
                 >
@@ -291,10 +279,10 @@ function StoryMode() {
               ))}
             </div>
 
-            <p className="mt-10 flex items-center gap-5 text-sm text-muted-foreground" aria-live="polite">
+            <p className="mt-8 flex items-center gap-4 text-sm text-muted-foreground" aria-live="polite">
               <span
                 key={`${position.track}-${position.step}`}
-                className="inline-block animate-in text-[4rem] leading-none font-light tracking-[-0.04em] text-foreground tabular-nums duration-300 fade-in-0 slide-in-from-bottom-2"
+                className="amount inline-block animate-in text-[3.5rem] leading-none text-foreground duration-300 fade-in-0 slide-in-from-bottom-2"
               >
                 {String(position.step + 1).padStart(2, '0')}
               </span>{' '}
@@ -305,54 +293,39 @@ function StoryMode() {
                 </span>
               </span>
             </p>
-            <div aria-hidden className="mt-6 h-px w-full max-w-sm overflow-hidden bg-border">
-              <span data-story-progress className="block h-full origin-left scale-x-0 bg-foreground" />
+            <div aria-hidden className="mt-6 h-1 w-full max-w-sm overflow-hidden rounded-full bg-muted">
+              <span
+                data-story-progress
+                className="block h-full origin-left scale-x-0 rounded-full bg-primary"
+              />
             </div>
           </div>
 
-          <Atmosphere tone="dune" className="p-6 xl:p-10">
-            <AppWindow
-              title={
-                <span aria-hidden className="flex items-center gap-2">
-                  <TrackTitle track={track} />
-                </span>
-              }
-              toolbar={
-                <span aria-hidden className="text-xs text-muted-foreground tabular-nums">
-                  Step {position.step + 1} of {track.steps.length}
-                </span>
-              }
-            >
-              <div className="grid" aria-hidden>
-                <StoryTrack
-                  index={0}
-                  position={position}
-                  onPick={(i) => scrollToProgress(progressOf(0, i))}
-                />
-                <StoryTrack
-                  index={1}
-                  position={position}
-                  onPick={(i) => scrollToProgress(progressOf(1, i))}
-                />
-              </div>
-              {/* The visual story is decorative; this is the same content for screen readers. */}
-              <div className="sr-only">
-                {TRACKS.map((t) => (
-                  <div key={t.id}>
-                    <h3>{t.title}</h3>
-                    <ol>
-                      {t.steps.map((s) => (
-                        <li key={s.title}>
-                          {s.title}
-                          {s.signed ? ' (signed in your wallet)' : ''}: {s.text}
-                        </li>
-                      ))}
-                    </ol>
-                  </div>
-                ))}
-              </div>
-            </AppWindow>
-          </Atmosphere>
+          <div className="rounded-xl border bg-card shadow-lift">
+            <div aria-hidden>
+              <TrackHeader track={track} meta={`Step ${position.step + 1} of ${track.steps.length}`} />
+            </div>
+            <div className="grid" aria-hidden>
+              <StoryTrack index={0} position={position} onPick={(i) => scrollToProgress(progressOf(0, i))} />
+              <StoryTrack index={1} position={position} onPick={(i) => scrollToProgress(progressOf(1, i))} />
+            </div>
+            {/* The visual story is decorative; this is the same content for screen readers. */}
+            <div className="sr-only">
+              {TRACKS.map((t) => (
+                <div key={t.id}>
+                  <h3>{t.title}</h3>
+                  <ol>
+                    {t.steps.map((s) => (
+                      <li key={s.title}>
+                        {s.title}
+                        {s.signed ? ' (signed in your wallet)' : ''}: {s.text}
+                      </li>
+                    ))}
+                  </ol>
+                </div>
+              ))}
+            </div>
+          </div>
         </PageContainer>
       </div>
       <div aria-hidden style={{ height: `${Math.round(UNITS * 32)}svh` }} />
@@ -367,20 +340,18 @@ export function HowItWorks({ className }: { className?: string }) {
     <section
       id="how-it-works"
       aria-labelledby="how-title"
-      className={cn(story ? 'pt-16 pb-4' : SECTION, className)}
+      className={cn(story ? 'pt-12 pb-4' : SECTION, className)}
     >
       {story ? (
         <StoryMode />
       ) : (
         <PageContainer>
           <SectionHeading id="how-title" {...HEADING} />
-          <Atmosphere tone="dune" className="mt-10 p-3 sm:p-8 lg:p-10">
-            <div className="grid gap-4 sm:gap-6 lg:grid-cols-2">
-              {TRACKS.map((t) => (
-                <StaticTrack key={t.id} track={t} />
-              ))}
-            </div>
-          </Atmosphere>
+          <div className="mt-8 grid gap-6 lg:grid-cols-2">
+            {TRACKS.map((t) => (
+              <StaticTrack key={t.id} track={t} />
+            ))}
+          </div>
         </PageContainer>
       )}
     </section>

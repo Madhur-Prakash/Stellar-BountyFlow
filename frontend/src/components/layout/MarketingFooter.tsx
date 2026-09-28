@@ -61,14 +61,12 @@ export function MarketingFooter() {
             <p className="sr-only">{SITE.tagline}</p>
             <div
               aria-hidden
-              className="font-display max-w-md bg-[radial-gradient(circle,currentColor_1.25px,transparent_1.5px)] bg-size-[3.5px_3.5px] bg-clip-text text-[clamp(2.5rem,4.4vw,3.75rem)] leading-[1.02] font-bold text-foreground/40 select-none"
+              className="font-display bg-[radial-gradient(circle,currentColor_1.35px,transparent_1.6px)] bg-size-[3.4px_3.4px] bg-clip-text text-[clamp(2.25rem,4.2vw,4rem)] leading-[0.94] font-extrabold tracking-[-0.035em] text-foreground/55 select-none dark:text-foreground/45"
               style={{ WebkitTextFillColor: 'transparent' }}
             >
-              Work gets done.
-              <br />
-              Rewards move
-              <br />
-              transparently.
+              <span className="block whitespace-nowrap">Work gets done.</span>
+              <span className="block whitespace-nowrap">Rewards move</span>
+              <span className="block whitespace-nowrap">transparently.</span>
             </div>
             <div className="flex flex-wrap items-center gap-3">
               {SITE.githubUrl && (

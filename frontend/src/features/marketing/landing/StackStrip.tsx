@@ -50,7 +50,7 @@ export function StackStrip() {
           density={9000}
           dotSize={5.5}
           markerScale={0.6}
-          className="pointer-events-none absolute top-60 left-1/2 -z-10 size-[72rem] -translate-x-1/2 animate-in mask-[linear-gradient(to_bottom,black_14%,transparent_33%)] duration-1000 fade-in-0"
+          className="absolute top-60 left-1/2 -z-10 size-[72rem] -translate-x-1/2 animate-in mask-[linear-gradient(to_bottom,black_14%,transparent_33%)] duration-1000 fade-in-0"
         />
       )}
       <PageContainer className="text-center">

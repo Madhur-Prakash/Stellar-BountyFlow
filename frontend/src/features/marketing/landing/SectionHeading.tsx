@@ -3,7 +3,7 @@ import type { ReactNode } from 'react'
 import { MonoLabel } from '@/components/marketing/MonoLabel'
 import { cn } from '@/lib/utils'
 
-/** The marketing H2: Geist, large and light, tight tracking. */
+/** The marketing H2: the bold display face, large, with tight tracking. */
 export const SECTION_TITLE = 'font-display text-[2rem] leading-[1.08] sm:text-[2.5rem] lg:text-[2.75rem]'
 
 /** The paragraph under a marketing heading: larger, warm grey. */

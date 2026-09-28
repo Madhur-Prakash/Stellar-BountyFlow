@@ -1,18 +1,8 @@
-import { CheckCircle2, ExternalLink } from 'lucide-react'
+import { CheckCircle2 } from 'lucide-react'
 import { useRef, useState } from 'react'
 
 import { PageContainer } from '@/components/layout/PageContainer'
-import { AppWindow } from '@/components/marketing/AppWindow'
-import { Atmosphere } from '@/components/marketing/Atmosphere'
-import {
-  useScrollStory,
-  useScrollStoryEnabled,
-  useStageTop,
-  type ScrollStoryTools,
-} from '@/hooks/useScrollStory'
-import { usePublicConfig } from '@/lib/api/queries/config'
-import { contractExplorerUrl, networkDisplayName } from '@/lib/stellar/explorer'
-import { cn } from '@/lib/utils'
+import { useScrollStory, useScrollStoryEnabled, type ScrollStoryTools } from '@/hooks/useScrollStory'
 
 import { SectionHeading } from './SectionHeading'
 
@@ -270,7 +260,7 @@ function Lifecycle({ hovered, onHover }: { hovered: StateId | null; onHover: (id
   const detail = NODES.find((n) => n.id === hovered)
 
   return (
-    <figure data-lifecycle className="px-5 pt-6 pb-4 lg:px-7 lg:pt-8">
+    <figure data-lifecycle className="hidden rounded-xl border bg-card p-6 shadow-soft md:block lg:p-8">
       <svg
         viewBox="0 24 890 266"
         overflow="visible"
@@ -418,36 +408,9 @@ function buildTimeline({ gsap }: ScrollStoryTools, root: HTMLElement) {
 }
 
 const HEADING = {
-  label: 'Escrow',
   title: 'What happens to the money',
   description:
-    'Rewards sit in a Soroban smart contract on Stellar, not in a BountyFlow bank account. The contract only moves funds along these paths.',
-}
-
-/** The contract the diagram describes, from the API's public config, for the window's title bar. */
-function ContractTitle() {
-  const { data } = usePublicConfig()
-  const network = data ? networkDisplayName(data.network, data.blockchain_mode) : null
-  const id = data?.contract_id
-  const href = id ? (data.contract_explorer_url ?? contractExplorerUrl(data, id)) : null
-  return (
-    <>
-      <span>Escrow contract</span>
-      {network && <span className="font-normal text-muted-foreground">{network}</span>}
-      {id && href && (
-        <a
-          href={href}
-          target="_blank"
-          rel="noopener noreferrer"
-          aria-label={`Escrow contract ${id} on the Stellar explorer`}
-          className="hidden items-center gap-1 font-mono text-xs font-normal text-muted-foreground hover:text-foreground hover:underline sm:inline-flex"
-        >
-          {`${id.slice(0, 6)}…${id.slice(-6)}`}
-          <ExternalLink className="size-3" aria-hidden />
-        </a>
-      )}
-    </>
-  )
+    'Rewards sit in a Soroban smart contract on Stellar, not in a BountyFlow bank account. The contract only moves funds along the paths below.',
 }
 
 /**
@@ -459,73 +422,57 @@ export function EscrowExplainer() {
   const [hovered, setHovered] = useState<StateId | null>(null)
   const story = useScrollStoryEnabled('768px')
   const wrapper = useRef<HTMLDivElement>(null)
-  const sticky = useRef<HTMLDivElement>(null)
-  const top = useStageTop(sticky, story)
-  useScrollStory(wrapper, story, buildTimeline, undefined, top)
+  useScrollStory(wrapper, story, buildTimeline)
 
-  // Wide screens: the diagram on its backdrop on the left, the heading on the right. Narrower: heading on top.
-  const stage = (
-    <PageContainer className="grid w-full gap-8 xl:grid-cols-[minmax(0,1fr)_minmax(0,21rem)] xl:items-center xl:gap-16">
-      <SectionHeading id="escrow-title" {...HEADING} className="xl:order-2" />
-      <Atmosphere tone="ember" className="hidden p-4 md:block lg:p-8 xl:order-1 xl:p-10">
-        <AppWindow title={<ContractTitle />}>
-          <Lifecycle hovered={hovered} onHover={setHovered} />
-        </AppWindow>
-      </Atmosphere>
-    </PageContainer>
+  const diagram = (
+    <>
+      <SectionHeading id="escrow-title" {...HEADING} />
+      <div className="mt-8">
+        <Lifecycle hovered={hovered} onHover={setHovered} />
+      </div>
+    </>
   )
 
   return (
-    <section
-      id="escrow"
-      aria-labelledby="escrow-title"
-      className={story ? 'pt-8 pb-16 sm:pb-24' : 'py-16 sm:py-24'}
-    >
+    <section id="escrow" aria-labelledby="escrow-title" className="py-12 sm:py-16">
       {story ? (
         // A tall wrapper with a sticky stage: the diagram stays on screen while the wrapper scrolls past.
         <div ref={wrapper} data-escrow-story className="relative">
-          <div ref={sticky} className="sticky" style={{ top }}>
-            {stage}
+          <div className="sticky top-20">
+            <PageContainer className="w-full">{diagram}</PageContainer>
           </div>
           <div aria-hidden style={{ height: '150svh' }} />
         </div>
       ) : (
-        stage
+        <PageContainer>{diagram}</PageContainer>
       )}
 
       <PageContainer>
-        <div
-          className={cn(
-            'grid gap-px overflow-hidden rounded-2xl border bg-border lg:grid-cols-2',
-            story ? 'mt-4' : 'mt-10',
-          )}
-        >
-          <div className="bg-card">
-            <h3 id="escrow-path" className="border-b px-6 py-5 text-base font-medium sm:px-7">
+        <div className="mt-6 grid gap-6 lg:grid-cols-2">
+          <div className="rounded-xl border bg-card shadow-soft">
+            <h3 id="escrow-path" className="border-b px-5 py-4 text-[0.9375rem] font-semibold">
               The path of a reward
             </h3>
-            <ol aria-labelledby="escrow-path" className="divide-y px-6 sm:px-7">
+            <ol aria-labelledby="escrow-path" className="divide-y px-5">
               {STEPS.map(([title, text], i) => (
-                <li key={title} className="grid grid-cols-[2rem_minmax(0,1fr)] gap-x-3 py-5">
-                  <span className="font-mono text-sm text-primary-emphasis">
-                    {String(i + 1).padStart(2, '0')}
-                  </span>
+                <li key={title} className="grid grid-cols-[1.75rem_minmax(0,1fr)] gap-x-3 py-4">
+                  <span className="amount text-sm text-primary">{i + 1}</span>
                   <div>
-                    <p className="text-[0.9375rem] font-medium">{title}</p>
+                    <p className="text-sm font-medium">{title}</p>
                     <p className="mt-1 text-sm leading-relaxed text-muted-foreground">{text}</p>
                   </div>
                 </li>
               ))}
             </ol>
           </div>
-          <div className="bg-card">
-            <h3 id="escrow-guarantees" className="border-b px-6 py-5 text-base font-medium sm:px-7">
+          <div className="rounded-xl border bg-card shadow-soft">
+            <h3 id="escrow-guarantees" className="border-b px-5 py-4 text-[0.9375rem] font-semibold">
               What you can rely on
             </h3>
-            <dl aria-labelledby="escrow-guarantees" className="divide-y px-6 sm:px-7">
+            <dl aria-labelledby="escrow-guarantees" className="divide-y px-5">
               {GUARANTEES.map(([title, text]) => (
-                <div key={title} className="py-5">
-                  <dt className="flex items-center gap-3 text-[0.9375rem] font-medium">
+                <div key={title} className="py-4">
+                  <dt className="flex items-center gap-3 text-sm font-medium">
                     <CheckCircle2 className="size-4 shrink-0 text-success" aria-hidden />
                     {title}
                   </dt>

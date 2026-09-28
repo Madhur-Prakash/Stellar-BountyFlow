@@ -14,11 +14,11 @@ export default function NotFoundPage() {
       >
         <p
           aria-hidden
-          className="text-[7.5rem] leading-[0.9] font-light tracking-[-0.05em] sm:text-[11rem] lg:text-[13.5rem]"
+          className="font-display text-[7.5rem] leading-[0.9] tracking-[-0.05em] sm:text-[11rem] lg:text-[13.5rem]"
         >
           404
         </p>
-        <h1 className="font-display mt-6 text-[1.75rem] leading-tight tracking-tight sm:text-[2.25rem]">
+        <h1 className="mt-6 font-display text-[1.75rem] leading-tight sm:text-[2.25rem]">
           Page not found
         </h1>
         <p className="mt-3 max-w-sm text-base text-foreground/80 sm:text-lg">
