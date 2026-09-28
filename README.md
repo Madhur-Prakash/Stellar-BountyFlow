@@ -102,9 +102,11 @@ work through an explicit, auditable state machine. Only verified on-chain events
   rate limits, strict validation, safe markdown, security headers, and redacted structured logs (Logifyx).
 - **Interface:** a calm, light-first design system with a dark theme (shadcn/ui + Tailwind v4 tokens, Inter),
   documented in [docs/design.md](docs/design.md). Every screen shows live data. Records are shown in tables, and
-  the escrow state machine is a diagram whose states explain themselves on hover. Motion stays small and
-  functional: route fades, an animated light/dark switch, and Lenis smooth scrolling on the public site. Routes
-  and heavy components (charts, Markdown, the wallet SDK, on-demand dialogs) load lazily. Loading states are
+  the escrow state machine is a diagram whose states explain themselves on hover. On the landing page, "How a
+  bounty moves" and the escrow diagram play as scroll stories (GSAP ScrollTrigger on sticky sections). A dotted
+  payments globe and a ledger field are drawn with Three.js (React Three Fiber). The rest of the motion is small:
+  route fades, an animated light/dark switch, and Lenis smooth scrolling on the public site. Routes and heavy
+  pieces (charts, Markdown, the wallet SDK, GSAP, Three.js, on-demand dialogs) load lazily. Loading states are
   boneyard skeletons captured from the real layout. Everything respects reduced motion; WCAG-minded and
   responsive from 360 px up.
 
@@ -141,7 +143,7 @@ Details, sequence diagrams and design decisions: [docs/architecture.md](docs/arc
 
 | Layer | Technologies |
 |---|---|
-| Frontend | React 19, TypeScript (strict), Vite, React Router 7, Tailwind CSS v4, shadcn/ui (Radix), lucide-react, Inter, Lenis, boneyard-js, TanStack Query, Zustand, React Hook Form + Zod, Recharts, Vitest, Testing Library, Playwright |
+| Frontend | React 19, TypeScript (strict), Vite, React Router 7, Tailwind CSS v4, shadcn/ui (Radix), lucide-react, Inter, GSAP (ScrollTrigger, DrawSVG), Three.js + React Three Fiber, Lenis, boneyard-js, TanStack Query, Zustand, React Hook Form + Zod, Recharts, Vitest, Testing Library, Playwright |
 | Backend | Python 3.12, FastAPI, Uvicorn, Pydantic v2, pydantic-settings, SQLAlchemy 2.1 (async), Alembic, psycopg 3, redis-py, aiokafka, stellar-sdk (Soroban RPC), httpx, **Logifyx** logging, argon2-cffi, PyJWT, Jinja2, pytest, Ruff, mypy, **uv** |
 | Data | PostgreSQL 17, Redis 7.4, Apache Kafka 3.9 (KRaft) |
 | Blockchain | Stellar Testnet, Soroban (Rust, soroban-sdk 28), Stellar CLI 27, Stellar Asset Contract (native XLM), Freighter |

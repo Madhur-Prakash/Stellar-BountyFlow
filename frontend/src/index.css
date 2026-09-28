@@ -314,6 +314,34 @@ html.lenis body {
   overscroll-behavior: contain;
 }
 
+/* Hero preview: the rotation timer bar, and the soft flow over the current lifecycle stage. */
+@keyframes bf-progress {
+  from {
+    transform: scaleX(0);
+  }
+  to {
+    transform: scaleX(1);
+  }
+}
+@keyframes bf-flow {
+  from {
+    background-position: 150% 0;
+  }
+  to {
+    background-position: -50% 0;
+  }
+}
+.bf-progress {
+  transform-origin: left;
+  animation: bf-progress var(--bf-progress-duration, 6s) linear forwards;
+}
+.bf-flow {
+  background-image: linear-gradient(90deg, transparent, rgb(255 255 255 / 0.6), transparent);
+  background-size: 50% 100%;
+  background-repeat: no-repeat;
+  animation: bf-flow 2.2s ease-in-out infinite;
+}
+
 /* Theme switch (lib/theme-transition.ts): the View Transition reveal is driven from script, so turn off the default
    crossfade; browsers without View Transitions get a short colour fade instead. */
 ::view-transition-old(root),

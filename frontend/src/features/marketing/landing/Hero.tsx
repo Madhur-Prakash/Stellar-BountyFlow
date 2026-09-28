@@ -1,14 +1,18 @@
 import { ArrowRight, ExternalLink, LockKeyhole, PenLine, SearchCheck, type LucideIcon } from 'lucide-react'
+import { useEffect, useState } from 'react'
 import { Link } from 'react-router'
 
 import { DeadlineCountdown } from '@/components/bounty/DeadlineCountdown'
 import { FundingStatusBadge } from '@/components/bounty/FundingStatusBadge'
 import { UserAvatar } from '@/components/common/UserAvatar'
 import { Bones } from '@/components/layout/Bones'
+import { Scene } from '@/components/three/Scene'
 import { PageContainer } from '@/components/layout/PageContainer'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Skeleton } from '@/components/ui/skeleton'
+import { useMediaQuery } from '@/hooks/useMediaQuery'
+import { motionAllowed, useReducedMotion } from '@/hooks/useReducedMotion'
 import { useBounties } from '@/lib/api/queries/bounties'
 import { usePublicConfig } from '@/lib/api/queries/config'
 import type { BountyStatus, BountySummary } from '@/lib/api/types'
@@ -17,7 +21,9 @@ import { formatAmount } from '@/lib/money'
 import { contractExplorerUrl, networkDisplayName } from '@/lib/stellar/explorer'
 import { cn } from '@/lib/utils'
 
-const TOP_REWARD = { sort: 'reward_high', page_size: 1 } as const
+/** The three largest open rewards; the preview cycles through them. */
+const TOP_REWARDS = { sort: 'reward_high', page_size: 3 } as const
+const ROTATE_MS = 6000
 
 /** What makes a bounty here different, in three short facts under the actions. */
 const FACTS: { icon: LucideIcon; title: string; text: string }[] = [
@@ -37,16 +43,61 @@ const STAGE_OF: Partial<Record<BountyStatus, number>> = {
   COMPLETED: 4,
 }
 
+/** True one frame after mount, so CSS transitions run from their initial state. */
+function useAfterMount(): boolean {
+  const [ready, setReady] = useState(false)
+  useEffect(() => {
+    const frame = requestAnimationFrame(() => setReady(true))
+    return () => cancelAnimationFrame(frame)
+  }, [])
+  return ready
+}
+
+/** Counts from zero to `value` when the card appears, then shows the exact figure. */
+function useCountUp(value: number, duration = 900): number | null {
+  const [shown, setShown] = useState<number | null>(() => (motionAllowed() ? 0 : null))
+  useEffect(() => {
+    if (!motionAllowed() || !Number.isFinite(value)) return
+    let frame = 0
+    const start = performance.now()
+    const tick = (now: number) => {
+      const t = Math.min(1, (now - start) / duration)
+      const eased = 1 - (1 - t) ** 3
+      setShown(t < 1 ? value * eased : null)
+      if (t < 1) frame = requestAnimationFrame(tick)
+    }
+    frame = requestAnimationFrame(tick)
+    return () => cancelAnimationFrame(frame)
+  }, [value, duration])
+  return shown
+}
+
+function Amount({ value, className }: { value: string; className?: string }) {
+  const counting = useCountUp(Number(value))
+  return (
+    <span className={cn('amount', className)}>
+      {counting === null ? formatAmount(value) : Math.round(counting).toLocaleString('en-US')}
+    </span>
+  )
+}
+
 function Lifecycle({ status }: { status: BountyStatus }) {
   const current = STAGE_OF[status] ?? 0
+  const ready = useAfterMount()
   return (
     <ol className="grid grid-cols-5 gap-1.5" aria-label="Lifecycle">
       {STAGES.map((stage, i) => (
         <li key={stage} aria-current={i === current ? 'step' : undefined} className="min-w-0">
-          <span
-            aria-hidden
-            className={cn('block h-1 rounded-full', i <= current ? 'bg-primary' : 'bg-muted')}
-          />
+          <span aria-hidden className="relative block h-1 overflow-hidden rounded-full bg-muted">
+            <span
+              className={cn(
+                'absolute inset-0 origin-left rounded-full bg-primary transition-transform duration-500 ease-out',
+                ready && i <= current ? 'scale-x-100' : 'scale-x-0',
+              )}
+              style={{ transitionDelay: `${150 + i * 120}ms` }}
+            />
+            {i === current && <span className="bf-flow absolute inset-0 rounded-full" />}
+          </span>
           <span
             className={cn(
               'mt-1.5 block truncate text-[0.6875rem]',
@@ -94,7 +145,7 @@ function BountyPreview({ bounty }: { bounty: BountySummary }) {
   return (
     <article
       aria-labelledby="hero-bounty-title"
-      className="relative rounded-2xl border bg-card p-5 shadow-lift sm:p-6"
+      className="relative animate-in rounded-2xl border bg-card p-5 shadow-lift duration-500 ease-out fade-in-0 slide-in-from-bottom-2 sm:p-6"
     >
       <div className="flex items-center justify-between gap-3">
         <div className="flex flex-wrap items-center gap-1.5">
@@ -120,7 +171,7 @@ function BountyPreview({ bounty }: { bounty: BountySummary }) {
             {positions > 1 ? 'Reward per position' : 'Reward'}
           </dt>
           <dd className="mt-1">
-            <span className="amount text-[1.375rem]">{formatAmount(bounty.reward_amount)}</span>{' '}
+            <Amount value={bounty.reward_amount} className="text-[1.375rem]" />{' '}
             <span className="text-sm text-muted-foreground">{bounty.reward_asset.code}</span>
           </dd>
         </div>
@@ -128,7 +179,7 @@ function BountyPreview({ bounty }: { bounty: BountySummary }) {
           <div className="bg-surface/60 px-4 py-3">
             <dt className="text-xs text-muted-foreground">Escrow for {positions} positions</dt>
             <dd className="mt-1">
-              <span className="amount text-[1.375rem]">{formatAmount(bounty.total_reward)}</span>{' '}
+              <Amount value={bounty.total_reward} className="text-[1.375rem]" />{' '}
               <span className="text-sm text-muted-foreground">{bounty.reward_asset.code}</span>
             </dd>
           </div>
@@ -175,11 +226,37 @@ function PreviewFallback() {
   )
 }
 
+/** Two faded cards behind the preview, so it reads as the top of a stack of open bounties. */
+function Stack() {
+  return (
+    <>
+      <div
+        aria-hidden
+        className="absolute inset-x-5 top-4 -bottom-3 rounded-2xl border bg-card/70 shadow-soft"
+      />
+      <div aria-hidden className="absolute inset-x-10 top-8 -bottom-6 rounded-2xl border bg-card/40" />
+    </>
+  )
+}
+
 function Preview() {
-  const { data, isPending, isError } = useBounties(TOP_REWARD)
-  const bounty = data?.items[0]
+  const { data, isPending, isError } = useBounties(TOP_REWARDS)
+  const items = data?.items ?? []
+  const [index, setIndex] = useState(0)
+  const [paused, setPaused] = useState(false)
+  const reduced = useReducedMotion()
+  const count = items.length
+  const current = count > 0 ? items[index % count] : undefined
+
+  // Move to the next bounty every few seconds, unless the visitor is reading or pointing at this one.
+  useEffect(() => {
+    if (count < 2 || paused || reduced) return
+    const timer = window.setTimeout(() => setIndex((i) => (i + 1) % count), ROTATE_MS)
+    return () => window.clearTimeout(timer)
+  }, [index, count, paused, reduced])
+
   if (isError) return null
-  if (!isPending && !bounty) {
+  if (!isPending && !current) {
     return (
       <div className="rounded-2xl border border-dashed bg-card p-8 text-center">
         <p className="font-medium">No open bounties right now</p>
@@ -193,13 +270,56 @@ function Preview() {
     )
   }
   return (
-    <Bones name="landing-hero-bounty" loading={isPending} fallback={<PreviewFallback />}>
-      {bounty && <BountyPreview bounty={bounty} />}
-    </Bones>
+    <div
+      onPointerEnter={() => setPaused(true)}
+      onPointerLeave={() => setPaused(false)}
+      onFocus={() => setPaused(true)}
+      onBlur={() => setPaused(false)}
+    >
+      <Bones name="landing-hero-bounty" loading={isPending} fallback={<PreviewFallback />}>
+        {current && (
+          <div className="relative">
+            {count > 1 && <Stack />}
+            <BountyPreview key={current.id} bounty={current} />
+          </div>
+        )}
+      </Bones>
+      {count > 1 && (
+        <div className="mt-8 flex items-center justify-center gap-2" role="group" aria-label="Open bounties">
+          {items.map((b, i) => {
+            const active = i === index % count
+            return (
+              <button
+                key={b.id}
+                type="button"
+                onClick={() => setIndex(i)}
+                aria-label={`Show ${b.title}`}
+                aria-pressed={active}
+                className="group flex h-6 items-center"
+              >
+                <span className="relative block h-1 w-8 overflow-hidden rounded-full bg-border transition-colors group-hover:bg-muted-foreground/40">
+                  {active && (
+                    <span
+                      key={`${b.id}-${index}`}
+                      className={cn('absolute inset-0 rounded-full bg-primary', !reduced && 'bf-progress')}
+                      style={{
+                        ['--bf-progress-duration' as string]: `${ROTATE_MS}ms`,
+                        animationPlayState: paused ? 'paused' : 'running',
+                      }}
+                    />
+                  )}
+                </span>
+              </button>
+            )
+          })}
+        </div>
+      )}
+    </div>
   )
 }
 
 export function Hero() {
+  const wide = useMediaQuery('(min-width: 1024px)')
   return (
     <section aria-labelledby="hero-title" className="relative isolate overflow-hidden border-b">
       {/* A faint wash of the brand colour behind the top of the page. */}
@@ -239,7 +359,13 @@ export function Hero() {
             ))}
           </dl>
         </div>
-        <div className="w-full max-w-lg lg:justify-self-end">
+        <div className="relative w-full max-w-lg lg:justify-self-end">
+          {wide && (
+            <Scene
+              name="globe"
+              className="pointer-events-none absolute top-1/2 left-1/2 -z-10 size-[46rem] -translate-x-1/2 -translate-y-1/2 animate-in mask-[radial-gradient(closest-side,black_60%,transparent)] duration-1000 fade-in-0"
+            />
+          )}
           <Preview />
         </div>
       </PageContainer>

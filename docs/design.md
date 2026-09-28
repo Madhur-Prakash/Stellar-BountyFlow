@@ -47,18 +47,28 @@ and functional.
 
 ## Motion
 
-Motion answers an action or shows that something changed. It never decorates.
+Motion explains something or answers an action. It stays calm and never gets in the way of reading.
 
-- **Allowed:**
-  - the route fade (`AnimatedOutlet`, 6px, about 0.3s)
+- **Everywhere:**
+  - the route fade (`AnimatedOutlet`, a few px, about 0.3s)
   - Radix open/close animations on dialogs, menus, popovers and sheets
   - hover and focus colour transitions (150–200ms)
   - the theme-switch reveal
   - boneyard skeleton shimmer
-  - Lenis smooth wheel scrolling on the public site only
-- **Not used:** scroll-pinned sections, parallax, split-text reveals, count-up numbers, drag-and-throw objects,
-  scroll-triggered fade-ups on every section, confetti or coin bursts, hover lifts on cards.
-- Everything respects `prefers-reduced-motion`.
+- **Public site only:**
+  - Lenis smooth wheel scrolling.
+  - The two scroll stories on the landing and How it works pages. "How a bounty moves" walks through both
+    tracks and hands off between them; the escrow diagram draws itself state by state. Each is a tall section
+    with a sticky stage (`useScrollStory`), scrubbed by GSAP.
+  - The hero preview: it cycles through the top open rewards (pauses on hover or focus), counts its reward up
+    and fills its lifecycle bar.
+  - Two decorative Three.js scenes (`components/three`): the dotted payments globe behind the hero card and the
+    ledger field behind the closing call to action. They are lazy-loaded on large screens only, paused off
+    screen, and hidden from assistive technology.
+- **Not used:** parallax, split-text headline reveals, drag-and-throw objects, fade-ups on every section,
+  confetti or coin bursts, hover lifts on cards, glossy "ball" markers.
+- **Reduced motion:** everything respects `prefers-reduced-motion`. The scroll stories become static lists and
+  a static diagram, and the 3D scenes render a single still frame.
 
 ## Writing
 

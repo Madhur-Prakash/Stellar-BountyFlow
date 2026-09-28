@@ -142,9 +142,10 @@ cannot be reversed. Run the contract's `fmt` and `clippy` checks locally too: `m
 - Decorative sparkle and star icons are banned (ESLint rule and CI check). Use a meaningful lucide icon.
 - **Accessibility:** keep keyboard navigation and visible focus working. `e2e/a11y.spec.ts` runs axe-core
   (WCAG 2.1 A/AA) on key pages in every viewport and fails on serious or critical violations.
-- **Design and motion:** follow [docs/design.md](docs/design.md). Motion is small CSS transitions (plus Lenis
-  on the public site); every animation respects `prefers-reduced-motion`, and content renders in its final state.
-  See [docs/development.md](docs/development.md#design-system-and-motion).
+- **Design and motion:** follow [docs/design.md](docs/design.md). Most motion is small CSS transitions. The public
+  site adds Lenis, the GSAP scroll stories (`useScrollStory`) and the lazy Three.js scenes (`components/three`).
+  Every animation respects `prefers-reduced-motion`, and content renders in its final state. See
+  [docs/development.md](docs/development.md#design-system-and-motion).
 - **Loading skeletons** are captured from the real pages with boneyard. With the app and a seeded API running,
   regenerate them with `pnpm bones` or `make bones` (`pnpm bones --force` recaptures everything). `src/bones` is
   generated output: don't edit it by hand.

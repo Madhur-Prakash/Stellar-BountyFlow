@@ -1,7 +1,8 @@
 import { CheckCircle2 } from 'lucide-react'
-import { useState } from 'react'
+import { useRef, useState } from 'react'
 
 import { PageContainer } from '@/components/layout/PageContainer'
+import { useScrollStory, useScrollStoryEnabled, type ScrollStoryTools } from '@/hooks/useScrollStory'
 
 import { SECTION, SectionHeading } from './SectionHeading'
 
@@ -20,6 +21,8 @@ type NodeDef = {
 
 const W = 150
 const H = 52
+/** Horizontal distance between neighbouring states on the normal path. */
+const STRIDE = 175
 
 const NODES: NodeDef[] = [
   {
@@ -170,20 +173,29 @@ const GUARANTEES = [
 
 type Emphasis = 'normal' | 'active' | 'dim'
 
-/** One edge: solid for the normal path, dashed for exception paths, with an arrowhead. */
-function Edge({ edge, emphasis }: { edge: EdgeDef; emphasis: Emphasis }) {
+/**
+ * One edge: solid for the normal path, dashed for exception paths, with an arrowhead. It is revealed through a
+ * mask whose stroke the scroll story draws (DrawSVG), which works for dashed lines as well as solid ones.
+ */
+function Edge({ id, edge, emphasis }: { id: string; edge: EdgeDef; emphasis: Emphasis }) {
   const color = edge.dashed ? 'var(--vault-muted)' : 'var(--vault-accent)'
   return (
-    <path
-      d={edge.d}
-      fill="none"
-      strokeWidth={emphasis === 'active' ? 2.4 : 1.5}
-      strokeDasharray={edge.dashed ? '5 5' : undefined}
-      stroke={emphasis === 'active' ? 'var(--vault-accent)' : color}
-      markerEnd={emphasis === 'active' || !edge.dashed ? 'url(#arrow-accent)' : 'url(#arrow-muted)'}
-      className="transition-[opacity,stroke-width] duration-200"
-      style={{ opacity: emphasis === 'dim' ? 0.2 : 1 }}
-    />
+    <g>
+      <mask id={id} maskUnits="userSpaceOnUse" x="-20" y="0" width="930" height="320">
+        <path data-draw d={edge.d} fill="none" stroke="white" strokeWidth="16" strokeLinecap="round" />
+      </mask>
+      <path
+        d={edge.d}
+        fill="none"
+        strokeWidth={emphasis === 'active' ? 2.4 : 1.5}
+        strokeDasharray={edge.dashed ? '5 5' : undefined}
+        stroke={emphasis === 'active' ? 'var(--vault-accent)' : color}
+        markerEnd={emphasis === 'active' || !edge.dashed ? 'url(#arrow-accent)' : 'url(#arrow-muted)'}
+        mask={`url(#${id})`}
+        className="transition-[opacity,stroke-width] duration-200"
+        style={{ opacity: emphasis === 'dim' ? 0.2 : 1 }}
+      />
+    </g>
   )
 }
 
@@ -281,14 +293,34 @@ function Lifecycle({ hovered, onHover }: { hovered: StateId | null; onHover: (id
             </marker>
           ))}
         </defs>
+        <g
+          aria-hidden
+          className="pointer-events-none transition-opacity duration-300"
+          style={{ opacity: hovered ? 0 : 1 }}
+        >
+          <rect
+            data-current
+            x={NODES[0].x - 6}
+            y={NODES[0].y - 6}
+            width={W + 12}
+            height={H + 12}
+            rx="12"
+            fill="var(--vault-accent)"
+            fillOpacity="0.12"
+            stroke="var(--vault-accent)"
+            strokeOpacity="0.4"
+            strokeWidth="1"
+            style={{ opacity: 0 }}
+          />
+        </g>
         <g data-main>
-          {EDGES.filter((e) => !e.dashed).map((e) => (
-            <Edge key={e.d} edge={e} emphasis={edgeEmphasis(e)} />
+          {EDGES.filter((e) => !e.dashed).map((e, i) => (
+            <Edge key={e.d} id={`escrow-main-${i}`} edge={e} emphasis={edgeEmphasis(e)} />
           ))}
         </g>
         <g data-exception>
-          {EDGES.filter((e) => e.dashed).map((e) => (
-            <Edge key={e.d} edge={e} emphasis={edgeEmphasis(e)} />
+          {EDGES.filter((e) => e.dashed).map((e, i) => (
+            <Edge key={e.d} id={`escrow-exc-${i}`} edge={e} emphasis={edgeEmphasis(e)} />
           ))}
         </g>
         {NODES.map((n) => (
@@ -343,24 +375,78 @@ function Lifecycle({ hovered, onHover }: { hovered: StateId | null; onHover: (id
 }
 
 /**
+ * The scroll story: the states light up left to right while a ring follows the bounty along the normal path and
+ * each arrow draws; then the exception paths draw in. It only touches the outer node groups, the mask strokes, the
+ * ring and the labels, never what the hover emphasis styles.
+ */
+function buildTimeline({ gsap }: ScrollStoryTools, root: HTMLElement) {
+  const q = gsap.utils.selector(root)
+  const nodes = q('[data-node]')
+  const mainMasks = q('[data-main] [data-draw]')
+  const exceptionMasks = q('[data-exception] [data-draw]')
+  const labels = q('[data-exception-label]')
+  const current = q('[data-current]')
+
+  gsap.set([...mainMasks, ...exceptionMasks], { drawSVG: '0%' })
+  gsap.set(nodes, { autoAlpha: 0.14 })
+  gsap.set(labels, { autoAlpha: 0 })
+  gsap.set(current, { autoAlpha: 0, x: 0 })
+
+  const tl = gsap.timeline({ defaults: { ease: 'none' } })
+  tl.to([nodes[0], ...current], { autoAlpha: 1, duration: 0.3 }, 0)
+  for (let i = 0; i < 4; i++) {
+    tl.to(mainMasks[i], { drawSVG: '100%', duration: 0.6 }, i + 0.35)
+      .to(current, { x: (i + 1) * STRIDE, duration: 0.6, ease: 'power2.inOut' }, i + 0.35)
+      .to(nodes[i + 1], { autoAlpha: 1, duration: 0.3 }, i + 0.7)
+  }
+  tl.to(exceptionMasks, { drawSVG: '100%', duration: 1, stagger: 0.15 }, 4.4)
+    .to(nodes.slice(5), { autoAlpha: 1, duration: 0.4, stagger: 0.15 }, 4.8)
+    .to(labels, { autoAlpha: 1, duration: 0.4 }, 5.2)
+    // A short hold with everything drawn before the section scrolls on.
+    .to({}, { duration: 0.8 })
+  return tl
+}
+
+const HEADING = {
+  title: 'What happens to the money',
+  description:
+    'Rewards sit in a Soroban smart contract on Stellar, not in a BountyFlow bank account. The contract only moves funds along the paths below.',
+}
+
+/**
  * What happens to the money: the escrow state machine as a diagram whose states explain themselves on hover or
- * focus, the steps a reward goes through, and the guarantees that hold throughout.
+ * focus, the steps a reward goes through, and the guarantees that hold throughout. On wider screens with motion,
+ * the diagram stays in view and draws itself as you scroll.
  */
 export function EscrowExplainer() {
   const [hovered, setHovered] = useState<StateId | null>(null)
+  const story = useScrollStoryEnabled('768px')
+  const wrapper = useRef<HTMLDivElement>(null)
+  useScrollStory(wrapper, story, buildTimeline)
+
+  const diagram = (
+    <>
+      <SectionHeading id="escrow-title" {...HEADING} />
+      <div className="mt-8">
+        <Lifecycle hovered={hovered} onHover={setHovered} />
+      </div>
+    </>
+  )
 
   return (
     <section id="escrow" aria-labelledby="escrow-title" className={SECTION}>
-      <PageContainer>
-        <SectionHeading
-          id="escrow-title"
-          title="What happens to the money"
-          description="Rewards sit in a Soroban smart contract on Stellar, not in a BountyFlow bank account. The contract only moves funds along the paths below."
-        />
-        <div className="mt-8">
-          <Lifecycle hovered={hovered} onHover={setHovered} />
+      {story ? (
+        // A tall wrapper with a sticky stage: the diagram stays on screen while the wrapper scrolls past.
+        <div ref={wrapper} data-escrow-story className="relative h-[calc(100svh-4rem+180svh)]">
+          <div className="sticky top-16 flex h-[calc(100svh-4rem)] items-center">
+            <PageContainer className="w-full">{diagram}</PageContainer>
+          </div>
         </div>
+      ) : (
+        <PageContainer>{diagram}</PageContainer>
+      )}
 
+      <PageContainer>
         <div className="mt-6 grid gap-6 lg:grid-cols-2">
           <div className="rounded-xl border bg-card shadow-soft">
             <h3 id="escrow-path" className="border-b px-5 py-4 text-[0.9375rem] font-semibold">

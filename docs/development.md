@@ -100,8 +100,21 @@ The visual rules (tokens, type scale, layout patterns, what motion is allowed) a
 [design.md](design.md). In short: Inter on an off-white canvas, white cards, one blue accent, green only for money
 that is really in escrow, and motion that answers an action rather than decorating the page.
 
-The few animations that remain are CSS (`tw-animate-css` utilities): the route fade (`AnimatedOutlet`) and the
-mobile menu's link stagger. Radix handles dialog, menu, popover and sheet transitions. The theme switch (`switchTheme` in
+Small transitions are CSS (`tw-animate-css` utilities), such as the route fade (`AnimatedOutlet`) and the
+mobile menu's link stagger.
+
+The landing page's two scroll stories use `src/hooks/useScrollStory.ts`. A tall wrapper holds a
+`position: sticky` stage, and a GSAP timeline is scrubbed across the wrapper by ScrollTrigger. GSAP,
+ScrollTrigger and DrawSVG are imported on first use, so other pages never download them. GSAP only animates
+wrappers, fills and SVG masks; anything with state classes (active or done steps) is rendered by React from the
+reported progress, so the two never write the same styles.
+
+The decorative 3D scenes live in `src/components/three` (Three.js with React Three Fiber). `<Scene name="globe" | "ledger">`
+lazy-loads a scene after the page settles, only where WebGL is available and never during skeleton capture. The
+scenes read their colours from the theme tokens, stop their frame loop when off screen, and draw a still frame
+under reduced motion.
+
+Radix handles dialog, menu, popover and sheet transitions. The theme switch (`switchTheme` in
 `src/lib/theme-transition.ts`) grows the new theme from the toggle with the View Transitions API, and falls back
 to a short colour fade.
 
@@ -121,6 +134,8 @@ reduced-motion user.
   - the Markdown renderer (`SafeMarkdown`)
   - the wallet SDK (Freighter, loaded on first wallet action)
   - dialogs that are only needed on demand
+  - GSAP for the scroll stories
+  - Three.js for the landing scenes
 - **How:** each is behind `React.lazy` or a dynamic `import()`, with a fallback that keeps the layout from shifting.
 
 ### Loading skeletons
