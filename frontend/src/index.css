@@ -1,0 +1,365 @@
+@import 'tailwindcss';
+@import 'tw-animate-css';
+@import 'shadcn/tailwind.css';
+@import '@fontsource-variable/ibm-plex-sans/wdth.css';
+@import '@fontsource/ibm-plex-mono/400.css';
+@import '@fontsource/ibm-plex-mono/500.css';
+
+/*
+ * BountyFlow design tokens.
+ * Light is the default theme (tokens on :root). The dark theme is applied by
+ * adding the `.dark` class to <html> (theme toggle / saved preference, see
+ * public/theme-init.js). Every colour used by the UI is a CSS variable so both
+ * themes stay in sync.
+ */
+@custom-variant dark (&:where(.dark, .dark *));
+@custom-variant light (&:not(:where(.dark, .dark *)));
+
+@theme inline {
+  /* IBM Plex: one engineering-rooted family. Headlines and reward amounts use its condensed width
+     (see .font-display); Plex Mono is reserved for machine data such as hashes and addresses. */
+  --font-heading: var(--font-sans);
+  --font-sans: 'IBM Plex Sans Variable', ui-sans-serif, system-ui, sans-serif;
+  --font-mono: 'IBM Plex Mono', ui-monospace, SFMono-Regular, Menlo, monospace;
+
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-primary-emphasis: var(--primary-emphasis);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-destructive-foreground: var(--destructive-foreground);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+
+  --shadow-soft: var(--shadow-card);
+  --shadow-lift: var(--shadow-raised);
+
+  --color-surface: var(--surface);
+  --color-surface-raised: var(--surface-raised);
+  --color-cyan: var(--cyan);
+  --color-success: var(--success);
+  --color-success-foreground: var(--success-foreground);
+  --color-warning: var(--warning);
+  --color-warning-foreground: var(--warning-foreground);
+  --color-info: var(--info);
+
+  --color-vault: var(--vault);
+  --color-vault-foreground: var(--vault-foreground);
+  --color-vault-muted: var(--vault-muted);
+  --color-vault-line: var(--vault-line);
+  --color-vault-accent: var(--vault-accent);
+  --color-vault-green: var(--vault-green);
+  --color-vault-warn: var(--vault-warn);
+  --color-vault-panel: var(--vault-panel);
+
+  --color-chart-1: var(--chart-1);
+  --color-chart-2: var(--chart-2);
+  --color-chart-3: var(--chart-3);
+  --color-chart-4: var(--chart-4);
+  --color-chart-5: var(--chart-5);
+
+  --color-sidebar: var(--sidebar);
+  --color-sidebar-foreground: var(--sidebar-foreground);
+  --color-sidebar-primary: var(--sidebar-primary);
+  --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
+  --color-sidebar-accent: var(--sidebar-accent);
+  --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
+  --color-sidebar-border: var(--sidebar-border);
+  --color-sidebar-ring: var(--sidebar-ring);
+
+  --radius-sm: calc(var(--radius) * 0.6);
+  --radius-md: calc(var(--radius) * 0.8);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) * 1.4);
+  --radius-2xl: calc(var(--radius) * 1.8);
+  --radius-3xl: calc(var(--radius) * 2.2);
+  --radius-4xl: calc(var(--radius) * 2.6);
+}
+
+/* ---------- Light (default) ---------- */
+:root {
+  color-scheme: light;
+  --radius: 0.5rem;
+
+  /* Ink on paper: white page, deep navy ink, one Stellar blue, green reserved for funded money. */
+  --background: #ffffff;
+  --foreground: #121826;
+  --surface: #f6f7f9;
+  --card: #ffffff;
+  --card-foreground: #121826;
+  --surface-raised: #ffffff;
+  --popover: #ffffff;
+  --popover-foreground: #121826;
+
+  /* Stellar blue; white text on it is 5.2:1. */
+  --primary: #2b59e0;
+  --primary-foreground: #ffffff;
+  --primary-emphasis: #2148bf;
+  --secondary: #f0f2f5;
+  --secondary-foreground: #121826;
+  --muted: #f0f2f5;
+  --muted-foreground: #596275;
+  --accent: #eef2fb;
+  --accent-foreground: #121826;
+
+  --cyan: #0a7686;
+  --success: #137a46;
+  --success-foreground: #ffffff;
+  --warning: #955700;
+  --warning-foreground: #ffffff;
+  --destructive: #c8303a;
+  --destructive-foreground: #ffffff;
+  --info: #2c58dc;
+
+  --border: #e4e7ed;
+  --input: #d5dae3;
+  --ring: #2b59e0;
+
+  --chart-1: #2c58dc;
+  --chart-2: #0a7686;
+  --chart-3: #137a46;
+  --chart-4: #b06a00;
+  --chart-5: #6b7488;
+
+  --sidebar: #fbfbfd;
+  --sidebar-foreground: #0b1220;
+  --sidebar-primary: #2c58dc;
+  --sidebar-primary-foreground: #ffffff;
+  --sidebar-accent: #eef1f6;
+  --sidebar-accent-foreground: #0b1220;
+  --sidebar-border: #e6e8ee;
+  --sidebar-ring: #2c58dc;
+
+  /* The escrow section ("vault"), where money is shown moving through the contract. It follows the theme. */
+  --vault: #f3f5fa;
+  --vault-foreground: #121826;
+  --vault-muted: #596275;
+  --vault-line: #d8deea;
+  --vault-accent: #2b59e0;
+  --vault-green: #137a46;
+  --vault-warn: #a35f00;
+  --vault-panel: #ffffff;
+  --vault-node: #ffffff;
+  --vault-node-ok: #effaf4;
+  --vault-node-warn: #fff7ea;
+  --vault-node-alt: #f7f8fb;
+
+  /* Soft elevation for cards and popovers (none in the dark theme, where borders carry the depth). */
+  --shadow-card: 0 1px 2px rgb(16 24 40 / 0.04), 0 1px 3px rgb(16 24 40 / 0.06);
+  --shadow-raised: 0 1px 2px rgb(16 24 40 / 0.05), 0 12px 32px -12px rgb(16 24 40 / 0.18);
+}
+
+/* ---------- Dark ---------- */
+.dark {
+  color-scheme: dark;
+
+  --background: #070a12;
+  --foreground: #e8ecf4;
+  --surface: #0b0f19;
+  --card: #0e131f;
+  --card-foreground: #e8ecf4;
+  --surface-raised: #141a28;
+  --popover: #111726;
+  --popover-foreground: #e8ecf4;
+
+  --primary: #3b6af0;
+  --primary-foreground: #ffffff;
+  --primary-emphasis: #8aa8ff;
+  --secondary: #161d2d;
+  --secondary-foreground: #e8ecf4;
+  --muted: #141a28;
+  --muted-foreground: #8a93a6;
+  --accent: #182033;
+  --accent-foreground: #e8ecf4;
+
+  --cyan: #22c3d6;
+  --success: #34c77b;
+  --success-foreground: #04150c;
+  --warning: #f2b04a;
+  --warning-foreground: #1d1203;
+  --destructive: #f0616a;
+  --destructive-foreground: #ffffff;
+  --info: #5b8cff;
+
+  --border: #1d2536;
+  --input: #232c40;
+  --ring: #5b86ff;
+
+  --chart-1: #4c7dff;
+  --chart-2: #22c3d6;
+  --chart-3: #34c77b;
+  --chart-4: #f2b04a;
+  --chart-5: #8a93a6;
+
+  --sidebar: #0a0e18;
+  --sidebar-foreground: #e8ecf4;
+  --sidebar-primary: #3b6af0;
+  --sidebar-primary-foreground: #ffffff;
+  --sidebar-accent: #141a28;
+  --sidebar-accent-foreground: #e8ecf4;
+  --sidebar-border: #1a2131;
+  --sidebar-ring: #5b86ff;
+
+  --shadow-card: none;
+  --shadow-raised: 0 24px 48px -24px rgb(0 0 0 / 0.5);
+
+  --vault: #0a0f1c;
+  --vault-foreground: #e9eef9;
+  --vault-muted: #93a0bf;
+  --vault-line: #243150;
+  --vault-accent: #7a9bff;
+  --vault-green: #43d08a;
+  --vault-warn: #f2b04a;
+  --vault-panel: #0d1426;
+  --vault-node: #111a30;
+  --vault-node-ok: #0f2236;
+  --vault-node-warn: #1f1b27;
+  --vault-node-alt: #0d1428;
+}
+
+@layer base {
+  * {
+    @apply border-border outline-ring/50;
+  }
+  html {
+    @apply font-sans;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    text-rendering: optimizeLegibility;
+  }
+  body {
+    @apply bg-background text-foreground;
+    font-size: 1rem;
+    line-height: 1.55;
+  }
+  button:not(:disabled),
+  [role='button']:not(:disabled) {
+    cursor: pointer;
+  }
+  :focus-visible {
+    outline: 2px solid var(--ring);
+    outline-offset: 2px;
+  }
+  ::selection {
+    background: color-mix(in oklab, var(--primary) 35%, transparent);
+  }
+  h1,
+  h2,
+  h3,
+  h4 {
+    text-wrap: balance;
+    letter-spacing: -0.01em;
+  }
+  p {
+    text-wrap: pretty;
+  }
+}
+
+@layer utilities {
+  /* Condensed Plex for headlines and reward amounts: the one expressive typographic element. */
+  .font-display {
+    font-family: var(--font-sans);
+    font-stretch: 80%;
+    font-weight: 600;
+    letter-spacing: -0.012em;
+  }
+  /* Reward figures: condensed, tabular, tight. */
+  .amount {
+    font-family: var(--font-sans);
+    font-stretch: 80%;
+    font-weight: 600;
+    font-variant-numeric: tabular-nums;
+    letter-spacing: -0.01em;
+  }
+  .text-balance {
+    text-wrap: balance;
+  }
+  .scrollbar-thin {
+    scrollbar-width: thin;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+/* Lenis recommended styles (only active while Lenis is mounted). */
+html.lenis,
+html.lenis body {
+  height: auto;
+}
+.lenis:not(.lenis-autoToggle).lenis-stopped {
+  overflow: clip;
+}
+.lenis [data-lenis-prevent] {
+  overscroll-behavior: contain;
+}
+
+/* Coins thrown by burstCoins() when escrow is funded or a reward is released (see lib/coin-burst.ts). */
+.bf-coin-layer {
+  position: fixed;
+  inset: 0;
+  z-index: 100;
+  overflow: hidden;
+  pointer-events: none;
+}
+.bf-coin {
+  position: absolute;
+  border-radius: 9999px;
+  box-shadow:
+    inset 0 0 0 1.5px rgb(255 255 255 / 0.55),
+    0 1px 2px rgb(16 24 40 / 0.25);
+}
+.bf-coin--fund {
+  background: radial-gradient(circle at 32% 28%, #a9c0ff, var(--primary) 58%, #1c3fa8);
+}
+.bf-coin--release {
+  background: radial-gradient(circle at 32% 28%, #9be8bd, var(--success) 58%, #0c5a33);
+}
+
+/* ScrollSmoother: the wrapper is only fixed while ScrollSmoother runs; without it the page scrolls normally. */
+#smooth-content {
+  will-change: auto;
+}
+
+/* SplitText line masks (SplitHeading): extend the clip box so descenders and accents are not cut off at tight
+   line heights while characters rise into place. */
+.split-line-mask {
+  padding-block: 0.06em 0.16em;
+  margin-block: -0.06em -0.16em;
+}
+
+/* Theme switch (lib/theme-transition.ts): the View Transition reveal is driven from script, so turn off the default
+   crossfade; browsers without View Transitions get a short colour fade instead. */
+::view-transition-old(root),
+::view-transition-new(root) {
+  animation: none;
+  mix-blend-mode: normal;
+}
+.theme-fading,
+.theme-fading * {
+  transition:
+    background-color 0.4s ease,
+    border-color 0.4s ease,
+    color 0.4s ease,
+    fill 0.4s ease !important;
+}
