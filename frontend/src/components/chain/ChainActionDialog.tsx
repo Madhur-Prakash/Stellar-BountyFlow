@@ -1,4 +1,4 @@
-import { CheckCircle2, CircleAlert, LoaderCircle, RotateCw, Wallet } from 'lucide-react'
+import { Check, CheckCircle2, CircleAlert, LoaderCircle, RotateCw, Wallet, X } from 'lucide-react'
 import type { ReactNode } from 'react'
 import { Link } from 'react-router'
 
@@ -18,12 +18,17 @@ import { formatDateTime } from '@/lib/format'
 import { formatAmount, formatStroops } from '@/lib/money'
 import { contractExplorerUrl, networkDisplayName } from '@/lib/stellar/explorer'
 import { FREIGHTER_INSTALL_URL, walletProviderName } from '@/lib/stellar/wallet'
-import type { ChainActionController, ChainStep } from '@/lib/stellar/useChainAction'
+import type { ChainActionController, ChainErrorKind, ChainStep } from '@/lib/stellar/useChainAction'
 import { cn } from '@/lib/utils'
 
 import { TransactionExplorerCard } from './TransactionExplorer'
 
-type StepDef = { key: 'review' | 'sign' | 'submit' | 'confirm'; label: string }
+const STEPS = [
+  { key: 'review', label: 'Review' },
+  { key: 'sign', label: 'Sign' },
+  { key: 'submit', label: 'Submit' },
+  { key: 'confirm', label: 'Confirm' },
+] as const
 
 function stepIndex(step: ChainStep): number {
   switch (step) {
@@ -44,40 +49,69 @@ function stepIndex(step: ChainStep): number {
   }
 }
 
+const BUSY: ReadonlySet<ChainStep> = new Set(['preparing', 'signing', 'submitting', 'confirming'])
+
+/** Failures whose message already says everything; the wallet's own wording would only repeat it. */
+const PLAIN_ERRORS: ReadonlySet<ChainErrorKind> = new Set(['user_rejected', 'wallet_not_installed'])
+
+/** Review → Sign → Submit → Confirm, as numbered steps joined by a line. */
 function StepProgress({ step, failedAt }: { step: ChainStep; failedAt: number }) {
-  const steps: StepDef[] = [
-    { key: 'review', label: 'Review' },
-    { key: 'sign', label: 'Sign' },
-    { key: 'submit', label: 'Submit' },
-    { key: 'confirm', label: 'Confirm' },
-  ]
   const current = step === 'failed' ? failedAt : stepIndex(step)
   return (
-    <ol className="grid grid-cols-4 gap-2" aria-label="Transaction progress">
-      {steps.map((s, i) => {
+    <ol className="flex items-center" aria-label="Transaction progress">
+      {STEPS.map((s, i) => {
         const done = current > i
         const active = current === i
         const failed = step === 'failed' && i === failedAt
+        const busy = active && BUSY.has(step)
         return (
-          <li key={s.key} className="space-y-1.5" aria-current={active ? 'step' : undefined}>
-            <div
-              className={cn(
-                'h-1 rounded-full bg-muted transition-colors',
-                done && 'bg-primary',
-                active && !failed && 'bg-primary/60',
-                failed && 'bg-destructive',
-              )}
-            />
-            <div
-              className={cn(
-                'text-xs',
-                done || active ? 'text-foreground' : 'text-muted-foreground',
-                failed && 'text-destructive',
-              )}
-            >
-              {s.label}
-              <span className="sr-only">{done ? ' (done)' : active ? ' (in progress)' : ''}</span>
-            </div>
+          <li
+            key={s.key}
+            className={cn('flex items-center', i < STEPS.length - 1 && 'flex-1')}
+            aria-current={active ? 'step' : undefined}
+          >
+            <span className="flex items-center gap-2">
+              <span
+                aria-hidden
+                className={cn(
+                  'flex size-6 shrink-0 items-center justify-center rounded-full border text-xs font-medium tabular-nums transition-colors',
+                  done && 'border-primary bg-primary text-primary-foreground',
+                  active && !failed && 'border-primary bg-primary/10 text-primary-emphasis',
+                  failed && 'border-destructive/40 bg-destructive/10 text-destructive',
+                  !done && !active && !failed && 'bg-card text-muted-foreground',
+                )}
+              >
+                {done ? (
+                  <Check className="size-3.5" />
+                ) : failed ? (
+                  <X className="size-3.5" />
+                ) : busy ? (
+                  <LoaderCircle className="size-3.5 animate-spin" />
+                ) : (
+                  i + 1
+                )}
+              </span>
+              <span
+                className={cn(
+                  'text-[0.8125rem]',
+                  done || active ? 'font-medium text-foreground' : 'text-muted-foreground',
+                  failed && 'text-destructive',
+                  // On phones only the current step is labelled; the others keep their label for screen readers.
+                  !active && !failed && 'max-sm:sr-only',
+                )}
+              >
+                {s.label}
+                <span className="sr-only">
+                  {done ? ' (done)' : failed ? ' (failed)' : active ? ' (in progress)' : ''}
+                </span>
+              </span>
+            </span>
+            {i < STEPS.length - 1 && (
+              <span
+                aria-hidden
+                className={cn('mx-1.5 h-px min-w-2 flex-1 bg-border sm:mx-2', done && 'bg-primary')}
+              />
+            )}
           </li>
         )
       })}
@@ -87,23 +121,16 @@ function StepProgress({ step, failedAt }: { step: ChainStep; failedAt: number })
 
 function Row({ label, children }: { label: string; children: ReactNode }) {
   return (
-    <div className="flex items-start justify-between gap-4 py-2">
-      <dt className="shrink-0 text-sm text-muted-foreground">{label}</dt>
+    <div className="flex min-h-10 items-center justify-between gap-4 px-3 py-2">
+      <dt className="shrink-0 text-[0.8125rem] text-muted-foreground">{label}</dt>
       <dd className="min-w-0 text-right text-sm">{children}</dd>
     </div>
   )
 }
 
-const STATUS_TEXT: Partial<Record<ChainStep, string>> = {
-  preparing: 'Preparing the transaction with the escrow contract…',
-  signing: 'Waiting for your signature in Freighter…',
-  submitting: 'Submitting to the network…',
-  confirming: 'Waiting for network confirmation. This usually takes a few seconds.',
-}
-
 /**
- * Review / sign / confirm dialog shared by every on-chain action.
- * Deliberately calm: review, sign, and a clear confirmation once the network has accepted the transaction.
+ * Review / sign / confirm dialog shared by every on-chain action. It states what is being signed and on which
+ * network, then follows the transaction until the network confirms it.
  */
 export function ChainActionDialog({
   controller,
@@ -125,6 +152,14 @@ export function ChainActionDialog({
   const { step, prepared, transaction, error } = controller
   const locked = step === 'signing' || step === 'submitting'
   const failedAt = lastActiveIndex(controller)
+  const wallet = walletProviderName()
+
+  const statusText: Partial<Record<ChainStep, string>> = {
+    preparing: 'Preparing the transaction…',
+    signing: `Waiting for your signature in ${wallet}…`,
+    submitting: 'Submitting to Stellar…',
+    confirming: 'Waiting for the network to confirm…',
+  }
 
   const handleOpenChange = (next: boolean) => {
     if (!next && locked) return
@@ -137,33 +172,35 @@ export function ChainActionDialog({
 
   return (
     <Dialog open={open} onOpenChange={handleOpenChange}>
-      <DialogContent className="sm:max-w-lg" showCloseButton={!locked}>
-        <DialogHeader>
-          <DialogTitle className="flex flex-wrap items-center gap-2">{title}</DialogTitle>
+      <DialogContent className="gap-5 sm:max-w-lg" showCloseButton={!locked}>
+        <DialogHeader className="gap-1.5 pr-8">
+          <DialogTitle className="text-base font-semibold">{title}</DialogTitle>
           {description && <DialogDescription>{description}</DialogDescription>}
         </DialogHeader>
 
-        <StepProgress step={step} failedAt={failedAt} />
-
-        <div aria-live="polite" className="min-h-5 text-sm text-muted-foreground">
-          {STATUS_TEXT[step] && (
-            <span className="inline-flex items-center gap-2">
-              <LoaderCircle className="size-4 animate-spin" aria-hidden /> {STATUS_TEXT[step]}
-            </span>
-          )}
+        <div>
+          <StepProgress step={step} failedAt={failedAt} />
+          {/* Always mounted, so screen readers announce each status as it changes. */}
+          <p
+            aria-live="polite"
+            className={cn('text-[0.8125rem] text-muted-foreground', statusText[step] && 'mt-3')}
+          >
+            {statusText[step]}
+          </p>
         </div>
 
         {children && step !== 'confirmed' && <div className="text-sm">{children}</div>}
 
         {summary && step !== 'confirmed' && (
-          <dl className="divide-y rounded-lg border px-3">
+          <dl className="divide-y overflow-hidden rounded-lg border">
             <Row label="Action">
               <span className="font-medium">{summary.description}</span>
             </Row>
             <Row label="Amount">
               {summary.amount ? (
-                <span className="text-base font-semibold tabular-nums">
-                  {formatAmount(summary.amount)} {summary.asset?.code ?? 'XLM'}
+                <span className="amount text-[0.9375rem]">
+                  {formatAmount(summary.amount)}{' '}
+                  <span className="font-normal text-muted-foreground">{summary.asset?.code ?? 'XLM'}</span>
                 </span>
               ) : (
                 <span className="text-muted-foreground">No transfer</span>
@@ -197,7 +234,7 @@ export function ChainActionDialog({
             <AlertTitle>Transaction not completed</AlertTitle>
             <AlertDescription>
               <p>{error.message}</p>
-              {error.detail && error.detail !== error.message && (
+              {error.detail && error.detail !== error.message && !PLAIN_ERRORS.has(error.kind) && (
                 <p className="mt-1 font-mono text-xs break-all opacity-80">{error.detail}</p>
               )}
               {error.kind === 'wallet_required' && (
@@ -206,7 +243,7 @@ export function ChainActionDialog({
                   className="mt-2 inline-block font-medium underline"
                   onClick={() => handleOpenChange(false)}
                 >
-                  Open your profile to connect and verify a wallet
+                  Connect and verify a wallet in your profile
                 </Link>
               )}
               {error.kind === 'wallet_not_installed' && (
@@ -227,9 +264,6 @@ export function ChainActionDialog({
           <Alert variant="success">
             <CheckCircle2 />
             <AlertTitle>Confirmed on Stellar</AlertTitle>
-            <AlertDescription>
-              The network confirmed this transaction. You can verify it independently on the explorer.
-            </AlertDescription>
           </Alert>
         )}
 
@@ -247,7 +281,7 @@ export function ChainActionDialog({
                 Cancel
               </Button>
               <Button onClick={() => controller.confirm()}>
-                <Wallet /> Sign in {walletProviderName()}
+                <Wallet aria-hidden /> Sign in {wallet}
               </Button>
             </>
           )}
@@ -257,7 +291,7 @@ export function ChainActionDialog({
                 Close
               </Button>
               <Button onClick={() => controller.start()}>
-                <RotateCw /> Start again
+                <RotateCw aria-hidden /> Start again
               </Button>
             </>
           )}
@@ -269,7 +303,7 @@ export function ChainActionDialog({
           {step === 'confirmed' && <Button onClick={() => handleOpenChange(false)}>Done</Button>}
           {(step === 'preparing' || locked) && (
             <Button disabled>
-              <LoaderCircle className="animate-spin" /> Working…
+              <LoaderCircle className="animate-spin" aria-hidden /> Working…
             </Button>
           )}
         </DialogFooter>

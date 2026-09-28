@@ -12,10 +12,10 @@ and functional.
 | `card` | `#ffffff` | `#131316` | Cards, panels, tables |
 | `surface` | `#f4f4f5` | `#111113` | Table headers, inset areas, bands |
 | `foreground` | `#18181b` | `#fafafa` | Text |
-| `muted-foreground` | `#71717a` | `#a1a1aa` | Secondary text, labels |
+| `muted-foreground` | `#6b6b75` | `#a1a1aa` | Secondary text, labels |
 | `border` / `input` | `#e4e4e7` | `#27272a` / `#2e2e33` | Hairlines, field borders |
-| `primary` | `#3563e9` | `#4b77f5` | The one accent: primary actions, links, focus, active navigation |
-| `success` | `#15803d` | `#4ade80` | Funded in escrow, paid, confirmed. Reserved for money that is really there |
+| `primary` | `#3563e9` | `#3a62e4` | The one accent: primary actions, links, focus, active navigation |
+| `success` | `#12733a` | `#4ade80` | Funded in escrow, paid, confirmed. Reserved for money that is really there |
 | `warning` / `destructive` | amber / red | | Attention and errors only |
 
 - **Type:** Inter Variable for the whole interface. IBM Plex Mono only for machine data (hashes, addresses,

@@ -16,9 +16,10 @@ export type Column<T> = {
 }
 
 /**
- * Overflow-safe table: a real <table> from lg up (horizontally scrollable if
- * needed), and label/value cards below that (two per row on tablets), so
- * action columns are never hidden behind a horizontal scroll.
+ * Overflow-safe table: a real <table> from lg up (horizontally scrollable if needed), and label/value cards below
+ * that (two per row on tablets), so action columns are never hidden behind a horizontal scroll.
+ *
+ * On the canvas the table sits in its own bordered panel; inside a Card it runs edge to edge with the card.
  */
 export function DataTable<T>({
   rows,
@@ -36,11 +37,14 @@ export function DataTable<T>({
 }) {
   return (
     <>
-      <div className="hidden rounded-xl border lg:block">
+      <div
+        data-slot="data-table"
+        className="hidden overflow-hidden rounded-xl border bg-card shadow-soft in-data-[slot=card]:rounded-none in-data-[slot=card]:border-x-0 in-data-[slot=card]:border-b-0 in-data-[slot=card]:shadow-none lg:block"
+      >
         <Table>
           <caption className="sr-only">{caption}</caption>
           <TableHeader>
-            <TableRow>
+            <TableRow className="hover:bg-transparent">
               {columns.map((c) => (
                 <TableHead key={c.key} className={c.className}>
                   {c.header}
@@ -64,14 +68,19 @@ export function DataTable<T>({
 
       <ul className="grid gap-3 sm:grid-cols-2 lg:hidden" aria-label={caption}>
         {rows.map((row) => (
-          <li key={getKey(row)} className="rounded-xl border bg-card p-4 shadow-soft">
+          <li
+            key={getKey(row)}
+            className="rounded-xl border bg-card p-4 shadow-soft in-data-[slot=card]:rounded-lg in-data-[slot=card]:shadow-none"
+          >
             {mobileTitle && <div className="mb-3 font-medium">{mobileTitle(row)}</div>}
             <dl className="space-y-2">
               {columns
                 .filter((c) => !c.mobileHidden)
                 .map((c) => (
                   <div key={c.key} className="flex items-start justify-between gap-3 text-sm">
-                    {!c.hideLabelOnMobile && <dt className="shrink-0 text-muted-foreground">{c.header}</dt>}
+                    {!c.hideLabelOnMobile && (
+                      <dt className="shrink-0 text-[0.8125rem] text-muted-foreground">{c.header}</dt>
+                    )}
                     <dd className={cn('min-w-0 text-right', c.hideLabelOnMobile && 'w-full text-left')}>
                       {c.cell(row)}
                     </dd>

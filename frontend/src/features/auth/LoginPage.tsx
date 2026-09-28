@@ -1,5 +1,5 @@
 import { zodResolver } from '@hookform/resolvers/zod'
-import { Clock3, LoaderCircle, LogIn } from 'lucide-react'
+import { Clock3, LoaderCircle, Mail } from 'lucide-react'
 import { useState } from 'react'
 import { useForm } from 'react-hook-form'
 import { Link, useNavigate, useSearchParams } from 'react-router'
@@ -7,15 +7,14 @@ import { Link, useNavigate, useSearchParams } from 'react-router'
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
 import { Button } from '@/components/ui/button'
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form'
-import { Input } from '@/components/ui/input'
 import { useLogin } from '@/lib/api/queries/auth'
 import type { Me } from '@/lib/api/types'
 import { postLoginPath, safeNext } from '@/lib/auth-redirect'
 import { applyApiErrors } from '@/lib/form-errors'
 import { useAuthUi } from '@/stores/auth-ui'
 
-import { AuthCard, FormErrorAlert } from './AuthCard'
-import { PasswordInput } from './PasswordInput'
+import { AUTH_LINK, AuthCard, FormErrorAlert } from './AuthCard'
+import { IconInput, PasswordInput } from './PasswordInput'
 import { loginSchema, type LoginValues } from './schemas'
 
 export default function LoginPage() {
@@ -49,38 +48,44 @@ export default function LoginPage() {
   return (
     <AuthCard
       title="Sign in to BountyFlow"
-      description={next ? 'Sign in to continue where you left off.' : 'Welcome back.'}
+      description={
+        next ? 'Sign in to continue where you left off.' : 'Welcome back. Enter your details to continue.'
+      }
       footer={
         <>
           New to BountyFlow?{' '}
-          <Link
-            to={next ? `/register?next=${encodeURIComponent(next)}` : '/register'}
-            className="font-medium text-foreground underline underline-offset-4"
-          >
+          <Link to={next ? `/register?next=${encodeURIComponent(next)}` : '/register'} className={AUTH_LINK}>
             Create an account
           </Link>
         </>
       }
     >
       {sessionExpired && (
-        <Alert variant="info" className="mb-6">
+        <Alert variant="info" className="mb-5">
           <Clock3 />
           <AlertTitle>Your session expired</AlertTitle>
-          <AlertDescription>Please sign in again to continue.</AlertDescription>
+          <AlertDescription>Sign in again to continue.</AlertDescription>
         </Alert>
       )}
       <Form {...form}>
-        <form onSubmit={onSubmit} className="space-y-5" noValidate>
+        <form onSubmit={onSubmit} className="space-y-4" noValidate>
           <FormField
             control={form.control}
             name="email"
             render={({ field }) => (
               <FormItem>
-                <FormLabel>Email</FormLabel>
+                <FormLabel className="text-[0.8125rem]">Email</FormLabel>
                 <FormControl>
-                  <Input type="email" autoComplete="email" inputMode="email" {...field} />
+                  <IconInput
+                    icon={Mail}
+                    type="email"
+                    autoComplete="email"
+                    inputMode="email"
+                    placeholder="you@example.com"
+                    {...field}
+                  />
                 </FormControl>
-                <FormMessage />
+                <FormMessage className="text-[0.8125rem]" />
               </FormItem>
             )}
           />
@@ -89,11 +94,11 @@ export default function LoginPage() {
             name="password"
             render={({ field }) => (
               <FormItem>
-                <div className="flex items-center justify-between">
-                  <FormLabel>Password</FormLabel>
+                <div className="flex items-center justify-between gap-3">
+                  <FormLabel className="text-[0.8125rem]">Password</FormLabel>
                   <Link
                     to="/forgot-password"
-                    className="text-sm text-muted-foreground underline-offset-4 hover:text-foreground hover:underline"
+                    className="text-[0.8125rem] text-muted-foreground transition-colors hover:text-primary-emphasis"
                   >
                     Forgot password?
                   </Link>
@@ -101,13 +106,13 @@ export default function LoginPage() {
                 <FormControl>
                   <PasswordInput autoComplete="current-password" {...field} />
                 </FormControl>
-                <FormMessage />
+                <FormMessage className="text-[0.8125rem]" />
               </FormItem>
             )}
           />
           <FormErrorAlert message={formError} />
-          <Button type="submit" size="lg" className="w-full" disabled={login.isPending}>
-            {login.isPending ? <LoaderCircle className="animate-spin" /> : <LogIn />}
+          <Button type="submit" size="lg" className="mt-1 w-full" disabled={login.isPending}>
+            {login.isPending && <LoaderCircle className="animate-spin" aria-hidden />}
             Sign in
           </Button>
         </form>

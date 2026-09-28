@@ -10,8 +10,8 @@ afterEach(() => {
   })
 })
 
-// jsdom lacks these browser APIs used by Radix and our hooks. Tests run as a reduced-motion user, so GSAP
-// entrance animations are skipped and components render in their final, fully visible state.
+// jsdom lacks these browser APIs used by Radix and our hooks. Tests run as a reduced-motion user, so
+// entrance animations and smooth scrolling are skipped and components render in their final state.
 if (!window.matchMedia) {
   Object.defineProperty(window, 'matchMedia', {
     writable: true,

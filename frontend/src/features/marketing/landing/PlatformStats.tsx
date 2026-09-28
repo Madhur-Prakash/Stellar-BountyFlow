@@ -122,13 +122,14 @@ export function PlatformStats() {
                   <Tiles data={data} />
                   <p className="mt-3 text-xs text-muted-foreground">
                     Stellar {networkDisplayName(data.network)}. {formatNumber(data.successful_transactions)}{' '}
-                    confirmed transactions from {formatNumber(data.unique_transacting_wallets)} wallets. Updated{' '}
-                    <time dateTime={data.generated_at}>{formatDateTime(data.generated_at)}</time>.
+                    confirmed transactions from {formatNumber(data.unique_transacting_wallets)} wallets.
+                    Updated <time dateTime={data.generated_at}>{formatDateTime(data.generated_at)}</time>.
                   </p>
                   {allZero && (
                     <div className="mt-6 flex flex-col items-start gap-3 rounded-xl border bg-card p-5 sm:flex-row sm:items-center sm:justify-between">
                       <p className="text-sm">
-                        Nothing has settled on this network yet. The first funded bounty starts every number above.
+                        Nothing has settled on this network yet. The first funded bounty starts every number
+                        above.
                       </p>
                       <Button asChild size="sm">
                         <Link to="/app/bounties/create">Post the first bounty</Link>

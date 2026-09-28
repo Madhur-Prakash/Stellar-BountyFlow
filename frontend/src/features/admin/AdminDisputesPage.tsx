@@ -6,13 +6,13 @@ import { toast } from 'sonner'
 import { ChainActionButton } from '@/components/chain/ChainActionButton'
 import { MonoValue } from '@/components/common/MonoValue'
 import { ReasonDialog } from '@/components/common/ReasonDialog'
-import { DataTable, type Column } from '@/components/layout/DataTable'
 import { PageHeader } from '@/components/layout/PageHeader'
 import { Alert, AlertAction, AlertDescription, AlertTitle } from '@/components/ui/alert'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Label } from '@/components/ui/label'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
+import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
 import { errorMessage } from '@/lib/api/client'
 import { chainApi } from '@/lib/api/endpoints'
 import { useAdminDisputes } from '@/lib/api/queries/admin'
@@ -30,13 +30,13 @@ import { DISPUTE_STATUS_LABELS } from '@/lib/format'
 import { hasPermission } from '@/lib/permissions'
 
 import {
-  ClampedText,
+  AdminTable,
   DateCell,
   DisputeStatusBadge,
-  FilterBar,
   FilterSelect,
   PagedResults,
   UserCell,
+  type AdminColumn,
 } from './admin-shared'
 import {
   ADMIN_PAGE_SIZE,
@@ -89,14 +89,14 @@ function ExecuteResolutionButton({
             (<MonoValue value={arbiter} label="arbiter address" lead={4} tail={4} />)
           </>
         ) : null}
-        . Connect that wallet in Freighter before continuing; any other wallet is rejected by the contract.
+        . Connect that wallet in Freighter first. The contract rejects any other wallet.
       </p>
     </ChainActionButton>
   )
 }
 
 const ESCROW_NOTE =
-  'This records the off-chain decision. If the reward is held in the on-chain escrow, the arbiter wallet must then sign the RESOLVE_DISPUTE chain action to move the funds.'
+  'This records the decision. If the reward is held in on-chain escrow, the arbiter wallet then signs RESOLVE_DISPUTE to move the funds.'
 
 export default function AdminDisputesPage() {
   const { data: me } = useMe()
@@ -123,34 +123,46 @@ export default function AdminDisputesPage() {
     })
   }
 
-  const columns: Column<Dispute>[] = [
+  const columns: AdminColumn<Dispute>[] = [
     {
       key: 'bounty',
-      header: 'Bounty',
+      header: 'Dispute',
+      mobile: 'title',
       cell: (d) => (
-        <Link
-          to={bountyPath(d.bounty)}
-          className="line-clamp-2 max-w-60 text-left font-medium hover:underline"
-        >
-          {d.bounty.title}
-        </Link>
+        <div className="max-w-72 min-w-0 whitespace-normal lg:min-w-44">
+          <Link
+            to={bountyPath(d.bounty)}
+            title={d.bounty.title}
+            className="line-clamp-2 leading-5 font-medium hover:underline lg:line-clamp-1"
+          >
+            {d.bounty.title}
+          </Link>
+          <p
+            className="line-clamp-2 text-xs leading-4 text-muted-foreground lg:line-clamp-1"
+            title={d.reason}
+          >
+            {d.reason}
+          </p>
+        </div>
       ),
     },
-    { key: 'raised_by', header: 'Raised by', cell: (d) => <UserCell user={d.raised_by} /> },
-    { key: 'reason', header: 'Reason', cell: (d) => <ClampedText text={d.reason} /> },
+    { key: 'raised_by', header: 'Raised by', cell: (d) => <UserCell user={d.raised_by} avatar={false} /> },
     {
       key: 'status',
       header: 'Status',
+      mobile: 'aside',
       cell: (d) => (
-        <div className="flex flex-col items-end gap-1 md:items-start">
+        <div className="flex flex-col items-end gap-1 lg:items-start">
           <DisputeStatusBadge status={d.status} />
-          {d.resolution && (
-            <span className="text-xs text-muted-foreground">{DISPUTE_RESOLUTION_LABELS[d.resolution]}</span>
-          )}
           {d.escrow_frozen_onchain && (
-            <Badge variant="info">
+            <Badge variant="outline">
               <Lock aria-hidden /> Escrow frozen
             </Badge>
+          )}
+          {d.resolution && d.resolution !== 'DISMISSED' && (
+            <span className="text-xs leading-4 text-muted-foreground">
+              {DISPUTE_RESOLUTION_LABELS[d.resolution]}
+            </span>
           )}
         </div>
       ),
@@ -160,9 +172,9 @@ export default function AdminDisputesPage() {
       header: 'Moderator',
       cell: (d) =>
         d.assigned_moderator ? (
-          <UserCell user={d.assigned_moderator} />
+          <UserCell user={d.assigned_moderator} avatar={false} />
         ) : (
-          <span className="text-sm text-muted-foreground">Unassigned</span>
+          <span className="text-muted-foreground">Unassigned</span>
         ),
     },
     {
@@ -187,15 +199,16 @@ export default function AdminDisputesPage() {
     columns.push({
       key: 'actions',
       header: 'Actions',
+      hideHeader: true,
       className: 'text-right',
-      hideLabelOnMobile: true,
+      mobile: 'actions',
       cell: (d) => {
         if (!OPEN_DISPUTE_STATUSES.has(d.status)) {
           if (d.requires_onchain_execution) {
             return (
-              <div className="flex flex-col items-end gap-1">
-                <ExecuteResolutionButton dispute={d} />
+              <div className="flex flex-wrap items-center gap-2 lg:justify-end">
                 <span className="text-xs text-muted-foreground">Awaiting arbiter signature</span>
+                <ExecuteResolutionButton dispute={d} size="sm" />
               </div>
             )
           }
@@ -203,18 +216,26 @@ export default function AdminDisputesPage() {
         }
         const assignedToMe = !!me && d.assigned_moderator?.id === me.id
         return (
-          <div className="flex flex-wrap justify-end gap-2">
+          <div className="flex flex-wrap gap-2 lg:flex-nowrap lg:justify-end">
             {!assignedToMe && (
-              <Button
-                variant="outline"
-                disabled={assign.isPending && assign.variables === d.id}
-                aria-label={`Assign the dispute on ${d.bounty.title} to me`}
-                onClick={() => assignToMe(d)}
-              >
-                <Hand aria-hidden /> Assign to me
-              </Button>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="lg:w-8 lg:px-0"
+                    disabled={assign.isPending && assign.variables === d.id}
+                    aria-label={`Assign the dispute on ${d.bounty.title} to me`}
+                    onClick={() => assignToMe(d)}
+                  >
+                    <Hand aria-hidden /> <span className="lg:sr-only">Assign to me</span>
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent>Assign to me</TooltipContent>
+              </Tooltip>
             )}
             <Button
+              size="sm"
               disabled={resolve.isPending && resolve.variables?.id === d.id}
               aria-label={`Resolve the dispute on ${d.bounty.title}`}
               onClick={() => {
@@ -232,16 +253,8 @@ export default function AdminDisputesPage() {
   }
 
   return (
-    <div className="mx-auto w-full max-w-7xl">
-      <PageHeader
-        title="Disputes"
-        description={
-          canResolve
-            ? 'Disputes raised by requesters and contributors. Assign one to yourself, review the evidence, and record a decision.'
-            : 'Disputes raised by requesters and contributors.'
-        }
-        breadcrumbs={[{ label: 'Admin', to: '/admin' }, { label: 'Disputes' }]}
-      />
+    <div>
+      <PageHeader title="Disputes" breadcrumbs={[{ label: 'Admin', to: '/admin' }, { label: 'Disputes' }]} />
 
       {justResolved && (
         <Alert variant="info" className="mb-5" role="status">
@@ -254,7 +267,7 @@ export default function AdminDisputesPage() {
               <>
                 <p>
                   Decision: {DISPUTE_RESOLUTION_LABELS[justResolved.resolution ?? resolution].toLowerCase()}.
-                  The reward is frozen in the on-chain escrow, so the arbiter wallet must now sign the{' '}
+                  The reward is frozen in the on-chain escrow, so the arbiter wallet must now sign the
                   on-chain resolution before any funds move.
                 </p>
                 <div className="my-1">
@@ -264,7 +277,7 @@ export default function AdminDisputesPage() {
             ) : (
               <p>
                 Decision: {DISPUTE_RESOLUTION_LABELS[justResolved.resolution ?? resolution].toLowerCase()}.
-                The escrow was not frozen on-chain, so the decision is applied in BountyFlow; any payout still
+                The escrow was not frozen on-chain, so the decision is applied in BountyFlow. Any payout still
                 needs the requester’s signature.
               </p>
             )}
@@ -280,7 +293,7 @@ export default function AdminDisputesPage() {
           <AlertAction>
             <Button
               variant="ghost"
-              size="icon"
+              size="icon-sm"
               aria-label="Dismiss this notice"
               onClick={() => setJustResolved(null)}
             >
@@ -290,38 +303,33 @@ export default function AdminDisputesPage() {
         </Alert>
       )}
 
-      <FilterBar>
-        <FilterSelect
-          id="admin-disputes-status"
-          label="Filter by status"
-          value={status}
-          onChange={setStatus}
-          options={DISPUTE_STATUSES}
-          labels={DISPUTE_STATUS_LABELS}
-          allLabel="All statuses"
-        />
-      </FilterBar>
-
       <PagedResults
         query={query}
         skeleton="admin-disputes"
         label="Disputes"
         itemLabel="disputes"
         errorTitle="Could not load disputes"
-        empty={{
-          icon: Scale,
-          title: 'No disputes',
-          description: 'Disputes raised on bounties will appear here.',
-        }}
+        empty={{ icon: Scale, title: 'No disputes' }}
         filtered={!!status}
         onClearFilters={() => setStatus(undefined)}
         onPageChange={(p) => {
           setPage(p)
           scrollToTop()
         }}
+        toolbar={
+          <FilterSelect
+            id="admin-disputes-status"
+            label="Filter by status"
+            value={status}
+            onChange={setStatus}
+            options={DISPUTE_STATUSES}
+            labels={DISPUTE_STATUS_LABELS}
+            allLabel="All statuses"
+          />
+        }
       >
         {(items) => (
-          <DataTable rows={items} columns={columns} getKey={(d) => d.id} caption="Bounty disputes" />
+          <AdminTable rows={items} columns={columns} getKey={(d) => d.id} caption="Bounty disputes" />
         )}
       </PagedResults>
 

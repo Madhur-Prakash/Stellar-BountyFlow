@@ -20,39 +20,32 @@ export function ActivityFeed({ bountyId }: { bountyId: string }) {
   if (isPending) return <ListSkeleton rows={3} />
   if (isError) return <ErrorState error={error} title="Activity unavailable" onRetry={() => refetch()} />
   if (data.items.length === 0) {
-    return (
-      <EmptyState
-        icon={Activity}
-        title="No activity yet"
-        description="Events like publishing, funding, and reviews will appear here."
-      />
-    )
+    return <EmptyState icon={Activity} title="No activity yet" className="border-0 bg-transparent py-6" />
   }
 
   return (
     <div>
-      <ol className="relative space-y-5 border-l pl-6">
+      <ol className="divide-y">
         {data.items.map((item) => (
-          <li key={item.id} className="relative">
-            <span
-              className="absolute top-1.5 -left-[29px] size-2.5 rounded-full border-2 border-background bg-muted-foreground"
-              aria-hidden
-            />
-            <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-sm">
-              {item.actor ? (
-                <span className="inline-flex items-center gap-1.5 font-medium">
-                  <UserAvatar user={item.actor} className="size-5" />
-                  {item.actor.display_name}
-                </span>
-              ) : (
-                <span className="font-medium">BountyFlow</span>
-              )}
+          <li key={item.id} className="flex items-start gap-3 py-2.5 first:pt-0 last:pb-0">
+            {item.actor ? (
+              <UserAvatar user={item.actor} className="mt-px size-6" />
+            ) : (
+              <span
+                className="mt-px flex size-6 shrink-0 items-center justify-center rounded-full border bg-surface text-muted-foreground"
+                aria-hidden
+              >
+                <Activity className="size-3" />
+              </span>
+            )}
+            <p className="min-w-0 flex-1 text-sm leading-6">
+              <span className="font-medium">{item.actor ? item.actor.display_name : 'BountyFlow'}</span>{' '}
               <span className="text-muted-foreground">{describeActivity(item.action)}</span>
-            </div>
+            </p>
             <time
               dateTime={item.created_at}
               title={formatDateTime(item.created_at)}
-              className="text-xs text-muted-foreground"
+              className="shrink-0 text-xs leading-6 text-muted-foreground"
             >
               {formatRelative(item.created_at)}
             </time>
@@ -63,11 +56,11 @@ export function ActivityFeed({ bountyId }: { bountyId: string }) {
         <Button
           variant="ghost"
           size="sm"
-          className="mt-4"
+          className="mt-3 -ml-2 text-muted-foreground"
           disabled={isFetching}
           onClick={() => setPageSize((s) => Math.min(100, s + 20))}
         >
-          {isFetching ? 'Loading…' : `Show more (${data.total - data.items.length} older)`}
+          {isFetching ? 'Loading…' : `Show ${data.total - data.items.length} older`}
         </Button>
       )}
     </div>

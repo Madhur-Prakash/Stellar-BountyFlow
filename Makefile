@@ -148,8 +148,10 @@ typecheck: ## Type-check backend (mypy) and frontend (tsc)
 
 check: lint typecheck test ## Everything CI runs
 
-audit: ## Dependency vulnerability scan (pip-audit + pnpm audit)
-	cd $(BACKEND) && uvx pip-audit
+audit: ## Dependency vulnerability scan (pip-audit on the locked backend deps + pnpm audit)
+	cd $(BACKEND) && uv export --frozen --no-dev --no-emit-project --format requirements-txt --quiet -o .audit-requirements.txt \
+	  && uvx pip-audit --strict --disable-pip --require-hashes -r .audit-requirements.txt; \
+	  status=$$?; rm -f .audit-requirements.txt; exit $$status
 	$(PNPM) audit --prod
 
 # --- Soroban contract ------------------------------------------------------------------------

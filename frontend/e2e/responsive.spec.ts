@@ -2,7 +2,14 @@ import type { Locator, Page } from '@playwright/test'
 
 import { expect, expectNoHorizontalOverflow, signIn, test, waitForAppIdle } from './fixtures'
 import { ADMIN, CONTRIBUTOR, REQUESTER, type SeededAccount } from './support/accounts'
-import { ADMIN_ROUTES, APP_ROUTES, PUBLIC_ROUTES, requesterBountyId, seededIds, type RouteSpec } from './support/routes'
+import {
+  ADMIN_ROUTES,
+  APP_ROUTES,
+  PUBLIC_ROUTES,
+  requesterBountyId,
+  seededIds,
+  type RouteSpec,
+} from './support/routes'
 
 /**
  * Journey 16: responsive + accessibility audit across every route on all three
@@ -17,7 +24,10 @@ async function auditRoute(page: Page, route: RouteSpec) {
   await expect(main).toBeVisible()
   await expect(page.getByRole('heading', { level: 1 }).first(), `${route.path}: has an h1`).toBeVisible()
   if (route.heading) await expect(page.getByRole('heading', { level: 1 }).first()).toHaveText(route.heading)
-  await expect(page.getByText(/something went wrong|could not load/i), `${route.path}: no error state`).toHaveCount(0)
+  await expect(
+    page.getByText(/something went wrong|could not load/i),
+    `${route.path}: no error state`,
+  ).toHaveCount(0)
   await expectNoHorizontalOverflow(page, route.path)
 }
 
@@ -35,7 +45,10 @@ test.describe('no horizontal overflow and sound page structure on every route', 
   test('public pages', async ({ page }) => {
     test.setTimeout(150_000)
     const { publicBounty } = await seededIds(page)
-    await auditAs(page, null, [...PUBLIC_ROUTES, { path: `/bounties/${publicBounty.slug}`, name: 'bounty-detail' }])
+    await auditAs(page, null, [
+      ...PUBLIC_ROUTES,
+      { path: `/bounties/${publicBounty.slug}`, name: 'bounty-detail' },
+    ])
   })
 
   test('requester workspace', async ({ page }) => {
@@ -63,7 +76,9 @@ test.describe('no horizontal overflow and sound page structure on every route', 
 })
 
 test.describe('navigation', () => {
-  test('marketing navigation: every target is reachable (mobile sheet on small screens)', async ({ page }, testInfo) => {
+  test('marketing navigation: every target is reachable (mobile sheet on small screens)', async ({
+    page,
+  }, testInfo) => {
     await page.goto('/')
     const targets = ['Marketplace', 'How it works', 'Guide']
     if (isDesktop(testInfo.project.name)) {
@@ -96,7 +111,9 @@ test.describe('navigation', () => {
     await expect(page.getByRole('button', { name: 'Open menu' })).toBeFocused()
   })
 
-  test('workspace sidebar: collapses to a sheet on mobile and every item is reachable', async ({ page }, testInfo) => {
+  test('workspace sidebar: collapses to a sheet on mobile and every item is reachable', async ({
+    page,
+  }, testInfo) => {
     await signIn(page, REQUESTER)
     await page.goto('/app')
     const items: [string, RegExp][] = [
@@ -116,7 +133,8 @@ test.describe('navigation', () => {
       }
       await scope.getByRole('link', { name, exact: true }).click()
       await expect(page).toHaveURL(url)
-      if (isMobile(testInfo.project.name)) await expect(page.getByRole('dialog', { name: 'Workspace navigation' })).toBeHidden()
+      if (isMobile(testInfo.project.name))
+        await expect(page.getByRole('dialog', { name: 'Workspace navigation' })).toBeHidden()
     }
   })
 })
@@ -134,7 +152,9 @@ async function expectInViewport(page: Page, locator: Locator) {
   }).toPass({ timeout: 5_000 })
 }
 
-test('tables become cards below 1024px and scroll inside their container above', async ({ page }, testInfo) => {
+test('tables become cards below 1024px and scroll inside their container above', async ({
+  page,
+}, testInfo) => {
   await signIn(page, ADMIN)
   for (const path of ['/admin/users', '/admin/transactions', '/admin/bounties']) {
     await page.goto(path)
@@ -160,7 +180,10 @@ test('dialogs fit the viewport and trap focus', async ({ page }) => {
   await signIn(page, CONTRIBUTOR)
   const { publicBounty } = await seededIds(page)
   await page.goto(`/bounties/${publicBounty.slug}`)
-  await page.getByRole('button', { name: /report/i }).first().click()
+  await page
+    .getByRole('button', { name: /report/i })
+    .first()
+    .click()
   const dialog = page.getByRole('dialog')
   await expect(dialog).toBeVisible()
   await expectInViewport(page, dialog)
@@ -174,6 +197,7 @@ test('dialogs fit the viewport and trap focus', async ({ page }) => {
 })
 
 test('primary actions have touch targets of at least 40px', async ({ page }, testInfo) => {
+  test.skip(isDesktop(testInfo.project.name), 'touch targets are checked on the touch projects')
   const check = async (locator: Locator, label: string) => {
     await expect(locator).toBeVisible()
     const box = (await locator.boundingBox())!
@@ -182,7 +206,8 @@ test('primary actions have touch targets of at least 40px', async ({ page }, tes
   }
   await page.goto('/')
   await check(page.getByRole('main').getByRole('link', { name: 'Browse bounties' }).first(), 'hero CTA')
-  if (!isDesktop(testInfo.project.name)) await check(page.getByRole('button', { name: 'Open menu' }), 'menu button')
+  if (!isDesktop(testInfo.project.name))
+    await check(page.getByRole('button', { name: 'Open menu' }), 'menu button')
 
   await page.goto('/login')
   await check(page.getByRole('button', { name: 'Sign in', exact: true }), 'sign in')
@@ -192,7 +217,13 @@ test('primary actions have touch targets of at least 40px', async ({ page }, tes
 
   await signIn(page, REQUESTER)
   await page.goto('/app')
-  await check(page.getByRole('main').getByRole('link', { name: /post a bounty/i }).first(), 'post a bounty')
+  await check(
+    page
+      .getByRole('main')
+      .getByRole('link', { name: /post a bounty/i })
+      .first(),
+    'post a bounty',
+  )
   await check(page.getByRole('button', { name: 'Toggle navigation' }), 'sidebar toggle')
   await check(page.getByRole('button', { name: 'Account menu' }), 'account menu')
 })
@@ -214,7 +245,10 @@ test('keyboard: skip link and main CTAs are reachable with a visible focus ring'
   expect(reached, 'Tab reaches the hero CTA').toBe(true)
   const ring = await cta.evaluate((el) => {
     const s = getComputedStyle(el)
-    return { outline: s.outlineStyle !== 'none' && parseFloat(s.outlineWidth) > 0, shadow: s.boxShadow !== 'none' }
+    return {
+      outline: s.outlineStyle !== 'none' && parseFloat(s.outlineWidth) > 0,
+      shadow: s.boxShadow !== 'none',
+    }
   })
   expect(ring.outline || ring.shadow, 'focused CTA shows a focus indicator').toBe(true)
 })

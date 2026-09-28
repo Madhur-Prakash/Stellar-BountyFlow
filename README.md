@@ -46,7 +46,7 @@ BountyFlow is a full-stack bounty marketplace on **Stellar**. Requesters post fu
 and deliver work, and rewards settle through a **Soroban escrow contract**. Every funding, payout and refund is
 verified on-chain before the app records it.
 
-> Live on **Stellar Testnet**. Escrow contract
+> Runs on **Stellar Testnet**. Escrow contract
 > [`CDX6FN2M…4SFY4CY`](https://stellar.expert/explorer/testnet/contract/CDX6FN2MIGLHCMUJOU6C7FYP3QTNDL6BVIPEG4B5HAUEPU7NI4SFY4CY).
 > The full lifecycle has been exercised on-chain: escrow funding
 > [`3e898e06…22a8`](https://stellar.expert/explorer/testnet/tx/3e898e0604ae024451cc8d751486f15377d2f1ff1575c8e8e708d103125e22a8)
@@ -100,13 +100,13 @@ work through an explicit, auditable state machine. Only verified on-chain events
   moderation, reports, a dispute queue, transaction monitoring, and an immutable audit log.
 - **Security:** Argon2id, HttpOnly cookie sessions with refresh rotation and reuse detection, CSRF double-submit,
   rate limits, strict validation, safe markdown, security headers, and redacted structured logs (Logifyx).
-- **Motion and UI:** light-first design system with a dark theme (shadcn/ui + Tailwind v4 tokens). GSAP drives the
-  motion: the hero's floor of real open rewards that you can pick up and throw (Draggable, Inertia),
-  a draggable bounty rail, a pinned story that hands a bounty from the requester's steps to the contributor's, the
-  escrow state machine drawing itself while pinned (DrawSVG) with hover explanations, split-text
-  headings, an animated light/dark switch and coin bursts when escrow is funded or paid out. ScrollSmoother and Lenis handle smooth scrolling, and boneyard
-  skeletons are captured from the real layout. Everything respects reduced motion; WCAG-minded and responsive from
-  360 px up.
+- **Interface:** a calm, light-first design system with a dark theme (shadcn/ui + Tailwind v4 tokens, Inter),
+  documented in [docs/design.md](docs/design.md). Every screen shows live data. Records are shown in tables, and
+  the escrow state machine is a diagram whose states explain themselves on hover. Motion stays small and
+  functional: route fades, an animated light/dark switch, and Lenis smooth scrolling on the public site. Routes
+  and heavy components (charts, Markdown, the wallet SDK, on-demand dialogs) load lazily. Loading states are
+  boneyard skeletons captured from the real layout. Everything respects reduced motion; WCAG-minded and
+  responsive from 360 px up.
 
 ## Screenshots
 
@@ -141,7 +141,7 @@ Details, sequence diagrams and design decisions: [docs/architecture.md](docs/arc
 
 | Layer | Technologies |
 |---|---|
-| Frontend | React 19, TypeScript (strict), Vite, React Router 7, Tailwind CSS v4, shadcn/ui (Radix), lucide-react, GSAP (ScrollTrigger, ScrollSmoother, SplitText, Draggable, Inertia, Physics2D, DrawSVG, ScrambleText, Flip), Lenis, boneyard-js, TanStack Query, Zustand, React Hook Form + Zod, Recharts, Vitest, Testing Library, Playwright |
+| Frontend | React 19, TypeScript (strict), Vite, React Router 7, Tailwind CSS v4, shadcn/ui (Radix), lucide-react, Inter, Lenis, boneyard-js, TanStack Query, Zustand, React Hook Form + Zod, Recharts, Vitest, Testing Library, Playwright |
 | Backend | Python 3.12, FastAPI, Uvicorn, Pydantic v2, pydantic-settings, SQLAlchemy 2.1 (async), Alembic, psycopg 3, redis-py, aiokafka, stellar-sdk (Soroban RPC), httpx, **Logifyx** logging, argon2-cffi, PyJWT, Jinja2, pytest, Ruff, mypy, **uv** |
 | Data | PostgreSQL 17, Redis 7.4, Apache Kafka 3.9 (KRaft) |
 | Blockchain | Stellar Testnet, Soroban (Rust, soroban-sdk 28), Stellar CLI 27, Stellar Asset Contract (native XLM), Freighter |
@@ -290,7 +290,7 @@ More in [docs/blockchain.md](docs/blockchain.md).
 
 `contracts/bounty_escrow` provides `create_escrow`, `fund`, `assign`, `release`, `request_cancel`,
 `consent_cancel`, `refund`, `raise_dispute`, `resolve_dispute`, and the views `get_escrow` and `assignment`. It has
-33 unit tests.
+36 unit tests.
 
 ```bash
 make contract-test

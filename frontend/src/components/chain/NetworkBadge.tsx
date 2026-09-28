@@ -10,7 +10,7 @@ const STYLES: Record<BlockchainMode, { label: string; icon: LucideIcon; tone: st
     label: 'Testnet',
     icon: FlaskConical,
     tone: 'text-cyan',
-    hint: 'Transactions run on the Stellar Testnet. Test XLM has no monetary value.',
+    hint: 'Transactions run on Stellar Testnet. Test XLM has no monetary value.',
   },
   mainnet: {
     label: 'Mainnet',
@@ -21,15 +21,15 @@ const STYLES: Record<BlockchainMode, { label: string; icon: LucideIcon; tone: st
 }
 
 const BASE =
-  'inline-flex h-8 items-center gap-1.5 rounded-md px-1.5 text-[0.8125rem] font-medium whitespace-nowrap [&_svg]:size-3.5 [&_svg]:shrink-0'
+  'inline-flex h-8 items-center gap-1.5 rounded-md px-2 text-[0.8125rem] font-medium whitespace-nowrap text-muted-foreground [&_svg]:size-3.5 [&_svg]:shrink-0'
 
-/** Always-visible label for the network the API is connected to: an icon and a word, never a chip. */
+/** The network the API is connected to: an icon and a word, never a chip. */
 export function NetworkBadge({ className, compact = false }: { className?: string; compact?: boolean }) {
   const { data, isPending, isError } = usePublicConfig()
 
   if (isPending) {
     return (
-      <span className={cn(BASE, 'font-normal text-muted-foreground', className)} aria-live="polite">
+      <span className={cn(BASE, 'font-normal', className)} aria-live="polite">
         <LoaderCircle className="animate-spin" aria-hidden />
         Connecting
       </span>
@@ -40,11 +40,11 @@ export function NetworkBadge({ className, compact = false }: { className?: strin
     return (
       <span
         className={cn(BASE, 'text-warning', className)}
-        title="The BountyFlow API is not reachable, so the network could not be confirmed."
+        title="BountyFlow can’t be reached right now."
         role="status"
       >
         <CloudOff aria-hidden />
-        API offline
+        Offline
       </span>
     )
   }
@@ -56,10 +56,10 @@ export function NetworkBadge({ className, compact = false }: { className?: strin
       <TooltipTrigger asChild>
         <span
           tabIndex={0}
-          className={cn(BASE, 'transition-colors hover:bg-muted', s.tone, className)}
+          className={cn(BASE, 'transition-colors hover:bg-muted hover:text-foreground', className)}
           aria-label={`Active network: ${s.label}`}
         >
-          <Icon aria-hidden />
+          <Icon className={s.tone} aria-hidden />
           {compact ? s.label : `Stellar ${s.label}`}
         </span>
       </TooltipTrigger>

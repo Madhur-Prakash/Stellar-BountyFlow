@@ -1,4 +1,4 @@
-import { ArrowRight, Check, ExternalLink } from 'lucide-react'
+import { ArrowRight, ExternalLink, LockKeyhole, PenLine, SearchCheck, type LucideIcon } from 'lucide-react'
 import { Link } from 'react-router'
 
 import { DeadlineCountdown } from '@/components/bounty/DeadlineCountdown'
@@ -19,10 +19,11 @@ import { cn } from '@/lib/utils'
 
 const TOP_REWARD = { sort: 'reward_high', page_size: 1 } as const
 
-const POINTS = [
-  'The reward is locked in escrow before work starts',
-  'You sign every transfer in your own wallet',
-  'Every payout and refund is public on Stellar',
+/** What makes a bounty here different, in three short facts under the actions. */
+const FACTS: { icon: LucideIcon; title: string; text: string }[] = [
+  { icon: LockKeyhole, title: 'Escrow first', text: 'The reward is locked before work starts.' },
+  { icon: PenLine, title: 'Non-custodial', text: 'You sign every transfer in your own wallet.' },
+  { icon: SearchCheck, title: 'Verifiable', text: 'Payouts and refunds are public on Stellar.' },
 ]
 
 /** The lifecycle a bounty moves through, and where each status sits on it. */
@@ -115,7 +116,9 @@ function BountyPreview({ bounty }: { bounty: BountySummary }) {
 
       <dl className="mt-5 grid grid-cols-2 gap-px overflow-hidden rounded-xl border bg-border">
         <div className="bg-surface/60 px-4 py-3">
-          <dt className="text-xs text-muted-foreground">{positions > 1 ? 'Reward per position' : 'Reward'}</dt>
+          <dt className="text-xs text-muted-foreground">
+            {positions > 1 ? 'Reward per position' : 'Reward'}
+          </dt>
           <dd className="mt-1">
             <span className="amount text-[1.375rem]">{formatAmount(bounty.reward_amount)}</span>{' '}
             <span className="text-sm text-muted-foreground">{bounty.reward_asset.code}</span>
@@ -213,8 +216,8 @@ export function Hero() {
             Bounties with the reward held in escrow
           </h1>
           <p className="mt-5 max-w-xl text-[1.0625rem] leading-relaxed text-muted-foreground">
-            Post a task with a reward in XLM. The reward is locked in a Soroban escrow contract on Stellar before
-            anyone starts, and it is released to the contributor when you approve the work.
+            Post a task with a reward in XLM. The reward is locked in a Soroban escrow contract on Stellar
+            before anyone starts, and it is released to the contributor when you approve the work.
           </p>
           <div className="mt-8 flex flex-col gap-3 sm:flex-row">
             <Button asChild size="lg">
@@ -224,16 +227,17 @@ export function Hero() {
               <Link to="/app/bounties/create">Post a bounty</Link>
             </Button>
           </div>
-          <ul className="mt-8 space-y-2.5">
-            {POINTS.map((point) => (
-              <li key={point} className="flex items-start gap-2.5 text-sm text-muted-foreground">
-                <span className="mt-0.5 flex size-4 shrink-0 items-center justify-center rounded-full bg-success/12 text-success">
-                  <Check className="size-3" strokeWidth={3} aria-hidden />
-                </span>
-                {point}
-              </li>
+          <dl className="mt-10 grid gap-5 border-t pt-6 sm:grid-cols-3 sm:gap-6">
+            {FACTS.map(({ icon: Icon, title, text }) => (
+              <div key={title}>
+                <dt className="flex items-center gap-2 text-sm font-medium">
+                  <Icon className="size-4 shrink-0 text-primary" aria-hidden />
+                  {title}
+                </dt>
+                <dd className="mt-1 text-[0.8125rem] leading-snug text-muted-foreground">{text}</dd>
+              </div>
             ))}
-          </ul>
+          </dl>
         </div>
         <div className="w-full max-w-lg lg:justify-self-end">
           <Preview />

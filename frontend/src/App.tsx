@@ -8,8 +8,8 @@ import { queryClient } from '@/lib/query-client'
 import { createAppRouter } from '@/router'
 
 /**
- * Providers: TanStack Query → Tooltips → Router, plus toasts. Theme is a zustand store. Motion is GSAP throughout
- * (lib/gsap.ts); every animation checks motionAllowed(), which honours prefers-reduced-motion.
+ * Providers: TanStack Query → Tooltips → Router, plus toasts. Theme is a zustand store. Motion is small CSS
+ * transitions plus Lenis on the public site; everything honours prefers-reduced-motion (see docs/design.md).
  */
 export default function App() {
   const [router] = useState(createAppRouter)

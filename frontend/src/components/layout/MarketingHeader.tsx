@@ -1,5 +1,5 @@
 import { Menu } from 'lucide-react'
-import { useRef, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { Link, NavLink } from 'react-router'
 
 import { Logo } from '@/components/brand/Logo'
@@ -16,9 +16,7 @@ import {
   SheetTrigger,
 } from '@/components/ui/sheet'
 import { useAnchorNavigation } from '@/hooks/useAnchorNavigation'
-import { motionAllowed } from '@/hooks/useReducedMotion'
 import { useMe } from '@/lib/api/queries/auth'
-import { gsap, useGSAP } from '@/lib/gsap'
 import { cn } from '@/lib/utils'
 
 type NavItem = { label: string; to: string; wideOnly?: boolean }
@@ -70,25 +68,21 @@ function AccountLinks({ stacked = false, onNavigate }: { stacked?: boolean; onNa
   )
 }
 
-/** The mobile menu's links slide in one after another each time the sheet opens. */
+/** The mobile menu's links fade in one after another each time the sheet opens. */
 function MobileNavList({ onNavigate }: { onNavigate: () => void }) {
-  const list = useRef<HTMLUListElement>(null)
   const firstLink = useRef<HTMLAnchorElement>(null)
   const onAnchor = useAnchorNavigation()
 
-  useGSAP(
-    () => {
-      firstLink.current?.focus()
-      if (!motionAllowed()) return
-      gsap.from('li', { autoAlpha: 0, x: 12, duration: 0.35, stagger: 0.035, ease: 'bf-settle' })
-    },
-    { scope: list },
-  )
+  useEffect(() => firstLink.current?.focus(), [])
 
   return (
-    <ul ref={list} className="space-y-0.5">
+    <ul className="space-y-0.5">
       {MOBILE_NAV.map((item, index) => (
-        <li key={item.to}>
+        <li
+          key={item.to}
+          className="animate-in duration-300 ease-out fade-in-0 fill-mode-both slide-in-from-right-2"
+          style={{ animationDelay: `${index * 35}ms` }}
+        >
           <Link
             ref={index === 0 ? firstLink : undefined}
             to={item.to}

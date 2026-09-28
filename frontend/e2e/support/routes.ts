@@ -21,13 +21,17 @@ export async function seededIds(page: Page) {
 }
 
 export async function requesterBountyId(page: Page): Promise<string> {
-  const mine = await apiCall<{ items: BountyLite[] }>(page, 'GET', '/bounties/mine?role=requester&page_size=50')
+  const mine = await apiCall<{ items: BountyLite[] }>(
+    page,
+    'GET',
+    '/bounties/mine?role=requester&page_size=50',
+  )
   const b = mine.items.find((x) => x.status === 'IN_PROGRESS') ?? mine.items[0]
   return b.id
 }
 
 export const PUBLIC_ROUTES: RouteSpec[] = [
-  { path: '/', name: 'landing', heading: /work gets done/i },
+  { path: '/', name: 'landing', heading: /reward held in escrow/i },
   { path: '/bounties', name: 'marketplace', heading: /bounty marketplace/i },
   { path: '/how-it-works', name: 'how-it-works' },
   { path: '/about', name: 'about' },

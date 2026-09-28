@@ -1,5 +1,5 @@
 import { zodResolver } from '@hookform/resolvers/zod'
-import { LoaderCircle, UserPlus } from 'lucide-react'
+import { AtSign, LoaderCircle, Mail, UserRound } from 'lucide-react'
 import { useState } from 'react'
 import { useForm, useWatch } from 'react-hook-form'
 import { Link, useNavigate, useSearchParams } from 'react-router'
@@ -16,16 +16,16 @@ import {
   FormLabel,
   FormMessage,
 } from '@/components/ui/form'
-import { Input } from '@/components/ui/input'
 import { useRegister } from '@/lib/api/queries/auth'
 import { postLoginPath, safeNext } from '@/lib/auth-redirect'
 import { applyApiErrors } from '@/lib/form-errors'
 
-import { AuthCard, FormErrorAlert } from './AuthCard'
-import { PasswordInput, PasswordStrengthMeter } from './PasswordInput'
+import { AUTH_LINK, AuthCard, FormErrorAlert } from './AuthCard'
+import { IconInput, NEW_PASSWORD_HINT, PasswordInput, PasswordStrengthMeter } from './PasswordInput'
 import { registerSchema, type RegisterValues } from './schemas'
 
 const FIELDS = ['email', 'username', 'display_name', 'password'] as const
+const LABEL = 'text-[0.8125rem]'
 
 export default function RegisterPage() {
   const navigate = useNavigate()
@@ -65,80 +65,85 @@ export default function RegisterPage() {
   return (
     <AuthCard
       title="Create your account"
-      description="Post bounties, apply for work, and get paid from escrow on Stellar."
+      description="Post bounties and get paid from escrow on Stellar."
       footer={
         <>
           Already have an account?{' '}
-          <Link
-            to={next ? `/login?next=${encodeURIComponent(next)}` : '/login'}
-            className="font-medium text-foreground underline underline-offset-4"
-          >
+          <Link to={next ? `/login?next=${encodeURIComponent(next)}` : '/login'} className={AUTH_LINK}>
             Sign in
           </Link>
         </>
       }
     >
       <Form {...form}>
-        <form onSubmit={onSubmit} className="space-y-5" noValidate>
+        <form onSubmit={onSubmit} className="space-y-4" noValidate>
           <FormField
             control={form.control}
             name="email"
             render={({ field }) => (
               <FormItem>
-                <FormLabel>Email</FormLabel>
+                <FormLabel className={LABEL}>Email</FormLabel>
                 <FormControl>
-                  <Input type="email" autoComplete="email" inputMode="email" {...field} />
+                  <IconInput
+                    icon={Mail}
+                    type="email"
+                    autoComplete="email"
+                    inputMode="email"
+                    placeholder="you@example.com"
+                    {...field}
+                  />
                 </FormControl>
-                <FormMessage />
+                <FormMessage className="text-[0.8125rem]" />
               </FormItem>
             )}
           />
-          <div className="grid gap-5 sm:grid-cols-2">
-            <FormField
-              control={form.control}
-              name="username"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Username</FormLabel>
-                  <FormControl>
-                    <Input
-                      autoComplete="username"
-                      autoCapitalize="none"
-                      spellCheck={false}
-                      {...field}
-                      onChange={(e) => field.onChange(e.target.value.toLowerCase())}
-                    />
-                  </FormControl>
-                  <FormDescription>3–30 chars: a–z, 0–9, _ or -</FormDescription>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-            <FormField
-              control={form.control}
-              name="display_name"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Display name</FormLabel>
-                  <FormControl>
-                    <Input autoComplete="name" {...field} />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-          </div>
+          <FormField
+            control={form.control}
+            name="username"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel className={LABEL}>Username</FormLabel>
+                <FormControl>
+                  <IconInput
+                    icon={AtSign}
+                    autoComplete="username"
+                    autoCapitalize="none"
+                    spellCheck={false}
+                    {...field}
+                    onChange={(e) => field.onChange(e.target.value.toLowerCase())}
+                  />
+                </FormControl>
+                <FormDescription className="text-xs">
+                  3 to 30 lowercase letters, numbers, _ or -.
+                </FormDescription>
+                <FormMessage className="text-[0.8125rem]" />
+              </FormItem>
+            )}
+          />
+          <FormField
+            control={form.control}
+            name="display_name"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel className={LABEL}>Display name</FormLabel>
+                <FormControl>
+                  <IconInput icon={UserRound} autoComplete="name" {...field} />
+                </FormControl>
+                <FormMessage className="text-[0.8125rem]" />
+              </FormItem>
+            )}
+          />
           <FormField
             control={form.control}
             name="password"
             render={({ field }) => (
               <FormItem>
-                <FormLabel>Password</FormLabel>
+                <FormLabel className={LABEL}>Password</FormLabel>
                 <FormControl>
-                  <PasswordInput autoComplete="new-password" {...field} />
+                  <PasswordInput autoComplete="new-password" placeholder={NEW_PASSWORD_HINT} {...field} />
                 </FormControl>
                 <PasswordStrengthMeter password={password} />
-                <FormMessage />
+                <FormMessage className="text-[0.8125rem]" />
               </FormItem>
             )}
           />
@@ -147,11 +152,11 @@ export default function RegisterPage() {
             name="confirm_password"
             render={({ field }) => (
               <FormItem>
-                <FormLabel>Confirm password</FormLabel>
+                <FormLabel className={LABEL}>Confirm password</FormLabel>
                 <FormControl>
                   <PasswordInput autoComplete="new-password" {...field} />
                 </FormControl>
-                <FormMessage />
+                <FormMessage className="text-[0.8125rem]" />
               </FormItem>
             )}
           />
@@ -160,35 +165,43 @@ export default function RegisterPage() {
             name="accept_terms"
             render={({ field }) => (
               <FormItem>
-                <div className="flex items-start gap-3">
+                <div className="flex items-start gap-2.5">
                   <FormControl>
                     <Checkbox
                       checked={field.value}
                       onCheckedChange={(v) => field.onChange(v === true)}
-                      className="mt-0.5"
+                      className="mt-px"
                     />
                   </FormControl>
-                  <FormLabel className="leading-snug font-normal">
+                  <FormLabel className="text-[0.8125rem] leading-snug font-normal text-muted-foreground">
                     <span>
                       I agree to the{' '}
-                      <Link to="/terms" target="_blank" className="underline underline-offset-4">
+                      <Link
+                        to="/terms"
+                        target="_blank"
+                        className="text-foreground underline underline-offset-4"
+                      >
                         terms
                       </Link>{' '}
                       and{' '}
-                      <Link to="/privacy" target="_blank" className="underline underline-offset-4">
+                      <Link
+                        to="/privacy"
+                        target="_blank"
+                        className="text-foreground underline underline-offset-4"
+                      >
                         privacy notice
                       </Link>
                       .
                     </span>
                   </FormLabel>
                 </div>
-                <FormMessage />
+                <FormMessage className="text-[0.8125rem]" />
               </FormItem>
             )}
           />
           <FormErrorAlert message={formError} />
-          <Button type="submit" size="lg" className="w-full" disabled={register.isPending}>
-            {register.isPending ? <LoaderCircle className="animate-spin" /> : <UserPlus />}
+          <Button type="submit" size="lg" className="mt-1 w-full" disabled={register.isPending}>
+            {register.isPending && <LoaderCircle className="animate-spin" aria-hidden />}
             Create account
           </Button>
         </form>

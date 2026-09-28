@@ -1,5 +1,14 @@
 import { useQueryClient } from '@tanstack/react-query'
-import { CircleAlert, ExternalLink, LoaderCircle, LogOut, RefreshCw, ShieldCheck, Wallet } from 'lucide-react'
+import {
+  ChevronDown,
+  CircleAlert,
+  ExternalLink,
+  LoaderCircle,
+  LogOut,
+  RefreshCw,
+  ShieldCheck,
+  Wallet,
+} from 'lucide-react'
 import { useEffect, useState } from 'react'
 import { toast } from 'sonner'
 
@@ -79,7 +88,7 @@ function FreighterWalletButton({ className }: { className?: string }) {
 
   if (status === 'not_installed') {
     return (
-      <Button asChild variant="outline" size="sm" className={className}>
+      <Button asChild variant="outline" className={className}>
         <a href={FREIGHTER_INSTALL_URL} target="_blank" rel="noopener noreferrer nofollow">
           <Wallet aria-hidden /> Install Freighter
           <span className="sr-only">(opens in a new tab)</span>
@@ -93,7 +102,6 @@ function FreighterWalletButton({ className }: { className?: string }) {
     return (
       <Button
         variant="outline"
-        size="sm"
         className={className}
         disabled={status === 'connecting' || detecting}
         aria-busy={detecting || status === 'connecting'}
@@ -113,33 +121,43 @@ function FreighterWalletButton({ className }: { className?: string }) {
     )
   }
 
+  const walletNetwork = network ? networkLabelFromPassphrase(network.networkPassphrase) : 'Unknown network'
+  const explorerHref = accountExplorerUrl(config, address)
+
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
-        <Button variant="outline" size="sm" className={cn('font-mono', className)} aria-label="Wallet menu">
-          <Wallet className={wrongNetwork ? 'text-warning' : 'text-success'} aria-hidden />
-          {truncateMiddle(address, 4, 4)}
-          {wrongNetwork && <CircleAlert className="text-warning" aria-label="Wrong network" />}
+        <Button
+          variant="outline"
+          className={cn('gap-2 pr-2.5', className)}
+          aria-label={wrongNetwork ? 'Wallet menu, wrong network' : 'Wallet menu'}
+        >
+          <Wallet className={wrongNetwork ? 'text-warning' : 'text-muted-foreground'} aria-hidden />
+          <span className="font-mono text-[0.8125rem]">{truncateMiddle(address, 4, 4)}</span>
+          {wrongNetwork && <CircleAlert className="text-warning" aria-hidden />}
+          <ChevronDown className="text-muted-foreground" aria-hidden />
         </Button>
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end" className="w-72">
-        <DropdownMenuLabel className="space-y-1">
-          <div className="text-xs font-normal text-muted-foreground">Connected with Freighter</div>
-          <div className="font-mono text-xs break-all">{address}</div>
-          <div className="text-xs font-normal text-muted-foreground">
-            Wallet network: {network ? networkLabelFromPassphrase(network.networkPassphrase) : 'unknown'}
+        <DropdownMenuLabel className="space-y-1 font-normal">
+          <div className="flex items-center justify-between gap-2 text-xs text-muted-foreground">
+            <span>Freighter</span>
+            <span className={cn(wrongNetwork && 'font-medium text-warning')}>{walletNetwork}</span>
           </div>
+          <div className="font-mono text-xs break-all text-foreground">{address}</div>
         </DropdownMenuLabel>
         {wrongNetwork && (
-          <div className="mx-2 mb-2 rounded-md border border-warning/30 bg-warning/5 p-2 text-xs text-warning">
-            Freighter is on {networkLabelFromPassphrase(network?.networkPassphrase)}, but BountyFlow uses{' '}
-            {networkLabelFromPassphrase(expectedPassphrase)}. Switch networks in Freighter.
+          <div className="mx-2 mb-1.5 rounded-md border border-warning/30 bg-warning/5 px-2.5 py-2 text-xs">
+            <p className="font-medium text-warning">Wrong network</p>
+            <p className="mt-0.5 text-muted-foreground">
+              Switch Freighter to {networkLabelFromPassphrase(expectedPassphrase)}.
+            </p>
           </div>
         )}
         <DropdownMenuSeparator />
         {linked ? (
           <DropdownMenuItem disabled>
-            <ShieldCheck className="text-success" /> Ownership verified by signature
+            <ShieldCheck className="text-success" /> Verified for your account
           </DropdownMenuItem>
         ) : me ? (
           <DropdownMenuItem disabled={pending} onSelect={() => void verify(address)}>
@@ -147,12 +165,13 @@ function FreighterWalletButton({ className }: { className?: string }) {
           </DropdownMenuItem>
         ) : null}
         <DropdownMenuItem onSelect={() => void refreshNetwork()}>
-          <RefreshCw /> Re-check network
+          <RefreshCw /> Refresh network
         </DropdownMenuItem>
-        {accountExplorerUrl(config, address) && (
+        {explorerHref && (
           <DropdownMenuItem asChild>
-            <a href={accountExplorerUrl(config, address)!} target="_blank" rel="noopener noreferrer nofollow">
-              <ExternalLink /> View account on explorer
+            <a href={explorerHref} target="_blank" rel="noopener noreferrer nofollow">
+              <ExternalLink /> View on explorer
+              <span className="sr-only">(opens in a new tab)</span>
             </a>
           </DropdownMenuItem>
         )}

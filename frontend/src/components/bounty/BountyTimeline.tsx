@@ -1,7 +1,7 @@
 import { Check, CircleAlert } from 'lucide-react'
 
 import type { BountyDetail, BountyStatus } from '@/lib/api/types'
-import { BOUNTY_STATUS_LABELS, formatDate } from '@/lib/format'
+import { BOUNTY_STATUS_LABELS } from '@/lib/format'
 import { cn } from '@/lib/utils'
 
 const MAIN: { status: BountyStatus; label: string }[] = [
@@ -27,8 +27,10 @@ const EXCEPTIONAL: BountyStatus[] = ['CANCEL_REQUESTED', 'CANCELLED', 'DISPUTED'
 
 export function BountyTimeline({
   bounty,
+  className,
 }: {
-  bounty: Pick<BountyDetail, 'status' | 'funding_status' | 'published_at' | 'completion_deadline'>
+  bounty: Pick<BountyDetail, 'status' | 'funding_status'>
+  className?: string
 }) {
   const exceptional = EXCEPTIONAL.includes(bounty.status)
   // For exceptional states we can only be sure about "published"; funding is shown from funding_status.
@@ -42,7 +44,7 @@ export function BountyTimeline({
     : (ORDER[bounty.status] ?? 0)
 
   return (
-    <div>
+    <div className={className}>
       <ol className="grid grid-cols-5 gap-1.5" aria-label="Bounty lifecycle">
         {MAIN.map((step, i) => {
           const done = i < reached || (i === reached && bounty.status === 'COMPLETED')
@@ -51,9 +53,8 @@ export function BountyTimeline({
             <li key={step.status} className="min-w-0" aria-current={current ? 'step' : undefined}>
               <div
                 className={cn(
-                  'h-1 rounded-full bg-muted',
-                  (done || current) && 'bg-primary',
-                  current && 'bg-primary/60',
+                  'h-1 rounded-full',
+                  done ? 'bg-primary' : current ? 'bg-primary/45' : 'bg-border',
                 )}
               />
               <div
@@ -65,9 +66,9 @@ export function BountyTimeline({
                 )}
               >
                 {done && (
-                  <Check className="mt-px size-3 shrink-0 text-success max-[400px]:hidden" aria-hidden />
+                  <Check className="mt-px size-3 shrink-0 text-primary max-[400px]:hidden" aria-hidden />
                 )}
-                <span className="min-w-0 break-words">{step.label}</span>
+                <span className="min-w-0 wrap-break-word">{step.label}</span>
                 <span className="sr-only">{done ? ' (done)' : current ? ' (current)' : ''}</span>
               </div>
             </li>
@@ -75,19 +76,11 @@ export function BountyTimeline({
         })}
       </ol>
       {bounty.status === 'FUNDING_PENDING' && (
-        <p className="mt-3 text-xs text-muted-foreground">
-          Funding transaction submitted. Waiting for the network to confirm it.
-        </p>
+        <p className="mt-3 text-xs text-muted-foreground">Waiting for the network to confirm funding.</p>
       )}
       {exceptional && (
         <p className="mt-3 flex items-center gap-1.5 text-sm text-warning">
           <CircleAlert className="size-4" aria-hidden /> {BOUNTY_STATUS_LABELS[bounty.status]}
-        </p>
-      )}
-      {bounty.published_at && (
-        <p className="mt-2 text-xs text-muted-foreground">
-          Published {formatDate(bounty.published_at)}
-          {bounty.completion_deadline && `. Work due ${formatDate(bounty.completion_deadline)}`}
         </p>
       )}
     </div>

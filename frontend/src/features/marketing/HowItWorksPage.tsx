@@ -21,9 +21,9 @@ export default function HowItWorksPage() {
             From posted task to verified payout
           </h1>
           <p className="mt-4 max-w-2xl text-[1.0625rem] leading-relaxed text-muted-foreground">
-            Every bounty follows the same lifecycle. The difference from a regular job board is that the reward
-            is locked in a smart contract before work begins, and every movement of money leaves a public
-            record.
+            Every bounty follows the same lifecycle. The difference from a regular job board is that the
+            reward is locked in a smart contract before work begins, and every movement of money leaves a
+            public record.
           </p>
           <div className="mt-8 flex flex-wrap gap-3">
             <Button asChild>

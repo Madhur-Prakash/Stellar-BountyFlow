@@ -25,7 +25,7 @@ test('11. cancel a funded bounty: request cancellation → on-chain request → 
   await expect(dialog.getByText(/the bounty is funded, so this requests cancellation/i)).toBeVisible()
   await dialog.getByLabel('Reason').fill('nope')
   await dialog.getByRole('button', { name: 'Cancel bounty' }).click()
-  await expect(dialog.getByText('Please write at least 5 characters.')).toBeVisible()
+  await expect(dialog.getByText('Write at least 5 characters.')).toBeVisible()
   await dialog.getByLabel('Reason').fill('Scope moved to another team.')
   await dialog.getByRole('button', { name: 'Cancel bounty' }).click()
   await expect(dialog).toBeHidden()
@@ -67,7 +67,12 @@ test('12. dispute: assign on-chain, contributor raises and freezes the escrow, a
   await signIn(requester, REQUESTER)
   await linkWalletViaApi(requester, requesterWallet)
   const bounty = await fundedBountyViaApi(requester, requesterWallet, { title })
-  const { page: contributor, wallet: contributorWallet } = await newSession(browser, testInfo, guard, 'contributor')
+  const { page: contributor, wallet: contributorWallet } = await newSession(
+    browser,
+    testInfo,
+    guard,
+    'contributor',
+  )
   const contributorUser = await registerViaApi(contributor, newUser('contrib'))
   await linkWalletViaApi(contributor, contributorWallet!)
   const application = await applyViaApi(contributor, bounty.id)
@@ -90,7 +95,7 @@ test('12. dispute: assign on-chain, contributor raises and freezes the escrow, a
     const dialog = contributor.getByRole('dialog', { name: 'Raise a dispute' })
     await dialog.getByLabel('What went wrong?').fill('Too short')
     await dialog.getByRole('button', { name: 'Raise dispute' }).click()
-    await expect(dialog.getByText('Please write at least 20 characters.')).toBeVisible()
+    await expect(dialog.getByText('Write at least 20 characters.')).toBeVisible()
     await dialog
       .getByLabel('What went wrong?')
       .fill('The requester changed the scope after I started and will not review the delivered work.')
@@ -120,8 +125,10 @@ test('12. dispute: assign on-chain, contributor raises and freezes the escrow, a
     await expect(dialog.getByRole('combobox', { name: 'Decision' })).toHaveText(/release to contributor/i)
     await dialog.getByLabel('Decision note').fill('Too short')
     await dialog.getByRole('button', { name: 'Record decision' }).click()
-    await expect(dialog.getByText('Please write at least 10 characters.')).toBeVisible()
-    await dialog.getByLabel('Decision note').fill('The delivered work meets the published acceptance criteria.')
+    await expect(dialog.getByText('Write at least 10 characters.')).toBeVisible()
+    await dialog
+      .getByLabel('Decision note')
+      .fill('The delivered work meets the published acceptance criteria.')
     await dialog.getByRole('button', { name: 'Record decision' }).click()
     await expect(dialog).toBeHidden()
 
@@ -134,8 +141,14 @@ test('12. dispute: assign on-chain, contributor raises and freezes the escrow, a
     await notice.getByRole('button', { name: 'Sign as arbiter' }).click()
     const chain = admin.getByRole('dialog', { name: /execute dispute decision/i })
     await expect(chain.getByText(/arbiter wallet must sign this transaction/i)).toBeVisible()
-    await expect(chain.getByText(`${config.arbiter_address.slice(0, 4)}…${config.arbiter_address.slice(-4)}`)).toBeVisible()
-    await chain.getByRole('button', { name: 'Close' }).or(chain.getByRole('button', { name: 'Cancel' })).first().click()
+    await expect(
+      chain.getByText(`${config.arbiter_address.slice(0, 4)}…${config.arbiter_address.slice(-4)}`),
+    ).toBeVisible()
+    await chain
+      .getByRole('button', { name: 'Close' })
+      .or(chain.getByRole('button', { name: 'Cancel' }))
+      .first()
+      .click()
     await expect(chain).toBeHidden()
   })
 
@@ -151,7 +164,11 @@ test('12. dispute: assign on-chain, contributor raises and freezes the escrow, a
   await admin.context().close()
 })
 
-test('12b. dispute resolved off-chain (escrow not frozen) returns the bounty to work', async ({ page, browser, guard }, testInfo) => {
+test('12b. dispute resolved off-chain (escrow not frozen) returns the bounty to work', async ({
+  page,
+  browser,
+  guard,
+}, testInfo) => {
   test.setTimeout(420_000)
   const title = `E2E off-chain dispute ${uniqueSuffix()}`
   const requesterWallet = await installTestWallet(page)
@@ -169,7 +186,9 @@ test('12b. dispute resolved off-chain (escrow not frozen) returns the bounty to 
   const panel = page.getByRole('region', { name: 'Dispute' })
   await panel.getByRole('button', { name: 'Raise a dispute' }).click()
   const dialog = page.getByRole('dialog', { name: 'Raise a dispute' })
-  await dialog.getByLabel('What went wrong?').fill('The contributor has not started the work two weeks after being accepted.')
+  await dialog
+    .getByLabel('What went wrong?')
+    .fill('The contributor has not started the work two weeks after being accepted.')
   await dialog.getByRole('button', { name: 'Raise dispute' }).click()
   await expect(dialog).toBeHidden()
   await expect(page.getByText('Status: Disputed').first()).toBeVisible()
@@ -184,11 +203,15 @@ test('12b. dispute resolved off-chain (escrow not frozen) returns the bounty to 
   const resolve = admin.getByRole('dialog', { name: 'Resolve dispute' })
   await resolve.getByRole('combobox', { name: 'Decision' }).click()
   await admin.getByRole('option', { name: 'Refund to requester' }).click()
-  await resolve.getByLabel('Decision note').fill('No work was delivered; the requester may refund the escrow.')
+  await resolve
+    .getByLabel('Decision note')
+    .fill('No work was delivered; the requester may refund the escrow.')
   await resolve.getByRole('button', { name: 'Record decision' }).click()
   await expect(resolve).toBeHidden()
   const notice = admin.getByRole('status').filter({ hasText: 'Decision recorded' })
-  await expect(notice.getByText(/not frozen on-chain, so the decision is applied in BountyFlow/i)).toBeVisible()
+  await expect(
+    notice.getByText(/not frozen on-chain, so the decision is applied in BountyFlow/i),
+  ).toBeVisible()
   await expect(notice.getByRole('button', { name: 'Sign as arbiter' })).toHaveCount(0)
   await expect(row.getByText('Closed')).toBeVisible()
 

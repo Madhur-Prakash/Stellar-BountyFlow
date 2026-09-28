@@ -11,10 +11,9 @@ import { MonoValue } from '@/components/common/MonoValue'
 import { EmptyState } from '@/components/layout/EmptyState'
 import { LoadingState } from '@/components/layout/LoadingState'
 import { PageHeader } from '@/components/layout/PageHeader'
-import { QueryView } from '@/components/layout/QueryView'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
+import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card'
 import { Checkbox } from '@/components/ui/checkbox'
 import {
   Form,
@@ -26,6 +25,7 @@ import {
   FormMessage,
 } from '@/components/ui/form'
 import { Input } from '@/components/ui/input'
+import { Separator } from '@/components/ui/separator'
 import { Textarea } from '@/components/ui/textarea'
 import { FormErrorAlert } from '@/features/auth/AuthCard'
 import { USERNAME_RE } from '@/features/auth/schemas'
@@ -38,6 +38,9 @@ import type { Me } from '@/lib/api/types'
 import { formatDate } from '@/lib/format'
 import { applyApiErrors } from '@/lib/form-errors'
 import { accountExplorerUrl, networkDisplayName } from '@/lib/stellar/explorer'
+
+import { AccountLayout } from './AccountNav'
+import { CardQuery } from './workspace-ui'
 
 const optionalHttps = z
   .string()
@@ -139,7 +142,7 @@ function ProfileForm({ me }: { me: Me }) {
       control={form.control}
       name={name}
       render={({ field }) => (
-        <FormItem>
+        <FormItem className="content-start">
           <FormLabel>{label}</FormLabel>
           <FormControl>
             {opts.area ? (
@@ -148,7 +151,9 @@ function ProfileForm({ me }: { me: Me }) {
               <Input placeholder={opts.placeholder} {...field} value={String(field.value)} />
             )}
           </FormControl>
-          {opts.description && <FormDescription>{opts.description}</FormDescription>}
+          {opts.description && (
+            <FormDescription className="text-[0.8125rem]">{opts.description}</FormDescription>
+          )}
           <FormMessage />
         </FormItem>
       )}
@@ -157,52 +162,53 @@ function ProfileForm({ me }: { me: Me }) {
 
   return (
     <Form {...form}>
-      <form onSubmit={onSubmit} className="space-y-5" noValidate>
-        <div className="grid gap-5 sm:grid-cols-2">
-          {text('display_name', 'Display name')}
-          {text('username', 'Username', { description: 'Your public profile lives at /u/username.' })}
-        </div>
-        {text('bio', 'Bio', { area: true })}
-        {text('avatar_url', 'Avatar URL', { placeholder: 'https://…' })}
-        <div className="grid gap-5 sm:grid-cols-2">
-          {text('skills', 'Skills', { description: 'Comma separated.' })}
-          {text('interests', 'Interests', { description: 'Comma separated.' })}
-        </div>
-        <div className="grid gap-5 sm:grid-cols-2">
-          {text('github_url', 'GitHub URL', { placeholder: 'https://github.com/you' })}
-          {text('portfolio_url', 'Portfolio URL', { placeholder: 'https://…' })}
-        </div>
-        <fieldset className="space-y-2">
-          <legend className="text-sm font-medium">I use BountyFlow to…</legend>
-          {(['wants_to_request', 'wants_to_contribute'] as const).map((name) => (
-            <FormField
-              key={name}
-              control={form.control}
-              name={name}
-              render={({ field }) => (
-                <FormItem className="flex items-center gap-3">
-                  <FormControl>
-                    <Checkbox checked={field.value} onCheckedChange={(v) => field.onChange(v === true)} />
-                  </FormControl>
-                  <FormLabel className="font-normal">
-                    {name === 'wants_to_request' ? 'Post bounties' : 'Find work'}
-                  </FormLabel>
-                </FormItem>
-              )}
-            />
-          ))}
-        </fieldset>
-        <FormErrorAlert message={formError} />
-        <div className="flex flex-wrap gap-3">
+      <form onSubmit={onSubmit} noValidate>
+        <CardContent className="space-y-5 pb-6">
+          <div className="grid gap-5 sm:grid-cols-2">
+            {text('display_name', 'Display name')}
+            {text('username', 'Username', { description: 'Your public profile lives at /u/username.' })}
+          </div>
+          {text('bio', 'Bio', { area: true })}
+          {text('avatar_url', 'Avatar URL', { placeholder: 'https://…' })}
+          <Separator />
+          <div className="grid gap-5 sm:grid-cols-2">
+            {text('skills', 'Skills', { description: 'Comma separated.' })}
+            {text('interests', 'Interests', { description: 'Comma separated.' })}
+          </div>
+          <div className="grid gap-5 sm:grid-cols-2">
+            {text('github_url', 'GitHub URL', { placeholder: 'https://github.com/you' })}
+            {text('portfolio_url', 'Portfolio URL', { placeholder: 'https://…' })}
+          </div>
+          <Separator />
+          <fieldset className="space-y-2.5">
+            <legend className="text-sm font-medium">I use BountyFlow to…</legend>
+            <div className="flex flex-wrap gap-x-8 gap-y-2.5 pt-2.5">
+              {(['wants_to_request', 'wants_to_contribute'] as const).map((name) => (
+                <FormField
+                  key={name}
+                  control={form.control}
+                  name={name}
+                  render={({ field }) => (
+                    <FormItem className="flex items-center gap-3">
+                      <FormControl>
+                        <Checkbox checked={field.value} onCheckedChange={(v) => field.onChange(v === true)} />
+                      </FormControl>
+                      <FormLabel className="font-normal">
+                        {name === 'wants_to_request' ? 'Post bounties' : 'Find work'}
+                      </FormLabel>
+                    </FormItem>
+                  )}
+                />
+              ))}
+            </div>
+          </fieldset>
+          <FormErrorAlert message={formError} />
+        </CardContent>
+        <CardFooter className="justify-end gap-3 px-5 py-3">
           <Button type="submit" disabled={update.isPending || !form.formState.isDirty}>
             {update.isPending && <LoaderCircle className="animate-spin" />} Save changes
           </Button>
-          <Button asChild variant="outline">
-            <Link to={`/u/${me.username}`}>
-              View public profile <ExternalLink />
-            </Link>
-          </Button>
-        </div>
+        </CardFooter>
       </form>
     </Form>
   )
@@ -213,69 +219,74 @@ function WalletsCard() {
   const remove = useRemoveWallet()
   const { data: config } = usePublicConfig()
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle className="flex items-center gap-2 text-base">
-          <Wallet className="size-4" aria-hidden /> Linked wallets
-        </CardTitle>
-        <CardDescription>
-          Payouts go to a verified wallet. Connect Freighter, then choose “Verify ownership” to sign a
-          one-time proof. Nothing is submitted to the network.
-        </CardDescription>
-      </CardHeader>
-      <CardContent className="space-y-4">
-        <WalletButton />
-        <QueryView
-          query={query}
-          skeleton="app-profile-wallets"
-          isEmpty={(d) => d.length === 0}
-          empty={{
-            icon: Wallet,
-            title: 'No wallets linked',
-            description: 'Verify a wallet to receive payouts and fund bounties.',
-          }}
-        >
-          {(wallets) => (
-            <ul className="space-y-3">
-              {wallets.map((w) => (
-                <li
-                  key={w.id}
-                  className="flex flex-col gap-2 rounded-lg border p-3 sm:flex-row sm:items-center sm:justify-between"
-                >
-                  <div className="min-w-0 space-y-1.5">
-                    <MonoValue
-                      value={w.public_address}
-                      label="wallet address"
-                      href={accountExplorerUrl(config, w.public_address)}
-                    />
-                    <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
-                      <Badge variant="success">
-                        <ShieldCheck aria-hidden /> Ownership verified by signature
-                      </Badge>
-                      {networkDisplayName(w.network)}, verified {formatDate(w.verified_at)}
-                    </div>
-                  </div>
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    className="text-destructive"
-                    disabled={remove.isPending}
-                    onClick={() =>
-                      remove.mutate(w.id, {
-                        onSuccess: () => toast.success('Wallet unlinked'),
-                        onError: (e) => toast.error(errorMessage(e)),
-                      })
-                    }
+    <section id="wallets" aria-labelledby="wallets-h">
+      <Card className="gap-0">
+        <CardHeader className="pb-5">
+          <CardTitle>
+            <h2 id="wallets-h">Linked wallets</h2>
+          </CardTitle>
+          <CardDescription>
+            Payouts go only to a wallet you’ve verified. Verifying signs a one-time proof; nothing is
+            submitted to the network.
+          </CardDescription>
+        </CardHeader>
+        <div className="border-t">
+          <CardQuery
+            query={query}
+            skeleton="app-profile-wallets"
+            rows={1}
+            isEmpty={(d) => d.length === 0}
+            empty={{
+              icon: Wallet,
+              title: 'No wallets linked',
+              description: 'Connect Freighter, then choose “Verify ownership” in the wallet menu.',
+            }}
+          >
+            {(wallets) => (
+              <ul className="divide-y">
+                {wallets.map((w) => (
+                  <li
+                    key={w.id}
+                    className="flex flex-col gap-2 px-5 py-3.5 sm:flex-row sm:items-center sm:justify-between"
                   >
-                    <Trash2 /> Unlink
-                  </Button>
-                </li>
-              ))}
-            </ul>
-          )}
-        </QueryView>
-      </CardContent>
-    </Card>
+                    <div className="min-w-0 space-y-1.5">
+                      <MonoValue
+                        value={w.public_address}
+                        label="wallet address"
+                        href={accountExplorerUrl(config, w.public_address)}
+                      />
+                      <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
+                        <Badge variant="success">
+                          <ShieldCheck aria-hidden /> Ownership verified by signature
+                        </Badge>
+                        {networkDisplayName(w.network)}, verified {formatDate(w.verified_at)}
+                      </div>
+                    </div>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="self-start text-destructive hover:text-destructive sm:self-center"
+                      disabled={remove.isPending}
+                      onClick={() =>
+                        remove.mutate(w.id, {
+                          onSuccess: () => toast.success('Wallet unlinked'),
+                          onError: (e) => toast.error(errorMessage(e)),
+                        })
+                      }
+                    >
+                      <Trash2 /> Unlink
+                    </Button>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </CardQuery>
+        </div>
+        <CardFooter className="px-5 py-3">
+          <WalletButton />
+        </CardFooter>
+      </Card>
+    </section>
   )
 }
 
@@ -284,22 +295,32 @@ export default function ProfilePage() {
   if (isPending) return <LoadingState label="Loading profile" />
   if (!me) return <EmptyState title="Not signed in" />
   return (
-    <div className="mx-auto max-w-4xl">
+    <div className="lg:max-w-252">
       <PageHeader
         title="Profile"
         description="How you appear to requesters and contributors. Everything here except wallets is self-reported."
+        actions={
+          <Button asChild variant="outline">
+            <Link to={`/u/${me.username}`}>
+              View public profile <ExternalLink />
+            </Link>
+          </Button>
+        }
       />
-      <div className="grid gap-6">
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-base">Public details</CardTitle>
-          </CardHeader>
-          <CardContent>
+      <AccountLayout>
+        <section id="details" aria-labelledby="details-h">
+          <Card className="gap-0">
+            <CardHeader className="pb-5">
+              <CardTitle>
+                <h2 id="details-h">Public details</h2>
+              </CardTitle>
+              <CardDescription>Shown on your public profile.</CardDescription>
+            </CardHeader>
             <ProfileForm me={me} />
-          </CardContent>
-        </Card>
+          </Card>
+        </section>
         <WalletsCard />
-      </div>
+      </AccountLayout>
     </div>
   )
 }

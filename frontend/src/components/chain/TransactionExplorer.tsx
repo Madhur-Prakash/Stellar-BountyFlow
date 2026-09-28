@@ -3,7 +3,7 @@ import type { ReactNode } from 'react'
 import { Link } from 'react-router'
 
 import { MonoValue } from '@/components/common/MonoValue'
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { Card, CardAction, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { usePublicConfig } from '@/lib/api/queries/config'
 import type { BlockchainTransaction, PublicConfig } from '@/lib/api/types'
@@ -26,8 +26,9 @@ function addressHref(config: PublicConfig | undefined, address: string | null) {
 function Amount({ tx }: { tx: BlockchainTransaction }) {
   if (!tx.amount) return <span className="text-muted-foreground">—</span>
   return (
-    <span className="font-medium whitespace-nowrap tabular-nums">
-      {formatAmount(tx.amount)} <span className="text-muted-foreground">{tx.asset?.code ?? 'XLM'}</span>
+    <span className="amount whitespace-nowrap">
+      {formatAmount(tx.amount)}{' '}
+      <span className="font-normal text-muted-foreground">{tx.asset?.code ?? 'XLM'}</span>
     </span>
   )
 }
@@ -36,8 +37,8 @@ function ExplorerLink({ tx, config }: { tx: BlockchainTransaction; config: Publi
   const href = transactionExplorerHref(tx, config)
   if (!href) {
     return (
-      <span className="text-xs text-muted-foreground">
-        {NOT_SUBMITTED.has(tx.status) ? 'Never submitted to the network' : 'Not yet on-chain'}
+      <span className="text-[0.8125rem] text-muted-foreground">
+        {NOT_SUBMITTED.has(tx.status) ? 'Not submitted' : 'Pending'}
       </span>
     )
   }
@@ -46,7 +47,7 @@ function ExplorerLink({ tx, config }: { tx: BlockchainTransaction; config: Publi
       href={href}
       target="_blank"
       rel="noopener noreferrer nofollow"
-      className="inline-flex min-h-9 items-center gap-1 text-sm font-medium text-primary-emphasis hover:underline"
+      className="inline-flex min-h-8 items-center gap-1 text-[0.8125rem] font-medium text-primary-emphasis hover:underline"
     >
       View on explorer <ExternalLink className="size-3.5" aria-hidden />
       <span className="sr-only">(opens in a new tab)</span>
@@ -63,6 +64,8 @@ function Field({ label, children, className }: { label: string; children: ReactN
   )
 }
 
+const txTime = (tx: BlockchainTransaction) => tx.confirmed_at ?? tx.submitted_at ?? tx.created_at
+
 /** Full detail card for one blockchain transaction. */
 export function TransactionExplorerCard({
   tx,
@@ -75,14 +78,14 @@ export function TransactionExplorerCard({
 }) {
   const { data: config } = usePublicConfig()
   return (
-    <Card className={cn('gap-4', className)}>
-      <CardHeader className="flex flex-row flex-wrap items-center justify-between gap-2">
-        <CardTitle className="text-base">{title ?? TX_TYPE_LABELS[tx.transaction_type]}</CardTitle>
-        <div className="flex flex-wrap items-center gap-1.5">
+    <Card className={cn('gap-0 py-0 shadow-none', className)}>
+      <CardHeader className="border-b py-3 [.border-b]:pb-3">
+        <CardTitle>{title ?? TX_TYPE_LABELS[tx.transaction_type]}</CardTitle>
+        <CardAction className="row-span-1 self-center">
           <TxStatusBadge status={tx.status} />
-        </div>
+        </CardAction>
       </CardHeader>
-      <CardContent>
+      <CardContent className="py-4">
         <dl className="grid grid-cols-1 gap-x-6 gap-y-4 sm:grid-cols-2">
           <Field label="Network">{networkDisplayName(tx.network)}</Field>
           <Field label="Amount">
@@ -92,7 +95,7 @@ export function TransactionExplorerCard({
             {tx.transaction_hash ? (
               <MonoValue value={tx.transaction_hash} label="transaction hash" lead={10} tail={10} />
             ) : (
-              <span className="text-muted-foreground">Assigned after submission</span>
+              <span className="text-muted-foreground">Not submitted yet</span>
             )}
           </Field>
           <Field label="Source">
@@ -136,10 +139,10 @@ export function TransactionExplorerCard({
             </Field>
           )}
         </dl>
-        <div className="mt-4 border-t pt-3">
-          <ExplorerLink tx={tx} config={config} />
-        </div>
       </CardContent>
+      <div className="border-t px-5 py-2">
+        <ExplorerLink tx={tx} config={config} />
+      </div>
     </Card>
   )
 }
@@ -157,11 +160,11 @@ export function TransactionTable({
   const { data: config } = usePublicConfig()
   return (
     <>
-      <div className="hidden rounded-xl border lg:block">
+      <div className="hidden overflow-hidden rounded-xl border bg-card shadow-soft in-data-[slot=card]:rounded-none in-data-[slot=card]:border-x-0 in-data-[slot=card]:border-b-0 in-data-[slot=card]:shadow-none lg:block">
         <Table>
           {caption && <caption className="sr-only">{caption}</caption>}
           <TableHeader>
-            <TableRow>
+            <TableRow className="hover:bg-transparent">
               <TableHead>Type</TableHead>
               <TableHead>Status</TableHead>
               <TableHead className="text-right">Amount</TableHead>
@@ -205,11 +208,8 @@ export function TransactionTable({
                   </TableCell>
                 )}
                 <TableCell className="whitespace-nowrap text-muted-foreground tabular-nums">
-                  <time
-                    dateTime={tx.confirmed_at ?? tx.submitted_at ?? tx.created_at}
-                    title={formatDateTime(tx.confirmed_at ?? tx.submitted_at ?? tx.created_at)}
-                  >
-                    {formatRelative(tx.confirmed_at ?? tx.submitted_at ?? tx.created_at)}
+                  <time dateTime={txTime(tx)} title={formatDateTime(txTime(tx))}>
+                    {formatRelative(txTime(tx))}
                   </time>
                 </TableCell>
                 <TableCell>
@@ -223,13 +223,18 @@ export function TransactionTable({
 
       <ul className="grid gap-3 sm:grid-cols-2 lg:hidden" aria-label={caption ?? 'Transactions'}>
         {transactions.map((tx) => (
-          <li key={tx.id} className="rounded-xl border bg-card p-4 shadow-soft">
+          <li
+            key={tx.id}
+            className="rounded-xl border bg-card p-4 shadow-soft in-data-[slot=card]:rounded-lg in-data-[slot=card]:shadow-none"
+          >
             <div className="flex items-start justify-between gap-2">
-              <div>
+              <div className="min-w-0">
                 <div className="font-medium">{TX_TYPE_LABELS[tx.transaction_type]}</div>
                 <div className="text-xs text-muted-foreground">
-                  {networkDisplayName(tx.network)} ·{' '}
-                  {formatRelative(tx.confirmed_at ?? tx.submitted_at ?? tx.created_at)}
+                  <time dateTime={txTime(tx)} title={formatDateTime(txTime(tx))}>
+                    {formatRelative(txTime(tx))}
+                  </time>{' '}
+                  on {networkDisplayName(tx.network)}
                 </div>
               </div>
               <TxStatusBadge status={tx.status} />

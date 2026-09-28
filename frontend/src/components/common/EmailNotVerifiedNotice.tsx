@@ -20,9 +20,7 @@ export function EmailNotVerifiedNotice({
       <MailWarning />
       <AlertTitle>Verify your email to {action}</AlertTitle>
       <AlertDescription>
-        <p>
-          We sent a verification link when you registered. Open it to confirm your address, then try again.
-        </p>
+        <p>Open the verification link we emailed you, then try again.</p>
         <Button
           size="sm"
           variant="outline"

@@ -75,7 +75,7 @@ function TextAndUrlDialog({
   const [text, setText] = useState('')
   const [url, setUrl] = useState('')
   const [touched, setTouched] = useState(false)
-  const textErr = text.trim().length < minLength ? `Please write at least ${minLength} characters.` : null
+  const textErr = text.trim().length < minLength ? `Write at least ${minLength} characters.` : null
   const urlErr = url.trim() && !isHttpUrl(url.trim()) ? 'Use a full http(s) URL.' : null
 
   const close = (o: boolean) => {
@@ -185,7 +185,7 @@ function RaiseDisputeButton({ bounty }: { bounty: BountyDetail }) {
         open={open}
         onOpenChange={setOpen}
         title="Raise a dispute"
-        description="A moderator reviews both sides. While the dispute is open, reviews and payouts on this bounty are paused."
+        description="A moderator reviews both sides. Reviews and payouts pause until it’s resolved."
         textLabel="What went wrong?"
         minLength={20}
         confirmLabel="Raise dispute"
@@ -242,7 +242,7 @@ function AddEvidenceButton({ dispute }: { dispute: Dispute }) {
         open={open}
         onOpenChange={setOpen}
         title="Add evidence"
-        description="Evidence is visible to the other party and the moderators."
+        description="The other party and the moderators can see it."
         textLabel="Description"
         minLength={5}
         confirmLabel="Add evidence"
@@ -301,7 +301,7 @@ export function DisputePanel({ bounty }: { bounty: BountyDetail }) {
   return (
     <Card className="gap-3" role="region" aria-labelledby="dispute-h">
       <CardHeader>
-        <CardTitle id="dispute-h" className="flex items-center gap-2 text-base">
+        <CardTitle id="dispute-h" className="flex items-center gap-2">
           <Gavel className="size-4 text-muted-foreground" aria-hidden /> Dispute
         </CardTitle>
       </CardHeader>
@@ -318,7 +318,7 @@ export function DisputePanel({ bounty }: { bounty: BountyDetail }) {
                 </Badge>
               )}
               <span className="text-xs text-muted-foreground">
-                raised {formatRelative(latest.created_at)}
+                Raised {formatRelative(latest.created_at)}
               </span>
             </div>
             <p className="line-clamp-4 text-muted-foreground">{latest.reason}</p>
@@ -346,8 +346,7 @@ export function DisputePanel({ bounty }: { bounty: BountyDetail }) {
           </div>
         ) : (
           <p className="text-sm text-muted-foreground">
-            If the work or the review can’t be settled between you, a moderator can decide. Payouts pause
-            while a dispute is open.
+            If you can’t agree on the work, a moderator decides. Payouts pause while a dispute is open.
           </p>
         )}
         {freezable && !assignedOnchain && (

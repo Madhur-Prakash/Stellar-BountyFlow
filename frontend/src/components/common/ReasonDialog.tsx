@@ -107,7 +107,7 @@ export function ReasonDialog({
               <p id={`${id}-err`} role="alert" className="text-sm text-destructive">
                 {tooLong
                   ? `Keep it under ${maxLength} characters.`
-                  : `Please write at least ${minLength} characters.`}
+                  : `Write at least ${minLength} characters.`}
               </p>
             )}
           </div>

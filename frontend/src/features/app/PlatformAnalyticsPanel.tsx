@@ -1,81 +1,58 @@
-import { Info } from 'lucide-react'
-import type { ReactNode } from 'react'
-import { CartesianGrid, Line, LineChart, XAxis, YAxis } from 'recharts'
+import { lazy, Suspense, type ReactNode } from 'react'
 
-import { StatTile } from '@/components/common/StatTile'
+import { StatGrid, StatTile } from '@/components/common/StatTile'
 import { QueryView } from '@/components/layout/QueryView'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
-import {
-  ChartContainer,
-  ChartLegend,
-  ChartLegendContent,
-  ChartTooltip,
-  ChartTooltipContent,
-  type ChartConfig,
-} from '@/components/ui/chart'
 import { Skeleton } from '@/components/ui/skeleton'
 import { usePlatformAnalytics } from '@/lib/api/queries/analytics'
 import type { PlatformAnalytics } from '@/lib/api/types'
 import { formatDateTime, formatNumber, humanize } from '@/lib/format'
 import { formatAmount } from '@/lib/money'
+import { cn } from '@/lib/utils'
+
+import { ChartCard, ChartEmpty, ChartFallback } from './workspace-ui'
+
+const ActivityLineChart = lazy(() =>
+  import('./analytics-charts').then((m) => ({ default: m.ActivityLineChart })),
+)
+
+const CHART_HEIGHT = 256
 
 const pct = (v: number | null) => (v === null ? '—' : `${Math.round(v * 100)}%`)
 
-const activityConfig = {
-  registrations: { label: 'Registrations', color: 'var(--chart-1)' },
-  bounties_published: { label: 'Bounties published', color: 'var(--chart-2)' },
-  applications: { label: 'Applications', color: 'var(--chart-3)' },
-  submissions: { label: 'Submissions', color: 'var(--chart-4)' },
-} satisfies ChartConfig
+const SERIES = [
+  { key: 'registrations', label: 'Registrations', color: 'var(--chart-1)' },
+  { key: 'bounties_published', label: 'Bounties published', color: 'var(--chart-2)' },
+  { key: 'applications', label: 'Applications', color: 'var(--chart-3)' },
+  { key: 'submissions', label: 'Submissions', color: 'var(--chart-4)' },
+] as const
 
-type SeriesKey = keyof typeof activityConfig
-const SERIES = Object.keys(activityConfig) as SeriesKey[]
+type SeriesKey = (typeof SERIES)[number]['key']
 
-function ActivityChart({ data }: { data: PlatformAnalytics['time_series'] }) {
+function ActivityCard({ data }: { data: PlatformAnalytics['time_series'] }) {
   const rows = data.map((d) => ({ ...d, label: d.day.slice(5) }))
-  const empty = rows.every((r) => SERIES.every((k) => r[k] === 0))
+  const empty = rows.every((r) => SERIES.every((s) => r[s.key as SeriesKey] === 0))
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle className="text-base">Last 30 days</CardTitle>
-        <CardDescription>
-          Daily registrations, published bounties, applications and submissions (UTC).
-        </CardDescription>
-      </CardHeader>
-      <CardContent>
-        {empty ? (
-          <p className="py-10 text-center text-sm text-muted-foreground">
-            No activity recorded in this window yet.
-          </p>
-        ) : (
-          <ChartContainer config={activityConfig} className="h-64 w-full">
-            <LineChart data={rows} accessibilityLayer margin={{ left: 4, right: 8 }}>
-              <CartesianGrid vertical={false} />
-              <XAxis dataKey="label" tickLine={false} axisLine={false} tickMargin={8} minTickGap={24} />
-              <YAxis tickLine={false} axisLine={false} width={32} allowDecimals={false} />
-              <ChartTooltip content={<ChartTooltipContent />} />
-              <ChartLegend content={<ChartLegendContent />} />
-              {SERIES.map((k) => (
-                <Line
-                  key={k}
-                  type="monotone"
-                  dataKey={k}
-                  stroke={`var(--color-${k})`}
-                  strokeWidth={2}
-                  dot={false}
-                />
-              ))}
-            </LineChart>
-          </ChartContainer>
-        )}
-        <table className="sr-only">
+    <ChartCard
+      title="Last 30 days"
+      description="Daily registrations, published bounties, applications and submissions (UTC)."
+    >
+      {empty ? (
+        <ChartEmpty className="h-40 sm:h-64">No activity recorded in this window yet.</ChartEmpty>
+      ) : (
+        <Suspense fallback={<ChartFallback height={CHART_HEIGHT} />}>
+          <ActivityLineChart rows={rows} series={[...SERIES]} height={CHART_HEIGHT} />
+        </Suspense>
+      )}
+      <div className="sr-only">
+        <table>
           <caption>Platform activity, last 30 days</caption>
           <thead>
             <tr>
               <th scope="col">Day</th>
-              {SERIES.map((k) => (
-                <th key={k} scope="col">
-                  {activityConfig[k].label}
+              {SERIES.map((s) => (
+                <th key={s.key} scope="col">
+                  {s.label}
                 </th>
               ))}
             </tr>
@@ -84,27 +61,35 @@ function ActivityChart({ data }: { data: PlatformAnalytics['time_series'] }) {
             {rows.map((r) => (
               <tr key={r.day}>
                 <th scope="row">{r.day}</th>
-                {SERIES.map((k) => (
-                  <td key={k}>{r[k]}</td>
+                {SERIES.map((s) => (
+                  <td key={s.key}>{r[s.key as SeriesKey]}</td>
                 ))}
               </tr>
             ))}
           </tbody>
         </table>
-      </CardContent>
-    </Card>
+      </div>
+    </ChartCard>
   )
 }
 
-function Group({ id, title, children }: { id: string; title: string; children: ReactNode }) {
+function Group({
+  id,
+  title,
+  columns = 'min-[420px]:grid-cols-2 xl:grid-cols-4',
+  children,
+}: {
+  id: string
+  title: string
+  columns?: string
+  children: ReactNode
+}) {
   return (
     <section aria-labelledby={`platform-${id}`}>
-      <h3 id={`platform-${id}`} className="mb-3 text-sm font-semibold">
+      <h3 id={`platform-${id}`} className="mb-2.5 text-[0.8125rem] font-medium text-muted-foreground">
         {title}
       </h3>
-      <div className="grid grid-cols-1 gap-3 min-[420px]:grid-cols-2 lg:grid-cols-4">
-        {children}
-      </div>
+      <StatGrid className={cn('grid-cols-1', columns)}>{children}</StatGrid>
     </section>
   )
 }
@@ -112,7 +97,8 @@ function Group({ id, title, children }: { id: string; title: string; children: R
 function PlatformContent({ data }: { data: PlatformAnalytics }) {
   const { users, bounties, transactions, engagement } = data
   return (
-    <div className="space-y-8">
+    <div className="space-y-6">
+      <h2 className="sr-only">Platform</h2>
       <Group id="users" title="Users">
         <StatTile label="Registered users" value={formatNumber(users.registered_users)} />
         <StatTile
@@ -148,12 +134,9 @@ function PlatformContent({ data }: { data: PlatformAnalytics }) {
           value={formatNumber(transactions.successful_transactions)}
         />
         <StatTile label="Failed transactions" value={formatNumber(transactions.failed_transactions)} />
-        <StatTile
-          label="Transacting wallets"
-          value={formatNumber(transactions.unique_transacting_wallets)}
-        />
+        <StatTile label="Transacting wallets" value={formatNumber(transactions.unique_transacting_wallets)} />
       </Group>
-      <Group id="engagement" title="Engagement">
+      <Group id="engagement" title="Engagement" columns="sm:grid-cols-3">
         <StatTile label="Repeat contributors" value={formatNumber(engagement.repeat_contributors)} />
         <StatTile
           label="Application acceptance"
@@ -166,12 +149,12 @@ function PlatformContent({ data }: { data: PlatformAnalytics }) {
           hint={`${formatNumber(engagement.submissions_reviewed)} reviewed`}
         />
       </Group>
-      <ActivityChart data={data.time_series} />
+      <ActivityCard data={data.time_series} />
       {Object.keys(data.methodology).length > 0 && (
-        <Card size="sm">
+        <Card>
           <CardHeader>
-            <CardTitle className="flex items-center gap-2 text-base">
-              <Info className="size-4 text-muted-foreground" aria-hidden /> How these numbers are counted
+            <CardTitle>
+              <h3>How these numbers are counted</h3>
             </CardTitle>
             <CardDescription>
               Generated{' '}
@@ -181,7 +164,7 @@ function PlatformContent({ data }: { data: PlatformAnalytics }) {
             </CardDescription>
           </CardHeader>
           <CardContent>
-            <dl className="grid gap-3 text-sm sm:grid-cols-2">
+            <dl className="grid gap-x-8 gap-y-4 text-sm sm:grid-cols-2">
               {Object.entries(data.methodology).map(([k, v]) => (
                 <div key={k} className="min-w-0">
                   <dt className="font-medium">{humanize(k)}</dt>

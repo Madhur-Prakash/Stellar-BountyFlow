@@ -26,6 +26,8 @@ import type { Submission } from '@/lib/api/types'
 import { formatRelative } from '@/lib/format'
 import { formatAmount } from '@/lib/money'
 
+import { ManageBountyNav, ManageStats } from './ManageBountyNav'
+
 const REVIEWABLE = new Set(['SUBMITTED', 'RESUBMITTED'])
 const PAYABLE = new Set(['CREATED', 'SIGNATURE_REQUIRED', 'FAILED'])
 
@@ -36,15 +38,20 @@ function SubmissionCard({ s, isOwner }: { s: Submission; isOwner: boolean }) {
   const [dialog, setDialog] = useState<'approve' | 'revise' | 'reject' | null>(null)
   const close = (o: boolean) => !o && setDialog(null)
   const onError = (e: unknown) => toast.error(errorMessage(e))
+  const links = [s.evidence_url, ...s.evidence_links].filter(
+    (u): u is string => !!u && /^https?:\/\//i.test(u),
+  )
+  const canReview = isOwner && REVIEWABLE.has(s.status)
+  const canPay = isOwner && s.status === 'APPROVED' && !!s.payment && PAYABLE.has(s.payment.payment_status)
 
   return (
-    <li className="rounded-xl border bg-card p-5 shadow-soft">
-      <div className="flex flex-wrap items-start justify-between gap-3">
-        <div className="flex items-center gap-3">
-          <UserAvatar user={s.contributor} className="size-10" />
-          <div>
-            <div className="font-medium">{s.contributor.display_name}</div>
-            <div className="text-sm text-muted-foreground">
+    <li className="overflow-hidden rounded-xl border bg-card shadow-soft">
+      <div className="flex flex-wrap items-start justify-between gap-3 px-5 pt-4">
+        <div className="flex min-w-0 items-center gap-3">
+          <UserAvatar user={s.contributor} className="size-9" />
+          <div className="min-w-0">
+            <div className="truncate text-sm font-medium">{s.contributor.display_name}</div>
+            <div className="text-xs text-muted-foreground">
               Version {s.version}, updated {formatRelative(s.updated_at)}
             </div>
           </div>
@@ -54,32 +61,41 @@ function SubmissionCard({ s, isOwner }: { s: Submission; isOwner: boolean }) {
           {s.payment && <PaymentStatusBadge status={s.payment.payment_status} />}
         </div>
       </div>
-      <SafeMarkdown className="mt-4">{s.description}</SafeMarkdown>
-      {(s.evidence_url || s.evidence_links.length > 0) && (
-        <ul className="mt-3 flex flex-wrap gap-2">
-          {[s.evidence_url, ...s.evidence_links]
-            .filter((u): u is string => !!u && /^https?:\/\//i.test(u))
-            .map((u) => (
+
+      <div className="space-y-3 px-5 pt-3 pb-4">
+        <SafeMarkdown className="max-w-3xl text-sm leading-6">{s.description}</SafeMarkdown>
+        {links.length > 0 && (
+          <ul className="flex flex-wrap gap-1.5" aria-label="Evidence links">
+            {links.map((u) => (
               <li key={u}>
                 <a
                   href={u}
                   target="_blank"
                   rel="noopener noreferrer nofollow"
-                  className="inline-flex min-h-9 items-center gap-1 rounded-md border px-2 text-xs hover:bg-muted"
+                  className="inline-flex h-7 items-center gap-1.5 rounded-md border px-2 text-xs transition-colors hover:bg-muted"
                 >
-                  {new URL(u).hostname} <ExternalLink className="size-3" aria-hidden />
+                  {new URL(u).hostname}
+                  <ExternalLink className="size-3 text-muted-foreground" aria-hidden />
+                  <span className="sr-only">(opens in a new tab)</span>
                 </a>
               </li>
             ))}
-        </ul>
-      )}
-      {s.review_feedback && (
-        <p className="mt-3 text-sm text-muted-foreground">Feedback: {s.review_feedback}</p>
-      )}
+          </ul>
+        )}
+        {s.review_feedback && (
+          <p className="rounded-lg border bg-surface/60 px-3 py-2 text-sm">
+            <span className="text-muted-foreground">Feedback: </span>
+            {s.review_feedback}
+          </p>
+        )}
+        {s.payment?.transaction && s.payment.transaction.status !== 'SIGNATURE_REQUIRED' && (
+          <TransactionExplorerCard tx={s.payment.transaction} title="Payout transaction" />
+        )}
+      </div>
 
-      {isOwner && (
-        <div className="mt-4 flex flex-wrap gap-2">
-          {REVIEWABLE.has(s.status) && (
+      {(canReview || canPay) && (
+        <div className="flex flex-wrap items-center gap-2 border-t bg-surface/50 px-5 py-3">
+          {canReview && (
             <>
               <Button size="sm" onClick={() => setDialog('approve')}>
                 <Check /> Approve
@@ -90,14 +106,14 @@ function SubmissionCard({ s, isOwner }: { s: Submission; isOwner: boolean }) {
               <Button
                 size="sm"
                 variant="ghost"
-                className="text-destructive"
+                className="text-destructive hover:text-destructive sm:ml-auto"
                 onClick={() => setDialog('reject')}
               >
                 <X /> Reject
               </Button>
             </>
           )}
-          {s.status === 'APPROVED' && s.payment && PAYABLE.has(s.payment.payment_status) && (
+          {canPay && s.payment && (
             <ChainActionButton
               size="sm"
               icon={CircleDollarSign}
@@ -110,9 +126,6 @@ function SubmissionCard({ s, isOwner }: { s: Submission; isOwner: boolean }) {
             />
           )}
         </div>
-      )}
-      {s.payment?.transaction && s.payment.transaction.status !== 'SIGNATURE_REQUIRED' && (
-        <TransactionExplorerCard tx={s.payment.transaction} title="Payout transaction" className="mt-4" />
       )}
 
       <ReasonDialog
@@ -171,54 +184,56 @@ export default function BountySubmissionsPage() {
   const [page, setPage] = useState(1)
   const bounty = useBounty(bountyId)
   const query = useBountySubmissions(bountyId, { page, page_size: 20 })
-  const isOwner = !!bounty.data?.viewer?.is_owner
+  const b = bounty.data
+  const isOwner = !!b?.viewer?.is_owner
 
   return (
-    <div className="mx-auto max-w-4xl">
+    <div>
       <PageHeader
         breadcrumbs={[
           { label: 'My bounties', to: '/app/bounties' },
-          { label: bounty.data?.title ?? 'Bounty', to: `/app/bounties/${bountyId}` },
+          { label: b?.title ?? 'Bounty', to: `/app/bounties/${bountyId}` },
           { label: 'Submissions' },
         ]}
         title="Submissions"
-        description="Review delivered work against your acceptance criteria, then release payouts from escrow."
         actions={
-          bounty.data && (
+          b && (
             <Button asChild variant="outline">
-              <Link to={`/bounties/${bounty.data.slug || bounty.data.id}`}>View criteria</Link>
+              <Link to={`/bounties/${b.slug || b.id}`}>View criteria</Link>
             </Button>
           )
         }
+        className="pb-4"
       />
-      <QueryView
-        query={query}
-        skeleton="app-bounty-submissions"
-        isEmpty={(d) => d.items.length === 0}
-        empty={{
-          icon: FileCheck2,
-          title: 'No submissions yet',
-          description: 'Assigned contributors’ work will appear here for review.',
-        }}
-      >
-        {(data) => (
-          <>
-            <ul className="space-y-4">
-              {data.items.map((s) => (
-                <SubmissionCard key={s.id} s={s} isOwner={isOwner} />
-              ))}
-            </ul>
-            <PaginationBar
-              page={data.page}
-              pages={data.pages}
-              total={data.total}
-              pageSize={data.page_size}
-              onPageChange={setPage}
-              itemLabel="submissions"
-            />
-          </>
-        )}
-      </QueryView>
+      <ManageBountyNav bountyId={bountyId} applicants={b?.applications_count} />
+      {b && <ManageStats bounty={b} className="mt-6" />}
+
+      <div className="mt-6">
+        <QueryView
+          query={query}
+          skeleton="app-bounty-submissions"
+          isEmpty={(d) => d.items.length === 0}
+          empty={{ icon: FileCheck2, title: 'No submissions yet' }}
+        >
+          {(data) => (
+            <>
+              <ul className="space-y-4">
+                {data.items.map((s) => (
+                  <SubmissionCard key={s.id} s={s} isOwner={isOwner} />
+                ))}
+              </ul>
+              <PaginationBar
+                page={data.page}
+                pages={data.pages}
+                total={data.total}
+                pageSize={data.page_size}
+                onPageChange={setPage}
+                itemLabel="submissions"
+              />
+            </>
+          )}
+        </QueryView>
+      </div>
     </div>
   )
 }

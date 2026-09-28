@@ -1,32 +1,20 @@
-import { useRef } from 'react'
 import { useLocation, useOutlet } from 'react-router'
 
-import { motionAllowed } from '@/hooks/useReducedMotion'
-import { gsap, useGSAP } from '@/lib/gsap'
+import { cn } from '@/lib/utils'
 
 /**
- * Route-level page entrance: a short fade with a 6px rise. There is no exit animation, so
- * navigation never waits. Transforms are cleared afterwards so sticky and fixed descendants behave normally.
+ * Route-level page entrance: a short fade with a 4px rise, done in CSS on the keyed wrapper. There is no exit
+ * animation, so navigation never waits. Under reduced motion the global rule in index.css removes it.
  */
 export function AnimatedOutlet({ className }: { className?: string }) {
   const outlet = useOutlet()
   const { pathname } = useLocation()
-  const ref = useRef<HTMLDivElement>(null)
-
-  useGSAP(
-    () => {
-      if (!ref.current || !motionAllowed()) return
-      gsap.fromTo(
-        ref.current,
-        { autoAlpha: 0, y: 6 },
-        { autoAlpha: 1, y: 0, duration: 0.32, ease: 'power2.out', clearProps: 'transform,opacity,visibility' },
-      )
-    },
-    { dependencies: [pathname], scope: ref, revertOnUpdate: true },
-  )
 
   return (
-    <div key={pathname} ref={ref} className={className}>
+    <div
+      key={pathname}
+      className={cn('animate-in duration-300 ease-out fade-in-0 slide-in-from-bottom-1', className)}
+    >
       {outlet}
     </div>
   )

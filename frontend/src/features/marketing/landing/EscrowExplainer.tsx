@@ -294,10 +294,28 @@ function Lifecycle({ hovered, onHover }: { hovered: StateId | null; onHover: (id
         {NODES.map((n) => (
           <StateNode key={n.id} node={n} emphasis={nodeEmphasis(n.id)} onHover={onHover} />
         ))}
-        <text data-exception-label x="530" y="140" fill="var(--vault-muted)" className="text-[10.5px]" stroke="var(--card)" strokeWidth={5} paintOrder="stroke">
+        <text
+          data-exception-label
+          x="530"
+          y="140"
+          fill="var(--vault-muted)"
+          className="text-[10.5px]"
+          stroke="var(--card)"
+          strokeWidth={5}
+          paintOrder="stroke"
+        >
           release
         </text>
-        <text data-exception-label x="600" y="285" fill="var(--vault-muted)" className="text-[10.5px]" stroke="var(--card)" strokeWidth={5} paintOrder="stroke">
+        <text
+          data-exception-label
+          x="600"
+          y="285"
+          fill="var(--vault-muted)"
+          className="text-[10.5px]"
+          stroke="var(--card)"
+          strokeWidth={5}
+          paintOrder="stroke"
+        >
           refund
         </text>
       </svg>
@@ -366,12 +384,12 @@ export function EscrowExplainer() {
             </h3>
             <dl aria-labelledby="escrow-guarantees" className="divide-y px-5">
               {GUARANTEES.map(([title, text]) => (
-                <div key={title} className="grid grid-cols-[1.75rem_minmax(0,1fr)] gap-x-3 py-4">
-                  <CheckCircle2 className="mt-0.5 size-4 text-success" aria-hidden />
-                  <div>
-                    <dt className="text-sm font-medium">{title}</dt>
-                    <dd className="mt-1 text-sm leading-relaxed text-muted-foreground">{text}</dd>
-                  </div>
+                <div key={title} className="py-4">
+                  <dt className="flex items-center gap-3 text-sm font-medium">
+                    <CheckCircle2 className="size-4 shrink-0 text-success" aria-hidden />
+                    {title}
+                  </dt>
+                  <dd className="mt-1 pl-7 text-sm leading-relaxed text-muted-foreground">{text}</dd>
                 </div>
               ))}
             </dl>

@@ -210,7 +210,10 @@ export function AppShell({
       </Sidebar>
       <div className="flex min-h-dvh w-full min-w-0 flex-1 flex-col">
         <header className="sticky top-0 z-30 flex h-14 items-center gap-2 border-b bg-background/80 px-3 backdrop-blur-lg sm:px-4">
-          <SidebarTrigger className="size-8 text-muted-foreground" aria-label="Toggle navigation" />
+          <SidebarTrigger
+            className="size-8 text-muted-foreground max-lg:size-10"
+            aria-label="Toggle navigation"
+          />
           <span aria-hidden className="hidden h-4 w-px bg-border lg:block" />
           <span className="hidden text-sm font-medium text-muted-foreground lg:inline">{areaLabel}</span>
           <div className="ml-auto flex items-center gap-1.5 sm:gap-2">

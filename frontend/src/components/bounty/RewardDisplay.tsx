@@ -22,28 +22,26 @@ export function RewardDisplay({
 }) {
   return (
     <div className={cn('min-w-0', className)}>
-      <div className="flex items-baseline gap-1.5">
+      <div className="flex items-baseline gap-1">
         <span
           className={cn(
             'amount leading-none',
             size === 'sm' && 'text-lg',
-            size === 'md' && 'text-[1.625rem]',
-            size === 'lg' && 'text-[2.25rem]',
+            size === 'md' && 'text-[1.375rem]',
+            size === 'lg' && 'text-[1.625rem]',
           )}
         >
           {formatAmount(rewardAmount)}
         </span>
-        <span className="text-sm font-medium text-muted-foreground">{assetCode}</span>
+        <span className={cn('font-medium text-muted-foreground', size === 'sm' ? 'text-xs' : 'text-sm')}>
+          {assetCode}
+        </span>
       </div>
-      <div className="text-xs text-muted-foreground tabular-nums">
-        {positions > 1 ? (
-          <>
-            each for {positions} positions, {formatAmount(totalReward)} {assetCode} total
-          </>
-        ) : (
-          'single position'
-        )}
-      </div>
+      {positions > 1 && (
+        <div className={cn('text-xs text-muted-foreground tabular-nums', size === 'sm' ? 'mt-1' : 'mt-1.5')}>
+          {positions} positions, {formatAmount(totalReward)} {assetCode} total
+        </div>
+      )}
     </div>
   )
 }

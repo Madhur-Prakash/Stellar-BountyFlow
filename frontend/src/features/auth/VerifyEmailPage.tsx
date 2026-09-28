@@ -32,7 +32,7 @@ function ResendButton() {
         })
       }
     >
-      {resend.isPending && <LoaderCircle className="animate-spin" />}
+      {resend.isPending && <LoaderCircle className="animate-spin" aria-hidden />}
       {resend.isSuccess ? 'Email sent. Check your inbox.' : 'Resend verification email'}
     </Button>
   )
@@ -53,39 +53,41 @@ export default function VerifyEmailPage() {
   }, [token, runVerify])
 
   if (!token) {
+    if (me?.email_verified) {
+      return (
+        <AuthCard
+          icon={CheckCircle2}
+          tone="success"
+          title="Email verified"
+          description="Your email is already confirmed."
+        >
+          <Button asChild className="w-full">
+            <Link to="/app">Go to dashboard</Link>
+          </Button>
+        </AuthCard>
+      )
+    }
     return (
       <AuthCard
-        title={me?.email_verified ? 'Email verified' : 'Check your inbox'}
-        description={
-          me?.email_verified
-            ? 'Your email address is already confirmed.'
-            : 'We sent a verification link to your email address. Open it on this device to confirm your account.'
-        }
+        icon={MailCheck}
+        title="Check your inbox"
+        description="We sent you a verification link. Open it to confirm your email."
       >
-        <div className="space-y-3">
-          <MailCheck className="size-8 text-primary-emphasis" aria-hidden />
-          {me?.email_verified ? (
-            <Button asChild className="w-full">
-              <Link to="/app">Go to dashboard</Link>
-            </Button>
-          ) : (
-            <ResendButton />
-          )}
-        </div>
+        <ResendButton />
       </AuthCard>
     )
   }
 
   if (verify.isError) {
     return (
-      <AuthCard title="Verification failed" description={errorMessage(verify.error)}>
-        <div className="space-y-3" role="alert">
-          <CircleAlert className="size-8 text-destructive" aria-hidden />
-          <p className="text-sm text-muted-foreground">
-            The link may have expired or already been used. Request a new one below.
-          </p>
-          <ResendButton />
-        </div>
+      <AuthCard
+        icon={CircleAlert}
+        tone="destructive"
+        live="alert"
+        title="Verification failed"
+        description={errorMessage(verify.error)}
+      >
+        {!me?.email_verified && <ResendButton />}
       </AuthCard>
     )
   }
@@ -93,24 +95,20 @@ export default function VerifyEmailPage() {
   if (verify.isSuccess) {
     return (
       <AuthCard
+        icon={CheckCircle2}
+        tone="success"
+        live="status"
         title="Email verified"
-        description="Your email address is confirmed. You can now publish bounties."
+        description="You can now publish bounties."
       >
-        <div className="space-y-3" aria-live="polite">
-          <CheckCircle2 className="size-8 text-success" aria-hidden />
-          <Button asChild className="w-full">
-            <Link to={me ? '/app' : '/login'}>{me ? 'Continue to dashboard' : 'Sign in'}</Link>
-          </Button>
-        </div>
+        <Button asChild className="w-full">
+          <Link to={me ? '/app' : '/login'}>{me ? 'Continue to dashboard' : 'Sign in'}</Link>
+        </Button>
       </AuthCard>
     )
   }
 
   return (
-    <AuthCard title="Verifying your email" description="One moment…">
-      <div role="status" aria-live="polite" className="flex items-center gap-2 text-sm text-muted-foreground">
-        <LoaderCircle className="size-4 animate-spin" aria-hidden /> Confirming your verification link
-      </div>
-    </AuthCard>
+    <AuthCard icon={LoaderCircle} iconClassName="animate-spin" live="status" title="Verifying your email" />
   )
 }

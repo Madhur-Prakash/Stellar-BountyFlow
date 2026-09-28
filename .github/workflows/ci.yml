@@ -60,8 +60,13 @@ jobs:
           uv run alembic downgrade base
       - name: Tests
         run: uv run pytest -q --cov=app --cov=worker --cov-report=term-missing
+      # A bare `uvx pip-audit` audits the environment pip-audit itself runs in, not this project. Audit the
+      # locked runtime dependencies (what the Docker images install) instead.
       - name: Dependency audit
-        run: uvx pip-audit --strict || echo "::warning::pip-audit reported advisories"
+        run: |
+          uv export --frozen --no-dev --no-emit-project --format requirements-txt --quiet -o "$RUNNER_TEMP/requirements-audit.txt"
+          uvx pip-audit --strict --disable-pip --require-hashes -r "$RUNNER_TEMP/requirements-audit.txt" \
+            || echo "::warning::pip-audit reported advisories"
 
   frontend:
     name: Frontend (lint, types, unit tests, build)
@@ -91,6 +96,10 @@ jobs:
   contract:
     name: Soroban contract (fmt, clippy, tests, wasm)
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      # stellar/stellar-cli verifies the downloaded binary against its GitHub build attestation.
+      attestations: read
     defaults:
       run:
         working-directory: contracts
@@ -103,10 +112,17 @@ jobs:
       - uses: Swatinem/rust-cache@v2
         with:
           workspaces: contracts
+      # soroban-sdk 28 only builds a contract wasm under stellar-cli v25.2.0+ (`stellar contract build`, which
+      # shakes the contract spec); a plain `cargo build --target wasm32v1-none` fails in its build script.
+      # Native `cargo clippy` / `cargo test` are unaffected. The official action installs the prebuilt release
+      # binary for this tag. Keep the tag equal to the Stellar CLI version in contracts/README.md.
+      - name: Install Stellar CLI
+        uses: stellar/stellar-cli@v27.0.0
       - run: cargo fmt --all -- --check
       - run: cargo clippy --all-targets -- -D warnings
       - run: cargo test
-      - run: cargo build --target wasm32v1-none --release
+      - name: Build contract wasm (optimized)
+        run: stellar contract build --locked
 
   e2e:
     name: End-to-end (Playwright on Stellar Testnet)

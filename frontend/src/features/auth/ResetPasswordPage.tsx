@@ -1,5 +1,5 @@
 import { zodResolver } from '@hookform/resolvers/zod'
-import { CircleAlert, KeyRound, LoaderCircle } from 'lucide-react'
+import { LoaderCircle, TriangleAlert } from 'lucide-react'
 import { useState } from 'react'
 import { useForm, useWatch } from 'react-hook-form'
 import { Link, useNavigate, useSearchParams } from 'react-router'
@@ -10,8 +10,8 @@ import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '
 import { useResetPassword } from '@/lib/api/queries/auth'
 import { applyApiErrors } from '@/lib/form-errors'
 
-import { AuthCard, FormErrorAlert } from './AuthCard'
-import { PasswordInput, PasswordStrengthMeter } from './PasswordInput'
+import { AUTH_LINK, AuthCard, FormErrorAlert } from './AuthCard'
+import { NEW_PASSWORD_HINT, PasswordInput, PasswordStrengthMeter } from './PasswordInput'
 import { resetPasswordSchema, type ResetPasswordValues } from './schemas'
 
 export default function ResetPasswordPage() {
@@ -29,15 +29,14 @@ export default function ResetPasswordPage() {
   if (!token) {
     return (
       <AuthCard
+        icon={TriangleAlert}
+        tone="warning"
         title="Reset link missing"
-        description="This page needs the link from your password reset email."
-        footer={
-          <Link to="/forgot-password" className="underline underline-offset-4">
-            Request a new link
-          </Link>
-        }
+        description="Open the link from your password reset email, or request a new one."
       >
-        <CircleAlert className="size-8 text-warning" aria-hidden />
+        <Button asChild className="w-full">
+          <Link to="/forgot-password">Request a new link</Link>
+        </Button>
       </AuthCard>
     )
   }
@@ -48,7 +47,7 @@ export default function ResetPasswordPage() {
       { token, password: pw },
       {
         onSuccess: () => {
-          toast.success('Password updated. You were signed out everywhere, so sign in with the new password.')
+          toast.success('Password updated. Sign in with your new password.')
           navigate('/login', { replace: true })
         },
         onError: (e) => setFormError(applyApiErrors(e, form.setError, ['password'])),
@@ -59,21 +58,26 @@ export default function ResetPasswordPage() {
   return (
     <AuthCard
       title="Choose a new password"
-      description="Signing in with the new password will sign you out everywhere else."
+      description="Changing your password signs you out on every device."
+      footer={
+        <Link to="/login" className={AUTH_LINK}>
+          Back to sign in
+        </Link>
+      }
     >
       <Form {...form}>
-        <form onSubmit={onSubmit} className="space-y-5" noValidate>
+        <form onSubmit={onSubmit} className="space-y-4" noValidate>
           <FormField
             control={form.control}
             name="password"
             render={({ field }) => (
               <FormItem>
-                <FormLabel>New password</FormLabel>
+                <FormLabel className="text-[0.8125rem]">New password</FormLabel>
                 <FormControl>
-                  <PasswordInput autoComplete="new-password" {...field} />
+                  <PasswordInput autoComplete="new-password" placeholder={NEW_PASSWORD_HINT} {...field} />
                 </FormControl>
                 <PasswordStrengthMeter password={password} />
-                <FormMessage />
+                <FormMessage className="text-[0.8125rem]" />
               </FormItem>
             )}
           />
@@ -82,17 +86,17 @@ export default function ResetPasswordPage() {
             name="confirm_password"
             render={({ field }) => (
               <FormItem>
-                <FormLabel>Confirm new password</FormLabel>
+                <FormLabel className="text-[0.8125rem]">Confirm new password</FormLabel>
                 <FormControl>
                   <PasswordInput autoComplete="new-password" {...field} />
                 </FormControl>
-                <FormMessage />
+                <FormMessage className="text-[0.8125rem]" />
               </FormItem>
             )}
           />
           <FormErrorAlert message={formError} />
-          <Button type="submit" size="lg" className="w-full" disabled={reset.isPending}>
-            {reset.isPending ? <LoaderCircle className="animate-spin" /> : <KeyRound />}
+          <Button type="submit" size="lg" className="mt-1 w-full" disabled={reset.isPending}>
+            {reset.isPending && <LoaderCircle className="animate-spin" aria-hidden />}
             Update password
           </Button>
         </form>

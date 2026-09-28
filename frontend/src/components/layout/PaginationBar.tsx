@@ -39,17 +39,17 @@ export function PaginationBar({
   return (
     <nav
       aria-label="Pagination"
-      className={cn('flex flex-col items-center justify-between gap-3 pt-6 sm:flex-row', className)}
+      className={cn('flex flex-col items-center justify-between gap-3 pt-5 sm:flex-row', className)}
     >
-      <p className="text-sm text-muted-foreground tabular-nums">
+      <p className="text-[0.8125rem] text-muted-foreground tabular-nums">
         Showing {formatNumber(from)}–{formatNumber(to)} of {formatNumber(total)} {itemLabel}
       </p>
       {pages > 1 && (
         <ul className="flex items-center gap-1">
           <li>
             <Button
-              variant="ghost"
-              size="icon"
+              variant="outline"
+              size="icon-sm"
               disabled={page <= 1}
               onClick={() => onPageChange(page - 1)}
               aria-label="Previous page"
@@ -59,31 +59,38 @@ export function PaginationBar({
           </li>
           {pageWindow(page, pages).map((p, i) =>
             p === 'gap' ? (
-              <li key={`gap-${i}`} aria-hidden className="px-1 text-muted-foreground">
+              <li
+                key={`gap-${i}`}
+                aria-hidden
+                className="hidden w-6 text-center text-muted-foreground sm:block"
+              >
                 …
               </li>
             ) : (
               <li key={p} className="hidden sm:block">
                 <Button
                   variant={p === page ? 'outline' : 'ghost'}
-                  size="icon"
+                  size="icon-sm"
                   onClick={() => onPageChange(p)}
                   aria-label={`Page ${p}`}
                   aria-current={p === page ? 'page' : undefined}
-                  className="tabular-nums"
+                  className={cn(
+                    'text-[0.8125rem] tabular-nums',
+                    p === page ? 'bg-card font-semibold text-foreground' : 'text-muted-foreground',
+                  )}
                 >
                   {p}
                 </Button>
               </li>
             ),
           )}
-          <li className="px-2 text-sm text-muted-foreground tabular-nums sm:hidden">
-            {page} / {pages}
+          <li className="px-2 text-[0.8125rem] text-muted-foreground tabular-nums sm:hidden">
+            Page {page} of {pages}
           </li>
           <li>
             <Button
-              variant="ghost"
-              size="icon"
+              variant="outline"
+              size="icon-sm"
               disabled={page >= pages}
               onClick={() => onPageChange(page + 1)}
               aria-label="Next page"

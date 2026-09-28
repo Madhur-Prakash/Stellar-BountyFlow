@@ -62,7 +62,7 @@ if (featured.length === 0)
   throw new Error('No open bounties to capture the bounty page from: seed the database first')
 const bountyPath = `/bounties/${featured[0].slug || featured[0].id}`
 
-capture('Public pages', ['/', '/bounties', bountyPath, '/u/kai-tanaka'])
+capture('Public pages', ['/', '/bounties', bountyPath, '/u/ada-okafor'])
 
 const requester = await signIn(REQUESTER)
 // The requester's bounty with the most applications, so its review pages have content to capture.
@@ -81,6 +81,7 @@ capture(
     '/app/notifications',
     '/app/analytics',
     '/app/profile',
+    '/app/settings',
     ...(owned
       ? [
           `/app/bounties/${owned.id}`,

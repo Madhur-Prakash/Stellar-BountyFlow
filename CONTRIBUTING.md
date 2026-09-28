@@ -16,7 +16,7 @@ Found a vulnerability? Don't open an issue or pull request. Follow [SECURITY.md]
 | Node.js | 22 (`engines.node >= 22.12`) | Frontend |
 | pnpm | 11 (`packageManager: pnpm@11.21.0`) | Frontend |
 | Rust + `wasm32v1-none` target | stable (`contracts/README.md` lists 1.96) | Contract work only |
-| Stellar CLI | 27 | Contract build and deploy only |
+| Stellar CLI | 27 (CI pins 27.0.0; soroban-sdk 28 needs 25.2.0+) | Contract wasm build (`stellar contract build`) and deploy only |
 | Freighter | latest, switched to Testnet | Signing transactions in the app |
 
 ## Repository layout
@@ -98,7 +98,9 @@ treated differently. Their emails and roles are listed in the README under
 - **Frontend:** `pnpm lint`, `pnpm typecheck`, `pnpm test`, `pnpm build`, a check that no sparkle or star icons are
   used, and `pnpm audit --prod`.
 - **Contract:** `cargo fmt --all -- --check`, `cargo clippy --all-targets -- -D warnings`, `cargo test`, and the
-  release wasm build for `wasm32v1-none`.
+  optimized release wasm build with `stellar contract build --locked`. The job installs Stellar CLI 27.0.0 with the
+  official `stellar/stellar-cli@v27.0.0` action, because soroban-sdk 28 refuses a plain `cargo build` for the wasm
+  target (see [contracts/README.md](contracts/README.md#build-test-deploy)).
 - **End-to-end:** the Playwright suite against the Docker Compose backend on Stellar Testnet.
 
 `alembic check` fails when the models and migrations disagree, and the downgrade step fails when a migration
@@ -140,8 +142,9 @@ cannot be reversed. Run the contract's `fmt` and `clippy` checks locally too: `m
 - Decorative sparkle and star icons are banned (ESLint rule and CI check). Use a meaningful lucide icon.
 - **Accessibility:** keep keyboard navigation and visible focus working. `e2e/a11y.spec.ts` runs axe-core
   (WCAG 2.1 A/AA) on key pages in every viewport and fails on serious or critical violations.
-- **Motion:** GSAP is the only animation library. Every animation checks `motionAllowed()`, and under
-  `prefers-reduced-motion` content renders in its final state. See [docs/development.md](docs/development.md#motion).
+- **Design and motion:** follow [docs/design.md](docs/design.md). Motion is small CSS transitions (plus Lenis
+  on the public site); every animation respects `prefers-reduced-motion`, and content renders in its final state.
+  See [docs/development.md](docs/development.md#design-system-and-motion).
 - **Loading skeletons** are captured from the real pages with boneyard. With the app and a seeded API running,
   regenerate them with `pnpm bones` or `make bones` (`pnpm bones --force` recaptures everything). `src/bones` is
   generated output: don't edit it by hand.

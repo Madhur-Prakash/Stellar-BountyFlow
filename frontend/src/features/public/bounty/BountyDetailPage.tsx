@@ -1,13 +1,11 @@
 import {
   ArrowUpRight,
-  BriefcaseBusiness,
   CircleAlert,
   EyeOff,
   ExternalLink,
   GitPullRequest,
   Handshake,
   Settings2,
-  Users,
 } from 'lucide-react'
 import type { ReactNode } from 'react'
 import { Link, useParams } from 'react-router'
@@ -21,11 +19,16 @@ import { DeadlineCountdown } from '@/components/bounty/DeadlineCountdown'
 import { DisputePanel } from '@/components/bounty/DisputePanel'
 import { EscrowPanel } from '@/components/bounty/EscrowPanel'
 import { FundingStatusBadge } from '@/components/bounty/FundingStatusBadge'
+import { MetaList } from '@/components/bounty/MetaList'
 import { ReportButton } from '@/components/bounty/ReportDialog'
 import { RewardDisplay } from '@/components/bounty/RewardDisplay'
 import { SkillTags } from '@/components/bounty/SkillTags'
 import { SubmitWorkButton } from '@/components/bounty/SubmitWorkDialog'
-import { PaymentStatusBadge, SubmissionStatusBadge } from '@/components/bounty/WorkStatusBadges'
+import {
+  ApplicationStatusBadge,
+  PaymentStatusBadge,
+  SubmissionStatusBadge,
+} from '@/components/bounty/WorkStatusBadges'
 import { ChainActionButton } from '@/components/chain/ChainActionButton'
 import { TransactionTable } from '@/components/chain/TransactionExplorer'
 import { UserAvatar } from '@/components/common/UserAvatar'
@@ -46,22 +49,33 @@ import { useBounty } from '@/lib/api/queries/bounties'
 import { useBountyTransactions } from '@/lib/api/queries/chain'
 import { useBountySubmissions } from '@/lib/api/queries/submissions'
 import type { BountyDetail } from '@/lib/api/types'
-import {
-  APPLICATION_STATUS_LABELS,
-  CATEGORY_LABELS,
-  DIFFICULTY_LABELS,
-  formatDate,
-  formatNumber,
-} from '@/lib/format'
+import { CATEGORY_LABELS, DIFFICULTY_LABELS, formatDate, formatNumber } from '@/lib/format'
 import NotFoundPage from '../NotFoundPage'
 
-function Section({ id, title, children }: { id: string; title: string; children: ReactNode }) {
+/** Markdown inside the document card: headings sized like the card's own section headings. */
+const DOC_MARKDOWN =
+  '[&_h1]:text-base [&_h1]:text-foreground [&_h2]:text-foreground [&_h2]:mt-8 [&_h2]:mb-2 [&_h2]:text-base [&_h3]:text-[0.9375rem]'
+
+/** A titled block of the bounty document. */
+function DocSection({ id, title, children }: { id: string; title: string; children: ReactNode }) {
   return (
-    <section aria-labelledby={id} className="border-t pt-8">
-      <h2 id={id} className="text-lg font-semibold">
+    <section aria-labelledby={id}>
+      <h2 id={id} className="mb-2 text-base font-semibold">
         {title}
       </h2>
-      <div className="mt-4">{children}</div>
+      {children}
+    </section>
+  )
+}
+
+/** A titled block on the page canvas (transactions, activity). */
+function PageSection({ id, title, children }: { id: string; title: string; children: ReactNode }) {
+  return (
+    <section aria-labelledby={id}>
+      <h2 id={id} className="mb-3 text-[0.9375rem] font-semibold">
+        {title}
+      </h2>
+      {children}
     </section>
   )
 }
@@ -74,21 +88,21 @@ function ContributorWorkArea({ bounty }: { bounty: BountyDetail }) {
   const needsRevision = mine?.status === 'REVISION_REQUESTED'
   return (
     <div className="space-y-3">
-      <div className="rounded-lg border border-success/30 bg-success/5 p-3 text-sm">
-        <span className="font-medium">You’re assigned to this bounty.</span>
+      <div className="rounded-lg border bg-surface/60 p-3 text-sm">
+        <p className="font-medium">You’re assigned to this bounty.</p>
         {mine && (
           <div className="mt-2 flex flex-wrap items-center gap-1.5 text-xs text-muted-foreground">
             Your submission (v{mine.version}): <SubmissionStatusBadge status={mine.status} />
             {mine.payment && <PaymentStatusBadge status={mine.payment.payment_status} />}
           </div>
         )}
+        {needsRevision && mine.review_feedback && (
+          <p className="mt-2 text-sm">
+            <span className="text-muted-foreground">Requested changes: </span>
+            {mine.review_feedback}
+          </p>
+        )}
       </div>
-      {needsRevision && mine.review_feedback && (
-        <p className="text-sm">
-          <span className="text-muted-foreground">Requested changes: </span>
-          {mine.review_feedback}
-        </p>
-      )}
       {viewer.can_submit && (
         <SubmitWorkButton bountyId={bounty.id} bountyTitle={bounty.title} className="w-full" />
       )}
@@ -137,10 +151,9 @@ function ApplyArea({ bounty }: { bounty: BountyDetail }) {
   if (viewer?.application) {
     return (
       <div className="space-y-2">
-        <div className="rounded-lg border p-3 text-sm">
-          Your application:{' '}
-          <span className="font-medium">{APPLICATION_STATUS_LABELS[viewer.application.status]}</span>
-        </div>
+        <p className="flex items-center justify-between gap-2 rounded-lg border bg-surface/60 px-3 py-2.5 text-sm">
+          Your application: <ApplicationStatusBadge status={viewer.application.status} />
+        </p>
         <Button asChild variant="outline" className="w-full">
           <Link to="/app/applications">View my applications</Link>
         </Button>
@@ -152,7 +165,7 @@ function ApplyArea({ bounty }: { bounty: BountyDetail }) {
     viewer && !viewer.can_apply
       ? openPositions <= 0
         ? 'All positions are filled.'
-        : 'Applications are not open for your account on this bounty.'
+        : 'You can’t apply to this bounty.'
       : null
   return (
     <div className="space-y-2">
@@ -162,7 +175,7 @@ function ApplyArea({ bounty }: { bounty: BountyDetail }) {
         disabled={!!disabledReason}
         className="w-full"
       />
-      {disabledReason && <p className="text-xs text-muted-foreground">{disabledReason}</p>}
+      {disabledReason && <p className="text-center text-xs text-muted-foreground">{disabledReason}</p>}
     </div>
   )
 }
@@ -172,15 +185,14 @@ function BountyTransactions({ bountyId }: { bountyId: string }) {
   if (isPending) return <ListSkeleton rows={2} />
   if (isError) return <ErrorState error={error} title="Transactions unavailable" onRetry={() => refetch()} />
   if (data.length === 0) {
-    return (
-      <EmptyState
-        icon={ArrowUpRight}
-        title="No transactions yet"
-        description="Funding, assignments, and payouts for this bounty will be listed here with their Stellar hashes."
-      />
-    )
+    return <EmptyState icon={ArrowUpRight} title="No transactions yet" className="py-8" />
   }
-  return <TransactionTable transactions={data} showBounty={false} caption="Bounty transactions" />
+  return (
+    // The table draws its own border; give it the card surface so it sits with the cards around it.
+    <div className="[&>div:first-child]:overflow-hidden [&>div:first-child]:bg-card [&>div:first-child]:shadow-soft">
+      <TransactionTable transactions={data} showBounty={false} caption="Bounty transactions" />
+    </div>
+  )
 }
 
 export default function BountyDetailPage() {
@@ -207,145 +219,76 @@ export default function BountyDetailPage() {
   )
 }
 
+function SummaryRow({ label, children }: { label: string; children: ReactNode }) {
+  return (
+    <div className="flex min-h-9 items-center justify-between gap-3 py-1.5">
+      <dt className="text-muted-foreground">{label}</dt>
+      <dd className="text-right tabular-nums">{children}</dd>
+    </div>
+  )
+}
+
 function BountyDetailView({ bounty }: { bounty: BountyDetail }) {
   const openPositions = Math.max(0, bounty.positions_available - bounty.positions_filled)
+  const links = bounty.links.filter((l) => /^https?:\/\//i.test(l.url))
 
   return (
-    <PageContainer className="py-10 sm:py-14">
-      <PageHeader
-        breadcrumbs={[{ label: 'Marketplace', to: '/bounties' }, { label: bounty.title }]}
-        eyebrow={
-          <span className="flex flex-wrap items-center gap-x-4 gap-y-1">
-            <span>{CATEGORY_LABELS[bounty.category]}</span>
-            <span className="text-muted-foreground">{DIFFICULTY_LABELS[bounty.difficulty]}</span>
-          </span>
-        }
-        title={bounty.title}
-        description={bounty.short_description}
-        actions={
-          <>
-            <BookmarkButton bountyId={bounty.id} bookmarked={bounty.is_bookmarked} variant="full" />
-            <ReportButton bountyId={bounty.id} />
-          </>
-        }
-      />
+    <PageContainer className="py-8 sm:py-10">
+      <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_20rem] lg:gap-x-8 xl:grid-cols-[minmax(0,1fr)_22rem]">
+        {/* Header: first on every screen. */}
+        <div className="min-w-0 lg:col-start-1 lg:row-start-1">
+          <PageHeader
+            breadcrumbs={[{ label: 'Marketplace', to: '/bounties' }, { label: bounty.title }]}
+            title={bounty.title}
+            description={bounty.short_description}
+            actions={
+              <>
+                <BookmarkButton bountyId={bounty.id} bookmarked={bounty.is_bookmarked} variant="full" />
+                <ReportButton bountyId={bounty.id} />
+              </>
+            }
+            className="pb-4"
+          />
+          <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
+            <div className="flex flex-wrap items-center gap-1.5">
+              {/* "Funded in escrow" already covers the FUNDED status; don't show the same fact twice. */}
+              {bounty.status !== 'FUNDED' && <BountyStatusBadge status={bounty.status} />}
+              <FundingStatusBadge status={bounty.funding_status} bountyStatus={bounty.status} />
+              {bounty.is_featured && <Badge variant="info">Featured</Badge>}
+              {bounty.visibility === 'UNLISTED' && <Badge variant="muted">Unlisted</Badge>}
+            </div>
+            <MetaList className="text-[0.8125rem]">
+              <span>{CATEGORY_LABELS[bounty.category]}</span>
+              <span>{DIFFICULTY_LABELS[bounty.difficulty]}</span>
+            </MetaList>
+          </div>
 
-      <div className="-mt-2 mb-8 flex flex-wrap items-center gap-2">
-        {/* "Funded in escrow" already covers the FUNDED status; don't show the same fact twice. */}
-        {bounty.status !== 'FUNDED' && <BountyStatusBadge status={bounty.status} />}
-        <FundingStatusBadge status={bounty.funding_status} bountyStatus={bounty.status} />
-        {bounty.is_featured && <Badge variant="info">Featured</Badge>}
-        {bounty.visibility === 'UNLISTED' && <Badge variant="muted">Unlisted</Badge>}
-      </div>
-
-      {bounty.is_hidden && (
-        <Alert variant="warning" className="mb-6">
-          <EyeOff />
-          <AlertTitle>Hidden by moderation</AlertTitle>
-          <AlertDescription>
-            This bounty is not visible in the marketplace. You can see it because you own or moderate it.
-          </AlertDescription>
-        </Alert>
-      )}
-      {bounty.status === 'CANCELLED' && (
-        <Alert variant="warning" className="mb-6">
-          <CircleAlert />
-          <AlertTitle>This bounty was cancelled</AlertTitle>
-          {bounty.cancel_reason && <AlertDescription>Reason given: {bounty.cancel_reason}</AlertDescription>}
-        </Alert>
-      )}
-
-      <div className="grid gap-10 lg:grid-cols-[minmax(0,1fr)_340px]">
-        <div className="min-w-0 space-y-8">
-          <Card>
-            <CardContent>
-              <BountyTimeline bounty={bounty} />
-            </CardContent>
-          </Card>
-
-          <section aria-labelledby="desc-h">
-            <h2 id="desc-h" className="sr-only">
-              Description
-            </h2>
-            <SafeMarkdown>{bounty.description}</SafeMarkdown>
-          </section>
-
-          {bounty.required_skills.length > 0 && (
-            <Section id="skills-h" title="Required skills">
-              <SkillTags skills={bounty.required_skills} label="Required skills" />
-              {bounty.tags.length > 0 && (
-                <div className="mt-3 flex flex-wrap gap-1.5 text-xs text-muted-foreground">
-                  Tags:
-                  {bounty.tags.map((t) => (
-                    <span key={t}>#{t}</span>
-                  ))}
-                </div>
+          {bounty.is_hidden && (
+            <Alert variant="warning" className="mt-5">
+              <EyeOff />
+              <AlertTitle>Hidden by moderation</AlertTitle>
+              <AlertDescription>Only you and the moderators can see this bounty.</AlertDescription>
+            </Alert>
+          )}
+          {bounty.status === 'CANCELLED' && (
+            <Alert variant="warning" className="mt-5">
+              <CircleAlert />
+              <AlertTitle>This bounty was cancelled</AlertTitle>
+              {bounty.cancel_reason && (
+                <AlertDescription>Reason given: {bounty.cancel_reason}</AlertDescription>
               )}
-            </Section>
+            </Alert>
           )}
-
-          {bounty.eligibility_criteria && (
-            <Section id="elig-h" title="Eligibility">
-              <SafeMarkdown>{bounty.eligibility_criteria}</SafeMarkdown>
-            </Section>
-          )}
-          {bounty.submission_requirements && (
-            <Section id="subreq-h" title="Submission requirements">
-              <SafeMarkdown>{bounty.submission_requirements}</SafeMarkdown>
-            </Section>
-          )}
-          {bounty.acceptance_criteria && (
-            <Section id="accept-h" title="Acceptance criteria">
-              <SafeMarkdown>{bounty.acceptance_criteria}</SafeMarkdown>
-            </Section>
-          )}
-
-          {(bounty.repository_url || bounty.links.length > 0) && (
-            <Section id="links-h" title="Links">
-              <ul className="space-y-1">
-                {bounty.repository_url && (
-                  <li>
-                    <a
-                      href={bounty.repository_url}
-                      target="_blank"
-                      rel="noopener noreferrer nofollow"
-                      className="inline-flex min-h-9 items-center gap-1.5 text-sm text-primary-emphasis hover:underline"
-                    >
-                      Repository <ExternalLink className="size-3.5" aria-hidden />
-                    </a>
-                  </li>
-                )}
-                {bounty.links
-                  .filter((l) => /^https?:\/\//i.test(l.url))
-                  .map((l) => (
-                    <li key={l.url}>
-                      <a
-                        href={l.url}
-                        target="_blank"
-                        rel="noopener noreferrer nofollow"
-                        className="inline-flex min-h-9 items-center gap-1.5 text-sm text-primary-emphasis hover:underline"
-                      >
-                        {l.label || l.url} <ExternalLink className="size-3.5" aria-hidden />
-                      </a>
-                    </li>
-                  ))}
-              </ul>
-            </Section>
-          )}
-
-          <Section id="tx-h" title="Verified transactions">
-            <BountyTransactions bountyId={bounty.id} />
-          </Section>
-
-          <Section id="activity-h" title="Activity">
-            <ActivityFeed bountyId={bounty.id} />
-          </Section>
         </div>
 
-        <aside className="space-y-4 lg:sticky lg:top-24 lg:self-start" aria-label="Bounty summary">
+        {/* Summary column: straight after the header on phones, a sticky column beside the document on desktop. */}
+        <aside
+          className="space-y-4 lg:sticky lg:top-20 lg:col-start-2 lg:row-span-2 lg:row-start-1 lg:self-start"
+          aria-label="Bounty summary"
+        >
           <Card className="gap-4">
             <CardHeader>
-              <CardTitle className="text-sm font-normal text-muted-foreground">Reward</CardTitle>
+              <CardTitle className="text-[0.8125rem] font-medium text-muted-foreground">Reward</CardTitle>
             </CardHeader>
             <CardContent className="space-y-4">
               <RewardDisplay
@@ -355,32 +298,18 @@ function BountyDetailView({ bounty }: { bounty: BountyDetail }) {
                 assetCode={bounty.reward_asset.code}
                 size="lg"
               />
-              <dl className="grid grid-cols-2 gap-3 text-sm">
-                <div className="rounded-lg border p-3">
-                  <dt className="text-xs text-muted-foreground">Open positions</dt>
-                  <dd className="mt-1 font-medium tabular-nums">
-                    {openPositions} / {bounty.positions_available}
-                  </dd>
-                </div>
-                <div className="rounded-lg border p-3">
-                  <dt className="flex items-center gap-1 text-xs text-muted-foreground">
-                    <Users className="size-3" aria-hidden /> Applicants
-                  </dt>
-                  <dd className="mt-1 font-medium tabular-nums">{formatNumber(bounty.applications_count)}</dd>
-                </div>
-              </dl>
-              <div className="space-y-1.5">
-                <DeadlineCountdown
-                  deadline={bounty.application_deadline}
-                  label="Applications close"
-                  showSeconds
-                />
+              <dl className="divide-y border-y text-sm">
+                <SummaryRow label="Open positions">
+                  {openPositions} of {bounty.positions_available}
+                </SummaryRow>
+                <SummaryRow label="Applicants">{formatNumber(bounty.applications_count)}</SummaryRow>
+                <SummaryRow label="Applications close">
+                  <DeadlineCountdown deadline={bounty.application_deadline} bare showSeconds />
+                </SummaryRow>
                 {bounty.completion_deadline && (
-                  <p className="text-xs text-muted-foreground">
-                    Work due {formatDate(bounty.completion_deadline)}
-                  </p>
+                  <SummaryRow label="Work due">{formatDate(bounty.completion_deadline)}</SummaryRow>
                 )}
-              </div>
+              </dl>
               <ApplyArea bounty={bounty} />
             </CardContent>
           </Card>
@@ -391,27 +320,116 @@ function BountyDetailView({ bounty }: { bounty: BountyDetail }) {
 
           <Card className="gap-3">
             <CardHeader>
-              <CardTitle className="text-sm font-normal text-muted-foreground">Requester</CardTitle>
+              <CardTitle className="text-[0.8125rem] font-medium text-muted-foreground">Requester</CardTitle>
             </CardHeader>
             <CardContent>
               <Link
                 to={`/u/${bounty.requester.username}`}
-                className="flex items-center gap-3 rounded-lg p-1 hover:bg-muted/50"
+                className="-m-1.5 flex items-center gap-3 rounded-lg p-1.5 transition-colors hover:bg-muted/60"
               >
-                <UserAvatar user={bounty.requester} className="size-10" />
+                <UserAvatar user={bounty.requester} className="size-9" />
                 <div className="min-w-0">
-                  <div className="truncate font-medium">{bounty.requester.display_name}</div>
-                  <div className="truncate text-sm text-muted-foreground">@{bounty.requester.username}</div>
+                  <div className="truncate text-sm font-medium">{bounty.requester.display_name}</div>
+                  <div className="truncate text-xs text-muted-foreground">@{bounty.requester.username}</div>
                 </div>
               </Link>
-              <p className="mt-3 flex items-center gap-1.5 text-xs text-muted-foreground">
-                <BriefcaseBusiness className="size-3.5" aria-hidden /> Posted{' '}
-                {formatDate(bounty.published_at ?? bounty.created_at)}
+              <p className="mt-3 text-xs text-muted-foreground">
+                Posted {formatDate(bounty.published_at ?? bounty.created_at)}
               </p>
             </CardContent>
           </Card>
         </aside>
+
+        {/* The document. */}
+        <div className="min-w-0 space-y-6 lg:col-start-1 lg:row-start-2">
+          <Card className="py-4">
+            <CardContent>
+              <BountyTimeline bounty={bounty} />
+            </CardContent>
+          </Card>
+
+          <Card className="sm:[--card-spacing:--spacing(7)]">
+            <CardContent className="space-y-8">
+              <section aria-labelledby="desc-h">
+                <h2 id="desc-h" className="sr-only">
+                  Description
+                </h2>
+                <SafeMarkdown className={DOC_MARKDOWN}>{bounty.description}</SafeMarkdown>
+              </section>
+
+              {bounty.required_skills.length > 0 && (
+                <DocSection id="skills-h" title="Required skills">
+                  <SkillTags skills={bounty.required_skills} label="Required skills" />
+                  {bounty.tags.length > 0 && (
+                    <p className="mt-3 text-[0.8125rem] text-muted-foreground">
+                      Tags: {bounty.tags.map((t) => `#${t}`).join(' ')}
+                    </p>
+                  )}
+                </DocSection>
+              )}
+
+              {bounty.eligibility_criteria && (
+                <DocSection id="elig-h" title="Eligibility">
+                  <SafeMarkdown className={DOC_MARKDOWN}>{bounty.eligibility_criteria}</SafeMarkdown>
+                </DocSection>
+              )}
+              {bounty.submission_requirements && (
+                <DocSection id="subreq-h" title="Submission requirements">
+                  <SafeMarkdown className={DOC_MARKDOWN}>{bounty.submission_requirements}</SafeMarkdown>
+                </DocSection>
+              )}
+              {bounty.acceptance_criteria && (
+                <DocSection id="accept-h" title="Acceptance criteria">
+                  <SafeMarkdown className={DOC_MARKDOWN}>{bounty.acceptance_criteria}</SafeMarkdown>
+                </DocSection>
+              )}
+
+              {(bounty.repository_url || links.length > 0) && (
+                <DocSection id="links-h" title="Links">
+                  <ul className="space-y-0.5">
+                    {bounty.repository_url && (
+                      <li>
+                        <ExternalAnchor href={bounty.repository_url}>Repository</ExternalAnchor>
+                      </li>
+                    )}
+                    {links.map((l) => (
+                      <li key={l.url}>
+                        <ExternalAnchor href={l.url}>{l.label || l.url}</ExternalAnchor>
+                      </li>
+                    ))}
+                  </ul>
+                </DocSection>
+              )}
+            </CardContent>
+          </Card>
+
+          <PageSection id="tx-h" title="Verified transactions">
+            <BountyTransactions bountyId={bounty.id} />
+          </PageSection>
+
+          <PageSection id="activity-h" title="Activity">
+            <Card>
+              <CardContent>
+                <ActivityFeed bountyId={bounty.id} />
+              </CardContent>
+            </Card>
+          </PageSection>
+        </div>
       </div>
     </PageContainer>
+  )
+}
+
+function ExternalAnchor({ href, children }: { href: string; children: ReactNode }) {
+  return (
+    <a
+      href={href}
+      target="_blank"
+      rel="noopener noreferrer nofollow"
+      className="inline-flex min-h-9 max-w-full items-center gap-1.5 text-sm font-medium break-all text-primary-emphasis hover:underline"
+    >
+      {children} <ExternalLink className="size-3.5 shrink-0" aria-hidden />
+      <span className="sr-only">(opens in a new tab)</span>
+    </a>
   )
 }

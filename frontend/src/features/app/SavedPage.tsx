@@ -1,4 +1,4 @@
-import { Bookmark } from 'lucide-react'
+import { Bookmark, Search } from 'lucide-react'
 import { useState } from 'react'
 import { Link } from 'react-router'
 
@@ -14,8 +14,18 @@ export default function SavedPage() {
   const [page, setPage] = useState(1)
   const query = useSavedBounties({ page, page_size: 12 })
   return (
-    <div className="mx-auto max-w-6xl">
-      <PageHeader title="Saved bounties" description="Bounties you bookmarked to come back to." />
+    <div>
+      <PageHeader
+        title="Saved bounties"
+        description="Bounties you bookmarked to come back to."
+        actions={
+          <Button asChild variant="outline">
+            <Link to="/bounties">
+              <Search /> Find work
+            </Link>
+          </Button>
+        }
+      />
       <QueryView
         query={query}
         skeleton="app-saved"

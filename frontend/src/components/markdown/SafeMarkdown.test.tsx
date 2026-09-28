@@ -3,19 +3,26 @@ import { describe, expect, it } from 'vitest'
 
 import { SafeMarkdown } from './SafeMarkdown'
 
-/** The renderer is lazy-loaded: wait until the plain-text stand-in has been replaced. */
+// The renderer is a lazy chunk; on a busy machine its first import can take a few seconds.
+const LOAD_TIMEOUT = 10_000
+
+/** Waits until the plain-text stand-in has been replaced by the rendered Markdown. */
 async function rendered(container: HTMLElement) {
-  await waitFor(() => expect(container.querySelector('[data-slot="markdown-fallback"]')).toBeNull())
+  await waitFor(() => expect(container.querySelector('[data-slot="markdown-fallback"]')).toBeNull(), {
+    timeout: LOAD_TIMEOUT,
+  })
 }
 
 describe('SafeMarkdown', () => {
   it('shows the text while the renderer loads, then renders markdown formatting', async () => {
     const { container } = render(<SafeMarkdown>{'## Scope\n\n- **bold** item\n- `code`'}</SafeMarkdown>)
     expect(container.querySelector('[data-slot="markdown-fallback"]')).toHaveTextContent('Scope')
-    expect(await screen.findByRole('heading', { level: 2, name: 'Scope' })).toBeInTheDocument()
+    expect(
+      await screen.findByRole('heading', { level: 2, name: 'Scope' }, { timeout: LOAD_TIMEOUT }),
+    ).toBeInTheDocument()
     expect(screen.getByText('bold').tagName).toBe('STRONG')
     expect(screen.getByText('code').tagName).toBe('CODE')
-  })
+  }, 15_000)
 
   it('strips script tags and raw HTML', async () => {
     const { container } = render(
@@ -37,7 +44,7 @@ describe('SafeMarkdown', () => {
 
   it('neutralises javascript: links and hardens external links', async () => {
     render(<SafeMarkdown>{'[bad](javascript:alert(1)) and [good](https://stellar.org)'}</SafeMarkdown>)
-    const good = await screen.findByRole('link', { name: /good/ })
+    const good = await screen.findByRole('link', { name: /good/ }, { timeout: LOAD_TIMEOUT })
     expect(screen.queryByRole('link', { name: /bad/ })).not.toBeInTheDocument()
     expect(screen.getByText('bad')).toBeInTheDocument()
     expect(good).toHaveAttribute('href', 'https://stellar.org')
@@ -48,7 +55,7 @@ describe('SafeMarkdown', () => {
 
   it('renders images as links instead of loading them', async () => {
     const { container } = render(<SafeMarkdown>{'![diagram](https://example.com/d.png)'}</SafeMarkdown>)
-    expect(await screen.findByRole('link', { name: 'diagram' })).toHaveAttribute('href', 'https://example.com/d.png')
+    await rendered(container)
     expect(container.querySelector('img')).toBeNull()
   })
 

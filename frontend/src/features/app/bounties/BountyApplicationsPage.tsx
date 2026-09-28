@@ -1,8 +1,9 @@
-import { Check, ExternalLink, GitPullRequest, Link2, ShieldCheck, X } from 'lucide-react'
+import { Check, ExternalLink, GitPullRequest, ShieldCheck, X } from 'lucide-react'
 import { useState } from 'react'
 import { Link, useParams } from 'react-router'
 import { toast } from 'sonner'
 
+import { SkillTags } from '@/components/bounty/SkillTags'
 import { ApplicationStatusBadge } from '@/components/bounty/WorkStatusBadges'
 import { ChainActionButton } from '@/components/chain/ChainActionButton'
 import { ReasonDialog } from '@/components/common/ReasonDialog'
@@ -25,6 +26,8 @@ import { useOnchainAssignees } from '@/lib/api/queries/chain'
 import { usePublicProfile } from '@/lib/api/queries/users'
 import type { Application, ApplicationStatus } from '@/lib/api/types'
 import { formatRelative } from '@/lib/format'
+
+import { ManageBountyNav, ManageStats } from './ManageBountyNav'
 
 /** Whether this accepted contributor is already assigned in the escrow contract. */
 function useAssignedOnchain(app: Application, assignees: Set<string>, enabled: boolean): boolean | null {
@@ -54,100 +57,113 @@ function ApplicationCard({
   const reject = useRejectApplication()
   const [dialog, setDialog] = useState<'accept' | 'reject' | null>(null)
   const [walletError, setWalletError] = useState<string | null>(null)
+  const samples = app.work_samples.filter((u) => /^https?:\/\//i.test(u))
+  const showAssigned = app.status === 'ACCEPTED' && assignedOnchain
+  const showAssign =
+    app.status === 'ACCEPTED' && !!app.assignment_id && canAssignOnChain && assignedOnchain === false
+  const hasFooter = app.status === 'PENDING' || showAssigned || showAssign
 
   return (
-    <li className="rounded-xl border bg-card p-5 shadow-soft">
-      <div className="flex flex-wrap items-start justify-between gap-3">
-        <Link to={`/u/${app.contributor.username}`} className="flex items-center gap-3 hover:underline">
-          <UserAvatar user={app.contributor} className="size-10" />
-          <div>
-            <div className="font-medium">{app.contributor.display_name}</div>
-            <div className="text-sm text-muted-foreground">
+    <li className="overflow-hidden rounded-xl border bg-card shadow-soft">
+      <div className="flex flex-wrap items-start justify-between gap-3 px-5 pt-4">
+        <Link
+          to={`/u/${app.contributor.username}`}
+          className="-m-1 flex min-w-0 items-center gap-3 rounded-lg p-1 transition-colors hover:bg-muted/60"
+        >
+          <UserAvatar user={app.contributor} className="size-9" />
+          <div className="min-w-0">
+            <div className="truncate text-sm font-medium">{app.contributor.display_name}</div>
+            <div className="truncate text-xs text-muted-foreground">
               @{app.contributor.username}, applied {formatRelative(app.created_at)}
             </div>
           </div>
         </Link>
         <ApplicationStatusBadge status={app.status} />
       </div>
-      <p className="mt-4 text-sm whitespace-pre-line">{app.cover_message}</p>
-      {app.relevant_experience && (
-        <p className="mt-3 text-sm whitespace-pre-line text-muted-foreground">
-          <span className="font-medium text-foreground">Experience: </span>
-          {app.relevant_experience}
-        </p>
-      )}
-      {app.work_samples.length > 0 && (
-        <ul className="mt-3 flex flex-wrap gap-2">
-          {app.work_samples
-            .filter((u) => /^https?:\/\//i.test(u))
-            .map((u) => (
+
+      <div className="space-y-3 px-5 pt-3 pb-4">
+        <p className="max-w-3xl text-sm leading-6 whitespace-pre-line">{app.cover_message}</p>
+        {app.relevant_experience && (
+          <div className="max-w-3xl text-sm">
+            <p className="text-xs font-medium text-muted-foreground">Experience</p>
+            <p className="mt-0.5 leading-6 whitespace-pre-line">{app.relevant_experience}</p>
+          </div>
+        )}
+        {samples.length > 0 && (
+          <ul className="flex flex-wrap gap-1.5" aria-label="Work samples">
+            {samples.map((u) => (
               <li key={u}>
                 <a
                   href={u}
                   target="_blank"
                   rel="noopener noreferrer nofollow"
-                  className="inline-flex min-h-9 items-center gap-1 rounded-md border px-2 text-xs hover:bg-muted"
+                  className="inline-flex h-7 items-center gap-1.5 rounded-md border px-2 text-xs transition-colors hover:bg-muted"
                 >
-                  <Link2 className="size-3" aria-hidden /> {new URL(u).hostname}
-                  <ExternalLink className="size-3" aria-hidden />
+                  {new URL(u).hostname}
+                  <ExternalLink className="size-3 text-muted-foreground" aria-hidden />
+                  <span className="sr-only">(opens in a new tab)</span>
                 </a>
               </li>
             ))}
-        </ul>
-      )}
-      {app.contributor.skills.length > 0 && (
-        <p className="mt-3 text-xs text-muted-foreground">Skills: {app.contributor.skills.join(', ')}</p>
-      )}
-      {app.review_note && <p className="mt-3 text-xs text-muted-foreground">Your note: {app.review_note}</p>}
-
-      {walletError && (
-        <Alert variant="warning" className="mt-4">
-          <AlertDescription>{walletError}</AlertDescription>
-        </Alert>
-      )}
-
-      <div className="mt-4 flex flex-wrap gap-2">
-        {app.status === 'PENDING' && (
-          <>
-            <Button
-              size="sm"
-              disabled={!canAccept}
-              onClick={() => setDialog('accept')}
-              title={canAccept ? undefined : 'Fund the escrow and keep a position open to accept applicants'}
-            >
-              <Check /> Accept
-            </Button>
-            <Button size="sm" variant="outline" onClick={() => setDialog('reject')}>
-              <X /> Reject
-            </Button>
-          </>
+          </ul>
         )}
-        {app.status === 'ACCEPTED' && assignedOnchain && (
-          <span className="inline-flex items-center gap-1.5 text-xs text-success">
-            <ShieldCheck className="size-3.5" aria-hidden /> Assigned on-chain
-          </span>
-        )}
-        {app.status === 'ACCEPTED' && app.assignment_id && canAssignOnChain && assignedOnchain === false && (
-          <ChainActionButton
-            size="sm"
-            variant="outline"
-            label="Record assignment on-chain"
-            title="Assign contributor"
-            description={`Assign ${app.contributor.display_name} to this bounty in the escrow contract.`}
-            prepare={(wallet_address) =>
-              chainApi.prepare(app.bounty_id, {
-                action: 'ASSIGN',
-                wallet_address,
-                assignment_id: app.assignment_id ?? undefined,
-              })
-            }
-          />
+        <SkillTags skills={app.contributor.skills} label={`${app.contributor.display_name}’s skills`} />
+        {app.review_note && <p className="text-xs text-muted-foreground">Your note: {app.review_note}</p>}
+        {walletError && (
+          <Alert variant="warning">
+            <AlertDescription>{walletError}</AlertDescription>
+          </Alert>
         )}
       </div>
-      {!canAccept && app.status === 'PENDING' && (
-        <p className="mt-2 text-xs text-muted-foreground">
-          Accepting requires a funded bounty with an open position.
-        </p>
+
+      {hasFooter && (
+        <div className="flex flex-wrap items-center gap-x-3 gap-y-2 border-t bg-surface/50 px-5 py-3">
+          {app.status === 'PENDING' && (
+            <>
+              <div className="flex gap-2">
+                <Button
+                  size="sm"
+                  disabled={!canAccept}
+                  onClick={() => setDialog('accept')}
+                  title={
+                    canAccept ? undefined : 'Fund the escrow and keep a position open to accept applicants'
+                  }
+                >
+                  <Check /> Accept
+                </Button>
+                <Button size="sm" variant="outline" onClick={() => setDialog('reject')}>
+                  <X /> Reject
+                </Button>
+              </div>
+              {!canAccept && (
+                <p className="text-xs text-muted-foreground">
+                  Accepting needs a funded bounty with an open position.
+                </p>
+              )}
+            </>
+          )}
+          {showAssigned && (
+            <span className="inline-flex items-center gap-1.5 text-xs font-medium text-success">
+              <ShieldCheck className="size-3.5" aria-hidden /> Assigned on-chain
+            </span>
+          )}
+          {showAssign && (
+            <ChainActionButton
+              size="sm"
+              variant="outline"
+              label="Record assignment on-chain"
+              title="Assign contributor"
+              description={`Assign ${app.contributor.display_name} to this bounty in the escrow contract.`}
+              prepare={(wallet_address) =>
+                chainApi.prepare(app.bounty_id, {
+                  action: 'ASSIGN',
+                  wallet_address,
+                  assignment_id: app.assignment_id ?? undefined,
+                })
+              }
+            />
+          )}
+        </div>
       )}
 
       <ReasonDialog
@@ -217,7 +233,7 @@ export default function BountyApplicationsPage() {
   const { assignees } = useOnchainAssignees(escrowFunded ? bountyId : undefined)
 
   return (
-    <div className="mx-auto max-w-4xl">
+    <div>
       <PageHeader
         breadcrumbs={[
           { label: 'My bounties', to: '/app/bounties' },
@@ -225,21 +241,41 @@ export default function BountyApplicationsPage() {
           { label: 'Applications' },
         ]}
         title="Applications"
-        description={b ? `${b.positions_filled} of ${b.positions_available} positions filled` : undefined}
+        actions={
+          b && b.status !== 'DRAFT' ? (
+            <Button asChild variant="outline">
+              <Link to={`/bounties/${b.slug || b.id}`}>
+                <ExternalLink /> Public page
+              </Link>
+            </Button>
+          ) : undefined
+        }
+        className="pb-4"
       />
+      <ManageBountyNav bountyId={bountyId} applicants={b?.applications_count} />
+      {b && <ManageStats bounty={b} className="mt-6" />}
+
       <Tabs
         value={status}
         onValueChange={(v) => {
           setStatus(v as ApplicationStatus | 'ALL')
           setPage(1)
         }}
-        className="mb-4"
+        className="mt-6 gap-4"
       >
         <TabsList>
-          <TabsTrigger value="PENDING">Pending</TabsTrigger>
-          <TabsTrigger value="ACCEPTED">Accepted</TabsTrigger>
-          <TabsTrigger value="REJECTED">Rejected</TabsTrigger>
-          <TabsTrigger value="ALL">All</TabsTrigger>
+          <TabsTrigger value="PENDING" className="px-3">
+            Pending
+          </TabsTrigger>
+          <TabsTrigger value="ACCEPTED" className="px-3">
+            Accepted
+          </TabsTrigger>
+          <TabsTrigger value="REJECTED" className="px-3">
+            Rejected
+          </TabsTrigger>
+          <TabsTrigger value="ALL" className="px-3">
+            All
+          </TabsTrigger>
         </TabsList>
 
         <TabsContent value={status}>
@@ -249,8 +285,7 @@ export default function BountyApplicationsPage() {
             isEmpty={(d) => d.items.length === 0}
             empty={{
               icon: GitPullRequest,
-              title: 'No applications here',
-              description: 'New applications will show up in the Pending tab.',
+              title: status === 'PENDING' ? 'No applications waiting' : 'No applications here',
             }}
           >
             {(data) => (

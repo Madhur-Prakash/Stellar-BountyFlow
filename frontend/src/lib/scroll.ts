@@ -2,7 +2,6 @@ import type Lenis from 'lenis'
 import { create } from 'zustand'
 
 import { motionAllowed } from '@/hooks/useReducedMotion'
-import { gsap } from '@/lib/gsap'
 
 /**
  * The page's smooth-scroll engine: Lenis on the public site, none in the workspace or under reduced motion.
@@ -30,15 +29,10 @@ export function scrollToElement(el: Element, { offset = HEADER_OFFSET, immediate
     lenis.scrollTo(el as HTMLElement, { offset: -offset, immediate, duration: 1.1 })
     return
   }
-  if (!immediate && motionAllowed()) {
-    gsap.to(window, {
-      duration: 0.9,
-      ease: 'power2.inOut',
-      scrollTo: { y: el, offsetY: offset, autoKill: true },
-    })
-  } else {
-    window.scrollTo({ top: el.getBoundingClientRect().top + window.scrollY - offset })
-  }
+  window.scrollTo({
+    top: el.getBoundingClientRect().top + window.scrollY - offset,
+    behavior: !immediate && motionAllowed() ? 'smooth' : 'auto',
+  })
 }
 
 /** Jump to the top of the page (e.g. after changing a results page), keeping the smooth-scroll engine in sync. */
@@ -52,9 +46,7 @@ export function scrollToTop() {
 export function scrollToY(y: number) {
   const { lenis } = useScrollEngine.getState()
   if (lenis) lenis.scrollTo(y, { duration: 1 })
-  else if (motionAllowed())
-    gsap.to(window, { duration: 0.9, ease: 'power2.inOut', scrollTo: { y, autoKill: true } })
-  else window.scrollTo({ top: y })
+  else window.scrollTo({ top: y, behavior: motionAllowed() ? 'smooth' : 'auto' })
 }
 
 /** Smooth-scroll to `#id` and move focus there (without a second jump) for keyboard and screen-reader users. */

@@ -9,7 +9,8 @@ arbiter can do is pay an assigned contributor or remove that contributor's
 assignment.
 
 - SDK: `soroban-sdk` 28.0.0 (Rust 1.96, target `wasm32v1-none`)
-- Stellar CLI: 27.0.0
+- Stellar CLI: 27.0.0 (CI installs the same version). soroban-sdk 28 needs stellar-cli v25.2.0 or newer to build
+  the contract wasm; see [Build, test, deploy](#build-test-deploy).
 - Contract interface version: `version() == 1`
 
 ## Deployed (Stellar Testnet)
@@ -282,12 +283,27 @@ cargo test                       # 36 unit tests
 cargo clippy --all-targets -- -D warnings
 cargo fmt --all --check
 stellar contract build           # optimized wasm (optimization on by default in CLI 27)
-# fallback: cargo build --target wasm32v1-none --release
+stellar contract build --optimize=false   # unoptimized wasm, when you need to skip the wasm-opt pass
 # output: contracts/target/wasm32v1-none/release/bounty_escrow.wasm (~16.7 KB)
 
 # or, from contracts/bounty_escrow:
-make test | make build | make clippy | make fmt | make optimize
+make test | make build | make build-raw | make clippy | make fmt | make optimize
 ```
+
+The wasm must be built with `stellar contract build` from stellar-cli v25.2.0 or newer. soroban-sdk 28 always
+emits every contract type into the spec and relies on the Stellar CLI to strip the unreachable entries ("spec
+shaking"), so a plain `cargo build --target wasm32v1-none --release` stops in soroban-sdk's build script with
+`error: soroban-sdk requires stellar-cli v25.2.0+ to build a contract`. `cargo test` and `cargo clippy` build
+natively and do not need the CLI. The `make build`, `make build-raw` and `make optimize` targets check the
+installed CLI version first and say what to install when it is missing or too old.
+
+CI (`.github/workflows/ci.yml`, job `contract`) installs the prebuilt Stellar CLI with the official
+[`stellar/stellar-cli`](https://github.com/stellar/stellar-cli) GitHub Action, pinned to the release tag that
+matches the version above (`stellar/stellar-cli@v27.0.0`). The action verifies the binary against its GitHub
+build attestation. CI then runs `cargo fmt --check`, `cargo clippy -D warnings`, `cargo test` and
+`stellar contract build --locked`. When you upgrade the CLI, change the version here and the action tag together.
+The wasm hash depends on the toolchain. Rust 1.96 with Stellar CLI 27.0.0 reproduces the deployed wasm
+(`a8ed0b13…2966`). CI builds with the current stable Rust, so its wasm hash can differ from the deployed one.
 
 Deploy to Testnet from the repository root:
 

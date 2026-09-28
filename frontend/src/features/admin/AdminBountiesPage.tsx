@@ -6,7 +6,6 @@ import { toast } from 'sonner'
 import { BountyStatusBadge } from '@/components/bounty/BountyStatusBadge'
 import { FundingStatusBadge } from '@/components/bounty/FundingStatusBadge'
 import { ReasonDialog } from '@/components/common/ReasonDialog'
-import { DataTable, type Column } from '@/components/layout/DataTable'
 import { PageHeader } from '@/components/layout/PageHeader'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -33,7 +32,15 @@ import { BOUNTY_STATUS_LABELS } from '@/lib/format'
 import { formatAmount } from '@/lib/money'
 import { hasPermission } from '@/lib/permissions'
 
-import { DateCell, FilterBar, FilterSelect, PagedResults, SearchField, UserCell } from './admin-shared'
+import {
+  AdminTable,
+  DateCell,
+  FilterSelect,
+  PagedResults,
+  SearchField,
+  UserCell,
+  type AdminColumn,
+} from './admin-shared'
 import { ADMIN_PAGE_SIZE, bountyPath, scrollToTop, useFilteredPage } from './admin-utils'
 
 /** Statuses from which a moderator cancel can never succeed. */
@@ -48,15 +55,14 @@ const MODERATION_COPY: Record<
     confirm: 'Hide bounty',
     success: 'Bounty hidden from the marketplace.',
     destructive: true,
-    description: 'Hidden bounties are removed from the public marketplace until a moderator unhides them.',
+    description: 'It stays off the public marketplace until a moderator unhides it.',
   },
   UNHIDE: {
     title: 'Unhide bounty',
     confirm: 'Unhide bounty',
     success: 'Bounty is visible in the marketplace again.',
     destructive: false,
-    description:
-      'The bounty becomes visible in the public marketplace again, subject to its own visibility setting.',
+    description: 'It returns to the public marketplace, subject to its own visibility setting.',
   },
   CANCEL: {
     title: 'Cancel bounty',
@@ -64,7 +70,7 @@ const MODERATION_COPY: Record<
     success: 'Cancellation recorded.',
     destructive: true,
     description:
-      'Unfunded draft, open, or expired bounties are cancelled immediately. Bounties with work in progress or funds in escrow move to “Cancel requested” first. Pending applications are rejected.',
+      'Unfunded draft, open or expired bounties are cancelled at once. With work in progress or funds in escrow it moves to “Cancel requested” first. Pending applications are rejected.',
   },
 }
 
@@ -104,28 +110,29 @@ export default function AdminBountiesPage() {
     )
   }
 
-  const columns: Column<BountySummary>[] = [
+  const columns: AdminColumn<BountySummary>[] = [
     {
       key: 'title',
       header: 'Bounty',
+      mobile: 'title',
       cell: (b) => (
-        <div className="max-w-sm min-w-0 text-left">
-          <Link to={bountyPath(b)} className="line-clamp-2 font-medium hover:underline">
+        <div className="flex max-w-md min-w-0 flex-wrap items-center gap-x-2 gap-y-1 lg:flex-nowrap">
+          <Link
+            to={bountyPath(b)}
+            title={b.title}
+            className="line-clamp-2 font-medium whitespace-normal hover:underline lg:line-clamp-1"
+          >
             {b.title}
           </Link>
-          {(b.is_featured || b.is_hidden) && (
-            <div className="mt-1 flex flex-wrap gap-1">
-              {b.is_hidden && (
-                <Badge variant="warning">
-                  <EyeOff aria-hidden /> Hidden
-                </Badge>
-              )}
-              {b.is_featured && (
-                <Badge variant="info">
-                  <Pin aria-hidden /> Featured
-                </Badge>
-              )}
-            </div>
+          {b.is_hidden && (
+            <Badge variant="warning">
+              <EyeOff aria-hidden /> Hidden
+            </Badge>
+          )}
+          {b.is_featured && (
+            <Badge variant="info">
+              <Pin aria-hidden /> Featured
+            </Badge>
           )}
         </div>
       ),
@@ -142,12 +149,12 @@ export default function AdminBountiesPage() {
       header: 'Reward',
       className: 'text-right',
       cell: (b) => (
-        <div className="whitespace-nowrap tabular-nums">
-          <span className="font-medium">{formatAmount(b.reward_amount)}</span>{' '}
-          <span className="text-muted-foreground">{b.reward_asset.code}</span>
+        <div className="whitespace-nowrap">
+          <span className="amount">{formatAmount(b.reward_amount)}</span>{' '}
+          <span className="text-xs text-muted-foreground">{b.reward_asset.code}</span>
           {b.positions_available > 1 && (
-            <div className="text-xs text-muted-foreground">
-              × {b.positions_available} positions, {formatAmount(b.total_reward)} total
+            <div className="text-xs text-muted-foreground tabular-nums">
+              {b.positions_available} positions, {formatAmount(b.total_reward)} total
             </div>
           )}
         </div>
@@ -160,8 +167,9 @@ export default function AdminBountiesPage() {
     columns.push({
       key: 'actions',
       header: 'Actions',
-      className: 'text-right',
-      hideLabelOnMobile: true,
+      hideHeader: true,
+      className: 'w-12 text-right',
+      mobile: 'aside',
       cell: (b) => {
         const busy =
           (moderate.isPending && moderate.variables?.id === b.id) ||
@@ -171,32 +179,29 @@ export default function AdminBountiesPage() {
             <DropdownMenuTrigger asChild>
               <Button
                 variant="ghost"
-                size="icon"
+                size="icon-sm"
+                className="text-muted-foreground"
                 disabled={busy}
                 aria-label={`Moderation actions for ${b.title}`}
               >
                 <MoreHorizontal />
               </Button>
             </DropdownMenuTrigger>
-            <DropdownMenuContent align="end" className="w-56">
+            <DropdownMenuContent align="end" className="w-52">
               <DropdownMenuLabel>Moderate</DropdownMenuLabel>
               {canModerate && (
                 <>
                   {b.is_hidden ? (
-                    <DropdownMenuItem className="min-h-10" onSelect={() => openModeration(b, 'UNHIDE')}>
+                    <DropdownMenuItem onSelect={() => openModeration(b, 'UNHIDE')}>
                       <Eye aria-hidden /> Unhide
                     </DropdownMenuItem>
                   ) : (
-                    <DropdownMenuItem className="min-h-10" onSelect={() => openModeration(b, 'HIDE')}>
+                    <DropdownMenuItem onSelect={() => openModeration(b, 'HIDE')}>
                       <EyeOff aria-hidden /> Hide from marketplace
                     </DropdownMenuItem>
                   )}
                   {!NOT_CANCELLABLE.has(b.status) && (
-                    <DropdownMenuItem
-                      className="min-h-10"
-                      variant="destructive"
-                      onSelect={() => openModeration(b, 'CANCEL')}
-                    >
+                    <DropdownMenuItem variant="destructive" onSelect={() => openModeration(b, 'CANCEL')}>
                       <Ban aria-hidden /> Cancel bounty
                     </DropdownMenuItem>
                   )}
@@ -205,7 +210,7 @@ export default function AdminBountiesPage() {
               {canFeature && (
                 <>
                   {canModerate && <DropdownMenuSeparator />}
-                  <DropdownMenuItem className="min-h-10" onSelect={() => toggleFeatured(b)}>
+                  <DropdownMenuItem onSelect={() => toggleFeatured(b)}>
                     {b.is_featured ? <PinOff aria-hidden /> : <Pin aria-hidden />}
                     {b.is_featured ? 'Unfeature bounty' : 'Feature bounty'}
                   </DropdownMenuItem>
@@ -222,32 +227,12 @@ export default function AdminBountiesPage() {
   const filtered = !!q || !!status
 
   return (
-    <div className="mx-auto w-full max-w-7xl">
+    <div>
       <PageHeader
         title="Bounties"
-        description="Every bounty on the platform, including drafts and hidden ones. Hide, unhide, cancel, or feature bounties."
+        description="Includes drafts and hidden bounties."
         breadcrumbs={[{ label: 'Admin', to: '/admin' }, { label: 'Bounties' }]}
       />
-
-      <FilterBar>
-        <SearchField
-          id="admin-bounties-search"
-          label="Search bounties"
-          placeholder="Search by title or slug"
-          value={search}
-          onChange={setSearch}
-          maxLength={200}
-        />
-        <FilterSelect
-          id="admin-bounties-status"
-          label="Filter by status"
-          value={status}
-          onChange={setStatus}
-          options={BOUNTY_STATUSES}
-          labels={BOUNTY_STATUS_LABELS}
-          allLabel="All statuses"
-        />
-      </FilterBar>
 
       <PagedResults
         query={query}
@@ -255,11 +240,7 @@ export default function AdminBountiesPage() {
         label="Bounties"
         itemLabel="bounties"
         errorTitle="Could not load bounties"
-        empty={{
-          icon: BriefcaseBusiness,
-          title: 'No bounties yet',
-          description: 'Bounties appear here as soon as requesters create them.',
-        }}
+        empty={{ icon: BriefcaseBusiness, title: 'No bounties yet' }}
         filtered={filtered}
         onClearFilters={() => {
           setSearch('')
@@ -269,8 +250,29 @@ export default function AdminBountiesPage() {
           setPage(p)
           scrollToTop()
         }}
+        toolbar={
+          <>
+            <SearchField
+              id="admin-bounties-search"
+              label="Search bounties"
+              placeholder="Title or slug"
+              value={search}
+              onChange={setSearch}
+              maxLength={200}
+            />
+            <FilterSelect
+              id="admin-bounties-status"
+              label="Filter by status"
+              value={status}
+              onChange={setStatus}
+              options={BOUNTY_STATUSES}
+              labels={BOUNTY_STATUS_LABELS}
+              allLabel="All statuses"
+            />
+          </>
+        }
       >
-        {(items) => <DataTable rows={items} columns={columns} getKey={(b) => b.id} caption="All bounties" />}
+        {(items) => <AdminTable rows={items} columns={columns} getKey={(b) => b.id} caption="All bounties" />}
       </PagedResults>
 
       <ReasonDialog

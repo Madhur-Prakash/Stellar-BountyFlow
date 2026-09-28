@@ -1,4 +1,4 @@
-import { RotateCcw, X } from 'lucide-react'
+import { X } from 'lucide-react'
 import { useId, useState, type ReactNode } from 'react'
 
 import { Button } from '@/components/ui/button'
@@ -9,7 +9,7 @@ import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Switch } from '@/components/ui/switch'
 import {
-  DEFAULT_FILTERS,
+  FILTER_RESET,
   PUBLIC_FILTER_STATUSES,
   activeFilterCount,
   type DeadlineWindow,
@@ -18,21 +18,30 @@ import {
 import { CATEGORIES, DIFFICULTIES, type BountyStatus, type Category, type Difficulty } from '@/lib/api/types'
 import { BOUNTY_STATUS_LABELS, CATEGORY_LABELS, DIFFICULTY_LABELS } from '@/lib/format'
 import { compareAmounts, isValidAmount } from '@/lib/money'
+import { cn } from '@/lib/utils'
 
 const ALL = '__all__'
 
+/** Small group label above each block of filters. */
+const GROUP_LABEL = 'text-xs font-medium text-muted-foreground'
+/** A clickable option row (radio / checkbox with its label). */
+const OPTION_ROW =
+  '-mx-2 flex min-h-8 items-center gap-2.5 rounded-md px-2 text-sm font-normal transition-colors hover:bg-muted/60'
+
 function Section({ title, children, htmlFor }: { title: string; children: ReactNode; htmlFor?: string }) {
   return (
-    <fieldset className="space-y-2.5 border-b pb-5 last:border-b-0">
-      {htmlFor ? (
-        <Label htmlFor={htmlFor} className="text-sm font-medium">
-          {title}
-        </Label>
-      ) : (
-        <legend className="mb-2.5 text-sm font-medium">{title}</legend>
-      )}
-      {children}
-    </fieldset>
+    <div className="px-4 py-4">
+      <fieldset className="space-y-2.5">
+        {htmlFor ? (
+          <Label htmlFor={htmlFor} className={GROUP_LABEL}>
+            {title}
+          </Label>
+        ) : (
+          <legend className={cn(GROUP_LABEL, 'mb-2.5')}>{title}</legend>
+        )}
+        {children}
+      </fieldset>
+    </div>
   )
 }
 
@@ -61,26 +70,22 @@ function SkillsInput({ skills, onChange }: { skills: string[]; onChange: (skills
             }
           }}
           placeholder="e.g. rust, soroban"
-          aria-describedby={`${id}-hint`}
         />
         <Button type="button" variant="outline" onClick={add} disabled={!draft.trim()}>
           Add
         </Button>
       </div>
-      <p id={`${id}-hint`} className="text-xs text-muted-foreground">
-        Press Enter to add. Matches bounties requiring any of these skills.
-      </p>
       {skills.length > 0 && (
-        <ul className="flex flex-wrap gap-1.5" aria-label="Selected skills">
+        <ul className="flex flex-wrap gap-1" aria-label="Selected skills">
           {skills.map((s) => (
             <li key={s}>
               <button
                 type="button"
                 onClick={() => onChange(skills.filter((x) => x !== s))}
-                className="inline-flex h-7 items-center gap-1 rounded-md border bg-surface-raised px-2 text-xs hover:border-foreground/20"
+                className="inline-flex h-6 items-center gap-1 rounded-[4px] border bg-surface/60 pr-1 pl-1.5 text-xs transition-colors hover:border-foreground/25"
                 aria-label={`Remove skill ${s}`}
               >
-                {s} <X className="size-3" aria-hidden />
+                {s} <X className="size-3 text-muted-foreground" aria-hidden />
               </button>
             </li>
           ))}
@@ -119,8 +124,8 @@ function RewardRange({
   return (
     <Section title="Reward per position (XLM)">
       <div className="grid grid-cols-2 gap-2">
-        <div className="space-y-1">
-          <Label htmlFor={`${id}-min`} className="text-xs text-muted-foreground">
+        <div className="space-y-1.5">
+          <Label htmlFor={`${id}-min`} className="text-xs font-normal text-muted-foreground">
             Min
           </Label>
           <Input
@@ -136,8 +141,8 @@ function RewardRange({
             className="tabular-nums"
           />
         </div>
-        <div className="space-y-1">
-          <Label htmlFor={`${id}-max`} className="text-xs text-muted-foreground">
+        <div className="space-y-1.5">
+          <Label htmlFor={`${id}-max`} className="text-xs font-normal text-muted-foreground">
             Max
           </Label>
           <Input
@@ -166,13 +171,18 @@ function RewardRange({
 /**
  * Marketplace filter panel. Controlled: every change is pushed to the URL by
  * the page, so filtered views are shareable and survive reloads.
+ * `header` shows the "Filters" title with a reset button (off inside the mobile sheet, which has its own).
  */
 export function BountyFilters({
   filters,
   onChange,
+  header = true,
+  className,
 }: {
   filters: MarketplaceFilters
   onChange: (patch: Partial<MarketplaceFilters>) => void
+  header?: boolean
+  className?: string
 }) {
   const baseId = useId()
   const count = activeFilterCount(filters)
@@ -184,146 +194,127 @@ export function BountyFilters({
     set({ status: checked ? [...filters.status, s] : filters.status.filter((x) => x !== s) })
 
   return (
-    <div className="space-y-5" aria-label="Filters" role="group">
-      <div className="flex items-center justify-between">
-        <h2 className="text-sm font-semibold">
-          Filters{' '}
+    <div className={cn('text-sm', className)} aria-label="Filters" role="group">
+      {header && (
+        <div className="flex h-12 items-center justify-between gap-2 border-b px-4">
+          <h2 className="flex items-center gap-2 text-sm font-semibold">
+            Filters
+            {count > 0 && (
+              <span className="inline-flex h-5 min-w-5 items-center justify-center rounded-[4px] bg-primary/10 px-1 text-xs font-medium text-primary-emphasis tabular-nums">
+                {count}
+                <span className="sr-only"> active</span>
+              </span>
+            )}
+          </h2>
           {count > 0 && (
-            <span className="ml-1 rounded-md bg-primary/15 px-1.5 py-0.5 text-xs text-primary-emphasis tabular-nums">
-              {count}
-            </span>
-          )}
-        </h2>
-        {count > 0 && (
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={() =>
-              set({
-                category: DEFAULT_FILTERS.category,
-                difficulty: DEFAULT_FILTERS.difficulty,
-                status: [],
-                skills: [],
-                minReward: '',
-                maxReward: '',
-                deadline: null,
-                fundedOnly: false,
-              })
-            }
-          >
-            <RotateCcw /> Reset
-          </Button>
-        )}
-      </div>
-
-      <Section title="Funding">
-        <div className="flex items-center justify-between gap-3 rounded-lg border p-3">
-          <Label htmlFor={`${baseId}-funded`} className="flex-col items-start gap-0.5">
-            <span>Funded only</span>
-            <span className="text-xs font-normal text-muted-foreground">
-              Rewards already locked in escrow
-            </span>
-          </Label>
-          <Switch
-            id={`${baseId}-funded`}
-            checked={filters.fundedOnly}
-            onCheckedChange={(v) => set({ fundedOnly: v })}
-          />
-        </div>
-      </Section>
-
-      <Section title="Category" htmlFor={`${baseId}-category`}>
-        <Select
-          value={filters.category ?? ALL}
-          onValueChange={(v) => set({ category: v === ALL ? null : (v as Category) })}
-        >
-          <SelectTrigger id={`${baseId}-category`} className="w-full">
-            <SelectValue />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value={ALL}>All categories</SelectItem>
-            {CATEGORIES.map((c) => (
-              <SelectItem key={c} value={c}>
-                {CATEGORY_LABELS[c]}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-      </Section>
-
-      <Section title="Difficulty" htmlFor={`${baseId}-difficulty`}>
-        <Select
-          value={filters.difficulty ?? ALL}
-          onValueChange={(v) => set({ difficulty: v === ALL ? null : (v as Difficulty) })}
-        >
-          <SelectTrigger id={`${baseId}-difficulty`} className="w-full">
-            <SelectValue />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value={ALL}>Any difficulty</SelectItem>
-            {DIFFICULTIES.map((d) => (
-              <SelectItem key={d} value={d}>
-                {DIFFICULTY_LABELS[d]}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-      </Section>
-
-      <RewardRange key={rangeKey} min={filters.minReward} max={filters.maxReward} onChange={set} />
-
-      <SkillsInput skills={filters.skills} onChange={(skills) => set({ skills })} />
-
-      <Section title="Application deadline">
-        <RadioGroup
-          value={filters.deadline ?? 'any'}
-          onValueChange={(v) => set({ deadline: v === 'any' ? null : (v as DeadlineWindow) })}
-          className="gap-1"
-        >
-          {(
-            [
-              ['any', 'Any time'],
-              ['3d', 'Within 3 days'],
-              ['7d', 'Within 7 days'],
-              ['30d', 'Within 30 days'],
-            ] as const
-          ).map(([value, label]) => (
-            <Label
-              key={value}
-              htmlFor={`${baseId}-dl-${value}`}
-              className="flex min-h-10 items-center gap-3 rounded-md px-2 font-normal hover:bg-muted/50"
+            <Button
+              variant="ghost"
+              size="sm"
+              className="-mr-2 h-7 px-2 text-muted-foreground"
+              onClick={() => set(FILTER_RESET)}
             >
-              <RadioGroupItem id={`${baseId}-dl-${value}`} value={value} />
-              {label}
-            </Label>
-          ))}
-        </RadioGroup>
-      </Section>
-
-      <Section title="Status">
-        <p className="-mt-1 text-xs text-muted-foreground">
-          None selected shows everything currently active (open through under review).
-        </p>
-        <div className="grid gap-1">
-          {PUBLIC_FILTER_STATUSES.map((s) => {
-            const id = `${baseId}-st-${s}`
-            return (
-              <Label
-                key={s}
-                htmlFor={id}
-                className="flex min-h-10 items-center gap-3 rounded-md px-2 font-normal hover:bg-muted/50"
-              >
-                <Checkbox
-                  id={id}
-                  checked={filters.status.includes(s)}
-                  onCheckedChange={(v) => toggleStatus(s, v === true)}
-                />
-                {BOUNTY_STATUS_LABELS[s]}
-              </Label>
-            )
-          })}
+              Reset
+            </Button>
+          )}
         </div>
-      </Section>
+      )}
+
+      <div className="divide-y">
+        <Section title="Funding">
+          <div className="flex items-center justify-between gap-3">
+            <Label htmlFor={`${baseId}-funded`} className="text-sm font-normal">
+              Funded only
+            </Label>
+            <Switch
+              id={`${baseId}-funded`}
+              checked={filters.fundedOnly}
+              onCheckedChange={(v) => set({ fundedOnly: v })}
+            />
+          </div>
+        </Section>
+
+        <Section title="Category" htmlFor={`${baseId}-category`}>
+          <Select
+            value={filters.category ?? ALL}
+            onValueChange={(v) => set({ category: v === ALL ? null : (v as Category) })}
+          >
+            <SelectTrigger id={`${baseId}-category`} className="w-full">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value={ALL}>All categories</SelectItem>
+              {CATEGORIES.map((c) => (
+                <SelectItem key={c} value={c}>
+                  {CATEGORY_LABELS[c]}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </Section>
+
+        <Section title="Difficulty" htmlFor={`${baseId}-difficulty`}>
+          <Select
+            value={filters.difficulty ?? ALL}
+            onValueChange={(v) => set({ difficulty: v === ALL ? null : (v as Difficulty) })}
+          >
+            <SelectTrigger id={`${baseId}-difficulty`} className="w-full">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value={ALL}>Any difficulty</SelectItem>
+              {DIFFICULTIES.map((d) => (
+                <SelectItem key={d} value={d}>
+                  {DIFFICULTY_LABELS[d]}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </Section>
+
+        <RewardRange key={rangeKey} min={filters.minReward} max={filters.maxReward} onChange={set} />
+
+        <SkillsInput skills={filters.skills} onChange={(skills) => set({ skills })} />
+
+        <Section title="Application deadline">
+          <RadioGroup
+            value={filters.deadline ?? 'any'}
+            onValueChange={(v) => set({ deadline: v === 'any' ? null : (v as DeadlineWindow) })}
+            className="gap-0"
+          >
+            {(
+              [
+                ['any', 'Any time'],
+                ['3d', 'Within 3 days'],
+                ['7d', 'Within 7 days'],
+                ['30d', 'Within 30 days'],
+              ] as const
+            ).map(([value, label]) => (
+              <Label key={value} htmlFor={`${baseId}-dl-${value}`} className={OPTION_ROW}>
+                <RadioGroupItem id={`${baseId}-dl-${value}`} value={value} />
+                {label}
+              </Label>
+            ))}
+          </RadioGroup>
+        </Section>
+
+        <Section title="Status">
+          <div className="grid">
+            {PUBLIC_FILTER_STATUSES.map((s) => {
+              const id = `${baseId}-st-${s}`
+              return (
+                <Label key={s} htmlFor={id} className={OPTION_ROW}>
+                  <Checkbox
+                    id={id}
+                    checked={filters.status.includes(s)}
+                    onCheckedChange={(v) => toggleStatus(s, v === true)}
+                  />
+                  {BOUNTY_STATUS_LABELS[s]}
+                </Label>
+              )
+            })}
+          </div>
+        </Section>
+      </div>
     </div>
   )
 }

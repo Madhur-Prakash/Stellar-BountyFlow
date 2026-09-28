@@ -5,7 +5,6 @@ import { toast } from 'sonner'
 
 import { MonoValue } from '@/components/common/MonoValue'
 import { ReasonDialog } from '@/components/common/ReasonDialog'
-import { DataTable, type Column } from '@/components/layout/DataTable'
 import { PageHeader } from '@/components/layout/PageHeader'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -19,13 +18,14 @@ import { humanize, REPORT_STATUS_LABELS } from '@/lib/format'
 import { hasPermission } from '@/lib/permissions'
 
 import {
+  AdminTable,
   ClampedText,
   DateCell,
-  FilterBar,
   FilterSelect,
   PagedResults,
   ReportStatusBadge,
   UserCell,
+  type AdminColumn,
 } from './admin-shared'
 import {
   ADMIN_PAGE_SIZE,
@@ -38,20 +38,17 @@ import {
 type Outcome = ResolveReportRequest['status']
 
 const OUTCOME_LABELS: Record<Outcome, string> = {
-  ACTIONED: 'Actioned (action was taken)',
-  DISMISSED: 'Dismissed (no action needed)',
+  ACTIONED: 'Actioned',
+  DISMISSED: 'Dismissed',
 }
 
 function ReportTarget({ report }: { report: Report }) {
   const isBounty = report.target_type.toUpperCase() === 'BOUNTY'
   return (
-    <div className="flex min-w-0 flex-col items-start gap-1">
+    <div className="flex min-w-0 items-center gap-2">
       <Badge variant="outline">{humanize(report.target_type)}</Badge>
       {isBounty ? (
-        <Link
-          to={bountyPath({ id: report.target_id })}
-          className="inline-flex min-h-9 items-center gap-1 text-sm font-medium hover:underline"
-        >
+        <Link to={bountyPath({ id: report.target_id })} className="text-sm font-medium hover:underline">
           View bounty
         </Link>
       ) : (
@@ -80,15 +77,44 @@ export default function AdminReportsPage() {
   const [outcome, setOutcome] = useState<Outcome>('ACTIONED')
   const outcomeId = useId()
 
-  const columns: Column<Report>[] = [
-    { key: 'reporter', header: 'Reporter', cell: (r) => <UserCell user={r.reporter} /> },
+  const columns: AdminColumn<Report>[] = [
+    {
+      key: 'reporter',
+      header: 'Reporter',
+      mobile: 'title',
+      cell: (r) => <UserCell user={r.reporter} avatar={false} />,
+    },
     { key: 'target', header: 'Target', cell: (r) => <ReportTarget report={r} /> },
-    { key: 'reason', header: 'Reason', cell: (r) => <ClampedText text={r.reason} /> },
-    { key: 'status', header: 'Status', cell: (r) => <ReportStatusBadge status={r.status} /> },
+    {
+      key: 'reason',
+      header: 'Reason',
+      wide: true,
+      cell: (r) => <ClampedText text={r.reason} className="lg:line-clamp-2 lg:min-w-48" />,
+    },
+    {
+      key: 'status',
+      header: 'Status',
+      mobile: 'aside',
+      cell: (r) => (
+        <div className="min-w-0">
+          <ReportStatusBadge status={r.status} />
+          {r.resolution_note && (
+            <p
+              className="mt-0.5 hidden max-w-36 truncate text-xs leading-4 text-muted-foreground lg:block"
+              title={r.resolution_note}
+            >
+              {r.resolution_note}
+            </p>
+          )}
+        </div>
+      ),
+    },
     { key: 'created', header: 'Reported', cell: (r) => <DateCell iso={r.created_at} /> },
     {
       key: 'resolution',
       header: 'Resolution note',
+      wide: true,
+      desktopHidden: true,
       cell: (r) => <ClampedText text={r.resolution_note} className="text-muted-foreground" />,
     },
   ]
@@ -97,12 +123,14 @@ export default function AdminReportsPage() {
     columns.push({
       key: 'actions',
       header: 'Actions',
+      hideHeader: true,
       className: 'text-right',
-      hideLabelOnMobile: true,
+      mobile: 'actions',
       cell: (r) =>
         OPEN_REPORT_STATUSES.has(r.status) ? (
           <Button
             variant="outline"
+            size="sm"
             disabled={resolve.isPending && resolve.variables?.id === r.id}
             aria-label={`Resolve report from @${r.reporter.username}`}
             onClick={() => {
@@ -120,28 +148,8 @@ export default function AdminReportsPage() {
   }
 
   return (
-    <div className="mx-auto w-full max-w-7xl">
-      <PageHeader
-        title="Reports"
-        description={
-          canReview
-            ? 'Reports submitted by the community. Review the target, then action or dismiss each report with a note.'
-            : 'Reports submitted by the community.'
-        }
-        breadcrumbs={[{ label: 'Admin', to: '/admin' }, { label: 'Reports' }]}
-      />
-
-      <FilterBar>
-        <FilterSelect
-          id="admin-reports-status"
-          label="Filter by status"
-          value={status}
-          onChange={setStatus}
-          options={REPORT_STATUSES}
-          labels={REPORT_STATUS_LABELS}
-          allLabel="All statuses"
-        />
-      </FilterBar>
+    <div>
+      <PageHeader title="Reports" breadcrumbs={[{ label: 'Admin', to: '/admin' }, { label: 'Reports' }]} />
 
       <PagedResults
         query={query}
@@ -149,20 +157,27 @@ export default function AdminReportsPage() {
         label="Reports"
         itemLabel="reports"
         errorTitle="Could not load reports"
-        empty={{
-          icon: Flag,
-          title: 'No reports',
-          description: 'Nobody has reported a bounty, user, or submission yet.',
-        }}
+        empty={{ icon: Flag, title: 'No reports' }}
         filtered={!!status}
         onClearFilters={() => setStatus(undefined)}
         onPageChange={(p) => {
           setPage(p)
           scrollToTop()
         }}
+        toolbar={
+          <FilterSelect
+            id="admin-reports-status"
+            label="Filter by status"
+            value={status}
+            onChange={setStatus}
+            options={REPORT_STATUSES}
+            labels={REPORT_STATUS_LABELS}
+            allLabel="All statuses"
+          />
+        }
       >
         {(items) => (
-          <DataTable rows={items} columns={columns} getKey={(r) => r.id} caption="Community reports" />
+          <AdminTable rows={items} columns={columns} getKey={(r) => r.id} caption="Community reports" />
         )}
       </PagedResults>
 

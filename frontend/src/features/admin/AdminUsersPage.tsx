@@ -125,9 +125,9 @@ export default function AdminUsersPage() {
       header: 'Email verified',
       cell: (u) =>
         u.email_verified ? (
-          <Badge variant="muted">
-            <MailCheck aria-hidden /> Verified
-          </Badge>
+          <span className="inline-flex items-center gap-1 text-[0.8125rem] text-muted-foreground">
+            <MailCheck className="size-3.5" aria-hidden /> Verified
+          </span>
         ) : (
           <Badge variant="warning">
             <MailWarning aria-hidden /> Unverified
@@ -168,7 +168,6 @@ export default function AdminUsersPage() {
           <Button
             variant="outline"
             size="sm"
-            className={u.is_active ? 'text-destructive hover:text-destructive' : undefined}
             disabled={pendingId === u.id}
             aria-label={u.is_active ? `Suspend @${u.username}` : `Reactivate @${u.username}`}
             onClick={() => {

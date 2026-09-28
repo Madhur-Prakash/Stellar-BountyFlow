@@ -43,7 +43,7 @@ export function MonoValue({
           href={href}
           target="_blank"
           rel="noopener noreferrer nofollow"
-          className="inline-flex size-9 items-center justify-center rounded-md text-muted-foreground transition-colors hover:text-foreground"
+          className="inline-flex size-8 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
           aria-label={`View ${label} on Stellar explorer (opens in a new tab)`}
         >
           <ExternalLink className="size-4" />

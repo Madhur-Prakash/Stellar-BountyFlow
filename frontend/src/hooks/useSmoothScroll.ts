@@ -1,7 +1,6 @@
 import Lenis from 'lenis'
 import { useEffect } from 'react'
 
-import { gsap, ScrollTrigger } from '@/lib/gsap'
 import { useScrollEngine } from '@/lib/scroll'
 
 import { motionAllowed } from './useReducedMotion'
@@ -20,16 +19,12 @@ export function useSmoothScroll(enabled = true) {
     if (!enabled || !motionAllowed()) return
 
     const lenis = new Lenis({
-      autoRaf: false,
+      autoRaf: true,
       lerp: 0.14,
       smoothWheel: true,
       allowNestedScroll: true,
       prevent: (node) => !!node.closest?.(OWN_SCROLL),
     })
-    const onTick = (time: number) => lenis.raf(time * 1000)
-    lenis.on('scroll', ScrollTrigger.update)
-    gsap.ticker.add(onTick)
-    gsap.ticker.lagSmoothing(0)
 
     // Radix marks <body data-scroll-locked> while a dialog, sheet or menu owns scrolling; pause Lenis meanwhile.
     const syncLock = () => (document.body.hasAttribute('data-scroll-locked') ? lenis.stop() : lenis.start())
@@ -39,8 +34,6 @@ export function useSmoothScroll(enabled = true) {
     useScrollEngine.getState().set({ lenis })
     return () => {
       lockObserver.disconnect()
-      gsap.ticker.remove(onTick)
-      gsap.ticker.lagSmoothing(500, 33)
       lenis.destroy()
       useScrollEngine.getState().set({ lenis: null })
     }

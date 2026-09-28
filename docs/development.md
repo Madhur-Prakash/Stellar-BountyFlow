@@ -7,8 +7,8 @@
 | Docker Desktop (Windows/macOS) or Docker Engine + Compose v2 | 24+ | Postgres, Redis, Kafka, Mailpit (and the full stack) |
 | GNU Make + bash | 4.x | `make` targets (Git Bash on Windows) |
 | uv | 0.9+ | Python 3.12 environment for the backend |
-| Node.js + pnpm | 22 / 10+ | Frontend |
-| Rust + `wasm32v1-none` target + Stellar CLI | stable / 27 | Contract build, test and deploy only |
+| Node.js + pnpm | 22.12+ / 11 (pinned in `package.json`) | Frontend |
+| Rust + `wasm32v1-none` target + Stellar CLI | stable / 27 (25.2.0+ required; CI pins 27.0.0) | Contract build (`stellar contract build`), test and deploy only |
 | Freighter browser extension | latest | Signing on Testnet |
 
 ## First run
@@ -94,38 +94,34 @@ cd frontend
 pnpm dev | pnpm build | pnpm lint | pnpm typecheck | pnpm test | pnpm test:e2e | pnpm bones
 ```
 
-### Motion
+### Design system and motion
 
-GSAP is the only animation library (`src/lib/gsap.ts` registers the shared plugins and the house eases
-`bf-settle` and `bf-snap`). Reusable pieces live in `src/components/motion/`:
+The visual rules (tokens, type scale, layout patterns, what motion is allowed) are in
+[design.md](design.md). In short: Inter on an off-white canvas, white cards, one blue accent, green only for money
+that is really in escrow, and motion that answers an action rather than decorating the page.
 
-| Piece | What it does |
-|---|---|
-| `SplitHeading` | SplitText heading: characters rise out of masked lines, optionally widening along the font's width axis |
-| `Reveal` | Children rise in groups as they scroll into view (ScrollTrigger.batch); each element animates once |
-| `CountUp` | Counts a figure up on first view; later changes tween from the value on screen |
-| `Scramble` | Contract ids and hashes resolve out of base32 characters (ScrambleText) |
-| `DragRail` | Horizontal rail you grab and throw (Draggable + Inertia, snaps to cards); native scroll on touch |
-| `burstCoins` (`src/lib/coin-burst.ts`) | Physics2D coin burst, used only when a transaction that moved money confirms |
-| `switchTheme` (`src/lib/theme-transition.ts`) | Light/dark switch that grows from the toggle (View Transitions API), with a colour fade fallback |
+The few animations that remain are CSS (`tw-animate-css` utilities): the route fade (`AnimatedOutlet`) and the
+mobile menu's link stagger. Radix handles dialog, menu, popover and sheet transitions. The theme switch (`switchTheme` in
+`src/lib/theme-transition.ts`) grows the new theme from the toggle with the View Transitions API, and falls back
+to a short colour fade.
 
-The landing page combines them: the hero's reward floor (`RewardPool`: coins rise onto the floor, can be thrown,
-lean away from the cursor, and show their bounty on hover), the pinned "How a bounty moves" story with its scrubbed
-handoff from the requester's track to the contributor's, and the pinned escrow diagram, where a ring follows the
-bounty from state to state and each state explains itself on hover or focus.
+Smooth scrolling (`src/hooks/useSmoothScroll.ts`) is Lenis on the native window scroll. Only the public site uses it.
+The signed-in workspace keeps plain native scrolling, which suits long tables and forms. `src/lib/scroll.ts`
+scrolls through Lenis when it is active and natively otherwise.
 
-Pinned, scroll-scrubbed sections must be created against the scroll engine they will live with: they read
-`useScrollEngineReady()` and create their ScrollTrigger only once it returns a value, and they pin a plain block
-element (ScrollTrigger disables pin spacing when the pin's parent is a flex container). Rebuilding a pin after the
-engine changes leaves a nested pin spacer that breaks the layout below it.
-
-Smooth scrolling (`src/hooks/useSmoothScroll.ts`) runs one engine at a time: ScrollSmoother on the story pages
-(landing, how it works, about), which enables `data-speed` parallax, and Lenis everywhere else, so sticky panels
-and dialogs keep native behaviour. `src/lib/scroll.ts` scrolls through whichever engine is active.
-
-Every animation checks `motionAllowed()` (`src/hooks/useReducedMotion.ts`). Under `prefers-reduced-motion`, and while
-skeletons are being captured, nothing animates and content renders in its final state. Unit tests run as a
+Every animation checks `motionAllowed()` (`src/hooks/useReducedMotion.ts`). Under `prefers-reduced-motion`, and
+while skeletons are being captured, nothing animates and content renders in its final state. Unit tests run as a
 reduced-motion user.
+
+### Lazy loading
+
+- **Routes:** every route is its own chunk (`router.tsx`).
+- **Heavy components inside pages:**
+  - charts (recharts)
+  - the Markdown renderer (`SafeMarkdown`)
+  - the wallet SDK (Freighter, loaded on first wallet action)
+  - dialogs that are only needed on demand
+- **How:** each is behind `React.lazy` or a dynamic `import()`, with a fallback that keeps the layout from shifting.
 
 ### Loading skeletons
 

@@ -1,5 +1,5 @@
-import { Check, CircleDashed, LoaderCircle } from 'lucide-react'
-import { useId, useState } from 'react'
+import { Check, Circle, LoaderCircle } from 'lucide-react'
+import { useId, useState, type ReactNode } from 'react'
 import { Link, useNavigate, useSearchParams } from 'react-router'
 import { toast } from 'sonner'
 
@@ -7,8 +7,17 @@ import { WalletButton } from '@/components/chain/WalletButton'
 import { EmailNotVerifiedNotice } from '@/components/common/EmailNotVerifiedNotice'
 import { LoadingState } from '@/components/layout/LoadingState'
 import { PageHeader } from '@/components/layout/PageHeader'
+import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
+import {
+  Card,
+  CardAction,
+  CardContent,
+  CardDescription,
+  CardFooter,
+  CardHeader,
+  CardTitle,
+} from '@/components/ui/card'
 import { Checkbox } from '@/components/ui/checkbox'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -30,7 +39,63 @@ const STEPS: { key: keyof Omit<OnboardingState, 'completed'>; label: string }[] 
 
 const BIO_MAX = 1000
 
-function ProfileStep({ me }: { me: Me }) {
+function StepMarker({ n, done }: { n: number; done: boolean }) {
+  return (
+    <span
+      aria-hidden
+      className={cn(
+        'flex size-7 shrink-0 items-center justify-center rounded-full border text-xs font-semibold tabular-nums',
+        done ? 'border-primary bg-primary text-primary-foreground' : 'bg-card text-muted-foreground',
+      )}
+    >
+      {done ? <Check className="size-3.5" strokeWidth={3} /> : n}
+    </span>
+  )
+}
+
+/** One onboarding step: numbered header, content aligned under the title, optional footer for its action. */
+function StepCard({
+  n,
+  title,
+  description,
+  done,
+  footer,
+  children,
+}: {
+  n: number
+  title: string
+  description: ReactNode
+  done: boolean
+  footer?: ReactNode
+  children?: ReactNode
+}) {
+  return (
+    <Card className="gap-0">
+      <CardHeader className={children ? 'pb-4' : undefined}>
+        <div className="flex min-w-0 items-start gap-3">
+          <StepMarker n={n} done={done} />
+          <div className="min-w-0 space-y-1 pt-0.5">
+            <CardTitle>
+              <h2>{title}</h2>
+            </CardTitle>
+            <CardDescription>{description}</CardDescription>
+          </div>
+        </div>
+        {done && (
+          <CardAction>
+            <Badge variant="muted">
+              <Check aria-hidden /> Done
+            </Badge>
+          </CardAction>
+        )}
+      </CardHeader>
+      {children && <CardContent className={cn('sm:pl-15', footer && 'pb-5')}>{children}</CardContent>}
+      {footer && <CardFooter className="justify-end gap-3 px-5 py-3">{footer}</CardFooter>}
+    </Card>
+  )
+}
+
+function ProfileStep({ me, n }: { me: Me; n: number }) {
   const update = useUpdateMe()
   const ids = { bio: useId(), skills: useId() }
   const [request, setRequest] = useState(me.wants_to_request)
@@ -59,25 +124,37 @@ function ProfileStep({ me }: { me: Me }) {
       { onSuccess: () => toast.success('Profile saved'), onError: (e) => toast.error(errorMessage(e)) },
     )
 
+  const option =
+    'flex min-h-10 items-center gap-3 rounded-lg border px-3 py-2 font-normal transition-colors hover:bg-surface/60 has-data-[state=checked]:border-primary/40 has-data-[state=checked]:bg-primary/5'
+
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle>About you</CardTitle>
-        <CardDescription>
-          This tailors your dashboard and recommendations. You can change it any time.
-        </CardDescription>
-      </CardHeader>
-      <CardContent className="space-y-5">
+    <StepCard
+      n={n}
+      title="About you"
+      description="Tailors your dashboard and recommendations."
+      done={me.onboarding.role_selected && me.onboarding.profile_completed}
+      footer={
+        <Button
+          onClick={save}
+          disabled={update.isPending || (!request && !contribute) || tooLong || tooManySkills}
+        >
+          {update.isPending && <LoaderCircle className="animate-spin" />} Save profile
+        </Button>
+      }
+    >
+      <div className="space-y-5">
         <fieldset className="space-y-2">
-          <legend className="text-sm font-medium">I want to…</legend>
-          <Label className="flex min-h-10 items-center gap-3 font-normal">
-            <Checkbox checked={request} onCheckedChange={(v) => setRequest(v === true)} /> Post bounties and
-            pay for work
-          </Label>
-          <Label className="flex min-h-10 items-center gap-3 font-normal">
-            <Checkbox checked={contribute} onCheckedChange={(v) => setContribute(v === true)} /> Find work and
-            earn rewards
-          </Label>
+          <legend className="mb-2 text-sm font-medium">I want to…</legend>
+          <div className="grid gap-2 sm:grid-cols-2">
+            <Label className={option}>
+              <Checkbox checked={request} onCheckedChange={(v) => setRequest(v === true)} /> Post bounties and
+              pay for work
+            </Label>
+            <Label className={option}>
+              <Checkbox checked={contribute} onCheckedChange={(v) => setContribute(v === true)} /> Find work
+              and earn rewards
+            </Label>
+          </div>
         </fieldset>
         <div className="space-y-2">
           <Label htmlFor={ids.bio}>Short bio</Label>
@@ -92,7 +169,7 @@ function ProfileStep({ me }: { me: Me }) {
           />
           <p
             id={`${ids.bio}-hint`}
-            className={cn('text-xs text-muted-foreground', tooLong && 'text-destructive')}
+            className={cn('text-[0.8125rem] text-muted-foreground', tooLong && 'text-destructive')}
           >
             {tooLong ? `Keep it under ${BIO_MAX} characters.` : 'Shown on your public profile.'}
           </p>
@@ -109,21 +186,15 @@ function ProfileStep({ me }: { me: Me }) {
           />
           <p
             id={`${ids.skills}-hint`}
-            className={cn('text-xs text-muted-foreground', tooManySkills && 'text-destructive')}
+            className={cn('text-[0.8125rem] text-muted-foreground', tooManySkills && 'text-destructive')}
           >
             {tooManySkills
               ? 'Add at most 15 skills.'
               : 'Comma separated, up to 15. Shown on your public profile as self-reported.'}
           </p>
         </div>
-        <Button
-          onClick={save}
-          disabled={update.isPending || (!request && !contribute) || tooLong || tooManySkills}
-        >
-          {update.isPending && <LoaderCircle className="animate-spin" />} Save profile
-        </Button>
-      </CardContent>
-    </Card>
+      </div>
+    </StepCard>
   )
 }
 
@@ -139,73 +210,85 @@ export default function OnboardingPage() {
   const done = STEPS.filter((s) => o[s.key]).length
 
   return (
-    <div className="mx-auto max-w-3xl">
+    <div className="mx-auto max-w-2xl">
       <PageHeader
         title="Set up your account"
         description={`${done} of ${STEPS.length} steps done. Everything except email verification can be finished later.`}
       />
 
-      <ol className="mb-8 grid gap-2 sm:grid-cols-2 lg:grid-cols-5" aria-label="Onboarding progress">
+      <ol className="mb-8 grid gap-2.5 sm:grid-cols-5 sm:gap-2" aria-label="Onboarding progress">
         {STEPS.map((s) => (
-          <li
-            key={s.key}
-            data-done={o[s.key] || undefined}
-            className={cn(
-              'flex items-start gap-2 rounded-lg border p-3 text-xs',
-              o[s.key] ? 'border-success/30 bg-success/5' : 'bg-card',
-            )}
-          >
-            {o[s.key] ? (
-              <Check className="size-4 shrink-0 text-success" aria-hidden />
-            ) : (
-              <CircleDashed className="size-4 shrink-0 text-muted-foreground" aria-hidden />
-            )}
-            <span>
-              {s.label}
-              <span className="sr-only">{o[s.key] ? ' (done)' : ' (to do)'}</span>
+          <li key={s.key} data-done={o[s.key] || undefined} className="min-w-0">
+            <span
+              aria-hidden
+              className={cn('hidden h-1 rounded-full sm:block', o[s.key] ? 'bg-primary' : 'bg-border')}
+            />
+            <span className="flex items-start gap-2 text-xs sm:mt-2.5">
+              {o[s.key] ? (
+                <Check className="mt-px size-3.5 shrink-0 text-primary" strokeWidth={2.5} aria-hidden />
+              ) : (
+                <Circle className="mt-px size-3.5 shrink-0 text-muted-foreground/60" aria-hidden />
+              )}
+              <span className={o[s.key] ? 'text-foreground' : 'text-muted-foreground'}>
+                {s.label}
+                <span className="sr-only">{o[s.key] ? ' (done)' : ' (to do)'}</span>
+              </span>
             </span>
           </li>
         ))}
       </ol>
 
-      <div className="space-y-6">
-        {!me.email_verified && <EmailNotVerifiedNotice action="publish bounties and receive payouts" />}
+      <div className="space-y-4">
+        <StepCard
+          n={1}
+          title="Verify your email"
+          description={
+            me.email_verified
+              ? 'Your email address is verified.'
+              : 'Needed before you can publish bounties or receive payouts.'
+          }
+          done={o.email_verified}
+        >
+          {!me.email_verified && <EmailNotVerifiedNotice action="publish bounties and receive payouts" />}
+        </StepCard>
 
-        <ProfileStep me={me} />
+        <ProfileStep me={me} n={2} />
 
-        <Card>
-          <CardHeader>
-            <CardTitle>Wallet</CardTitle>
-            <CardDescription>
-              Connect Freighter and choose “Verify ownership” to prove the address is yours. Payouts can only
-              go to a verified wallet. New to Freighter? Read the{' '}
-              <Link to="/guide#wallets" className="underline underline-offset-4">
+        <StepCard
+          n={3}
+          title="Link a wallet"
+          description={
+            <>
+              Payouts only go to a verified wallet. Connect Freighter, then choose “Verify ownership” in the
+              wallet menu. New to Freighter? Read the{' '}
+              <Link to="/guide#wallets" className="text-foreground underline underline-offset-4">
                 wallet guide
               </Link>
               .
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            <WalletButton />
-          </CardContent>
-        </Card>
+            </>
+          }
+          done={o.wallet_connected}
+        >
+          <WalletButton />
+        </StepCard>
 
-        <Card>
-          <CardHeader>
-            <CardTitle>Get started</CardTitle>
-            <CardDescription>Post your first bounty or apply to one.</CardDescription>
-          </CardHeader>
-          <CardContent className="flex flex-wrap gap-3">
+        <StepCard
+          n={4}
+          title="Get started"
+          description="Post your first bounty or apply to one."
+          done={o.first_action_taken}
+        >
+          <div className="flex flex-wrap gap-3">
             <Button asChild variant="outline">
               <Link to="/app/bounties/create">Post a bounty</Link>
             </Button>
             <Button asChild variant="outline">
               <Link to="/bounties">Browse bounties</Link>
             </Button>
-          </CardContent>
-        </Card>
+          </div>
+        </StepCard>
 
-        <div className="flex flex-col-reverse gap-3 border-t pt-6 sm:flex-row sm:justify-end">
+        <div className="flex flex-col-reverse gap-3 pt-4 sm:flex-row sm:justify-end">
           <Button asChild variant="ghost">
             <Link to={next}>Skip for now</Link>
           </Button>

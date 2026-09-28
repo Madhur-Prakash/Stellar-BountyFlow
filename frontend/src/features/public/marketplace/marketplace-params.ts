@@ -44,6 +44,18 @@ export const DEFAULT_FILTERS: MarketplaceFilters = {
   page: 1,
 }
 
+/** Patch that clears every panel filter (search and sort are kept). */
+export const FILTER_RESET: Partial<MarketplaceFilters> = {
+  category: null,
+  difficulty: null,
+  status: [],
+  skills: [],
+  minReward: '',
+  maxReward: '',
+  deadline: null,
+  fundedOnly: false,
+}
+
 /** The sort actually applied (mirrors the API default). */
 export function effectiveSort(f: Pick<MarketplaceFilters, 'q' | 'sort'>): BountySort {
   if (f.sort === 'relevance' && !f.q.trim()) return 'newest'

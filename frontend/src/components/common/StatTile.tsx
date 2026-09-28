@@ -25,7 +25,7 @@ export function StatTile({
 }) {
   return (
     <div data-stat-tile className={cn('min-w-0 bg-card px-5 py-4', className)}>
-      <div className="truncate text-[0.8125rem] font-medium text-muted-foreground">{label}</div>
+      <div className="text-[0.8125rem] leading-snug font-medium text-muted-foreground">{label}</div>
       <div className="amount mt-1.5 text-[1.625rem] leading-tight">
         {loading ? <Skeleton className="h-7 w-20" /> : value}
       </div>
@@ -40,12 +40,7 @@ export function StatTile({
  */
 export function StatGrid({ children, className }: { children: ReactNode; className?: string }) {
   return (
-    <div
-      className={cn(
-        'grid gap-px overflow-hidden rounded-xl border bg-border shadow-soft',
-        className,
-      )}
-    >
+    <div className={cn('grid gap-px overflow-hidden rounded-xl border bg-border shadow-soft', className)}>
       {children}
     </div>
   )

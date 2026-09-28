@@ -1,5 +1,5 @@
 import { QueryClientProvider } from '@tanstack/react-query'
-import { render, screen } from '@testing-library/react'
+import { render, screen, waitFor } from '@testing-library/react'
 import { createMemoryRouter, RouterProvider } from 'react-router'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
@@ -57,11 +57,12 @@ describe('app routes (lazy modules, real layouts)', () => {
   it('renders the landing page with honest empty states', async () => {
     renderAt('/')
     expect(await screen.findByRole('heading', { level: 1 }, { timeout: 15000 })).toHaveTextContent(
-      'Work gets done.',
+      'Bounties with the reward held in escrow',
     )
-    expect(await screen.findByText('No open bounties right now.')).toBeInTheDocument()
+    // Both the hero preview and the open bounties table say so when nothing is open.
+    await waitFor(() => expect(screen.getAllByText('No open bounties right now')).toHaveLength(2))
     expect(await screen.findByRole('link', { name: 'Post the first bounty' })).toBeInTheDocument()
-    expect(screen.getByText(/Network: Testnet/)).toBeInTheDocument()
+    expect(screen.getByText(/Stellar Testnet\./)).toBeInTheDocument()
     expect(screen.getByRole('link', { name: /skip to content/i })).toBeInTheDocument()
   }, 30_000)
 

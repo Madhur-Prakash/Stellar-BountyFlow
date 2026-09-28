@@ -4,23 +4,28 @@ import { useCountdown } from '@/hooks/useCountdown'
 import { formatDateTime } from '@/lib/format'
 import { cn } from '@/lib/utils'
 
-/** "Applications close in 3d 04h" — updates live, but not announced every second. */
+/**
+ * "Closes in 3d 04h". Updates live, but is not announced every second.
+ * `bare` drops the icon and the label ("in 3d 04h"), for use next to its own label.
+ */
 export function DeadlineCountdown({
   deadline,
   label = 'Closes',
   className,
   showSeconds = false,
+  bare = false,
 }: {
   deadline: string | null | undefined
   label?: string
   className?: string
   showSeconds?: boolean
+  bare?: boolean
 }) {
   const c = useCountdown(deadline)
   if (!deadline || !c) {
     return (
       <span className={cn('inline-flex items-center gap-1.5 text-sm text-muted-foreground', className)}>
-        <Clock3 className="size-3.5" aria-hidden /> No deadline
+        {!bare && <Clock3 className="size-3.5" aria-hidden />} No deadline
       </span>
     )
   }
@@ -41,9 +46,9 @@ export function DeadlineCountdown({
         className,
       )}
     >
-      <Clock3 className="size-3.5" aria-hidden />
+      {!bare && <Clock3 className="size-3.5" aria-hidden />}
       <time dateTime={deadline} title={formatDateTime(deadline)}>
-        {c.isPast ? text : `${label} in ${text}`}
+        {c.isPast ? text : bare ? `in ${text}` : `${label} in ${text}`}
       </time>
     </span>
   )

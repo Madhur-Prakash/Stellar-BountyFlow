@@ -99,13 +99,13 @@ a Vite dev server with the test wallet enabled. Infra (Postgres, Redis, Mailpit)
 
 Projects: `desktop-chromium` (1280×800) runs everything, including the `*.journey.spec.ts` flows; `tablet`
 (768×1024) and `mobile` (Pixel 7) run the public, responsive and accessibility specs. These three run as a
-reduced-motion user, so GSAP entrances and smooth scrolling are off and assertions see final content. The
+reduced-motion user, so transitions and smooth scrolling are off and assertions see final content. The
 `motion` project (1280×800, motion on) runs `e2e/motion.spec.ts`, which covers:
 
-- ScrollSmoother on the landing page and Lenis on the marketplace
-- the reward pool: tokens rise onto the floor, drag without opening, and click through to their bounty
-- the draggable rail and its buttons
-- the pinned story advancing with scroll, and the escrow vault drawing
+- Lenis smooth scrolling on the landing page and the marketplace
+- the hero's live bounty preview and its link to the bounty
+- escrow states explaining themselves on hover
+- the animated theme switch
 - captured skeletons showing while results load
 - the reduced-motion fallback
 
@@ -134,5 +134,6 @@ Notes:
 
 - backend lint (ruff), types (mypy), migration up/check/down and tests with coverage;
 - frontend lint, typecheck, unit tests and build, plus a forbidden-icon check;
-- contract fmt, clippy, tests and the wasm build;
+- contract fmt, clippy, tests and the wasm build (`stellar contract build`, Stellar CLI 27.0.0 from the official
+  `stellar/stellar-cli` action; soroban-sdk 28 cannot build the wasm with plain `cargo build`);
 - the Playwright E2E suite against the API on Stellar Testnet.

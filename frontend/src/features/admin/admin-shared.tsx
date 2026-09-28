@@ -56,7 +56,7 @@ import { cn } from '@/lib/utils'
 
 import { ADMIN_PAGE_SIZE, ALL_OPTION, ROLE_LABELS } from './admin-utils'
 
-type BadgeVariant = 'success' | 'warning' | 'danger' | 'info' | 'muted' | 'outline'
+type BadgeVariant = 'warning' | 'danger' | 'info' | 'outline'
 
 // ---------------------------------------------------------------------------
 // Toolbar filters
@@ -227,7 +227,9 @@ export function PagedResults<T>({
 
   let body: ReactNode
   if (query.isError) {
-    body = <ErrorState error={query.error} title={errorTitle} onRetry={() => query.refetch()} className="m-4" />
+    body = (
+      <ErrorState error={query.error} title={errorTitle} onRetry={() => query.refetch()} className="m-4" />
+    )
   } else if (data && data.total === 0) {
     body = filtered ? (
       <EmptyState
@@ -300,7 +302,7 @@ export function PagedResults<T>({
           {query.isFetching && !query.isPending && (
             <LoaderCircle className="size-3.5 animate-spin" aria-hidden />
           )}
-          {data ? `${formatNumber(data.total)} ${itemLabel}` : null}
+          {data && data.total > 0 ? `${formatNumber(data.total)} ${itemLabel}` : null}
         </p>
       </div>
       <section aria-label={label} aria-busy={query.isFetching}>
@@ -329,6 +331,10 @@ export type AdminColumn<T> = {
   mobile?: 'title' | 'aside' | 'field' | 'actions' | 'hidden'
   /** Let a stacked-row field use the full row width. */
   wide?: boolean
+  /** Only show this column in stacked rows (the table shows it inside another cell). */
+  desktopHidden?: boolean
+  /** Position among a stacked row's fields (defaults to the column order). */
+  mobileOrder?: number
 }
 
 const INTERACTIVE = 'a, button, input, select, textarea, label, [role="combobox"], [role="menuitem"]'
@@ -365,9 +371,14 @@ export function AdminTable<T>({
   const place = (c: AdminColumn<T>) => c.mobile ?? 'field'
   const titleCols = columns.filter((c) => place(c) === 'title')
   const asideCols = columns.filter((c) => place(c) === 'aside')
-  const fieldCols = columns.filter((c) => place(c) === 'field')
+  const fieldCols = columns
+    .map((c, i) => ({ c, order: c.mobileOrder ?? i }))
+    .filter(({ c }) => place(c) === 'field')
+    .sort((a, b) => a.order - b.order)
+    .map(({ c }) => c)
   const actionCols = columns.filter((c) => place(c) === 'actions')
-  const colCount = columns.length + (detail ? 1 : 0)
+  const tableCols = columns.filter((c) => !c.desktopHidden)
+  const colCount = tableCols.length + (detail ? 1 : 0)
 
   const onRowClick = (key: string) => (e: MouseEvent<HTMLTableRowElement>) => {
     if (!detail) return
@@ -381,14 +392,14 @@ export function AdminTable<T>({
       <div className="hidden lg:block">
         <Table className="[&_td:first-child]:pl-4 [&_td:last-child]:pr-4 [&_th:first-child]:pl-4 [&_th:last-child]:pr-4">
           <caption className="sr-only">{caption}</caption>
-          <TableHeader>
+          <TableHeader className="bg-surface/60">
             <TableRow className="hover:bg-transparent">
               {detail && (
                 <TableHead className="w-10 pr-0">
                   <span className="sr-only">Details</span>
                 </TableHead>
               )}
-              {columns.map((c) => (
+              {tableCols.map((c) => (
                 <TableHead key={c.key} className={c.className}>
                   {c.hideHeader ? <span className="sr-only">{c.header}</span> : c.header}
                 </TableHead>
@@ -422,7 +433,7 @@ export function AdminTable<T>({
                         </Button>
                       </TableCell>
                     )}
-                    {columns.map((c) => (
+                    {tableCols.map((c) => (
                       <TableCell key={c.key} className={cn('py-1', c.className)}>
                         {c.cell(row)}
                       </TableCell>
@@ -515,10 +526,19 @@ export function AdminTable<T>({
 // ---------------------------------------------------------------------------
 
 /** Avatar, display name, and @username linking to the public profile. */
-export function UserCell({ user, className }: { user: UserSummary; className?: string }) {
+export function UserCell({
+  user,
+  avatar = true,
+  className,
+}: {
+  user: UserSummary
+  /** Leave the avatar out in secondary columns of wide tables. */
+  avatar?: boolean
+  className?: string
+}) {
   return (
     <span className={cn('inline-flex max-w-full min-w-0 items-center gap-2.5 text-left', className)}>
-      <UserAvatar user={user} className="size-7" />
+      {avatar && <UserAvatar user={user} className="size-7" />}
       <span className="min-w-0">
         <span className="block truncate leading-5 font-medium">{user.display_name || user.username}</span>
         <Link
@@ -537,7 +557,10 @@ export function ClampedText({ text, className }: { text: string | null | undefin
   if (!text) return <span className="text-muted-foreground">—</span>
   return (
     <p
-      className={cn('line-clamp-2 max-w-72 text-sm wrap-break-word whitespace-normal lg:line-clamp-1', className)}
+      className={cn(
+        'line-clamp-2 max-w-72 text-sm wrap-break-word whitespace-normal lg:line-clamp-1',
+        className,
+      )}
       title={text}
     >
       {text}
@@ -560,7 +583,7 @@ export function DateCell({ iso }: { iso: string | null | undefined }) {
 }
 
 const ROLE_BADGE: Record<Role, { variant: BadgeVariant; icon: LucideIcon }> = {
-  USER: { variant: 'muted', icon: UserRound },
+  USER: { variant: 'outline', icon: UserRound },
   MODERATOR: { variant: 'outline', icon: ShieldCheck },
   ADMIN: { variant: 'info', icon: UserCog },
 }
@@ -579,7 +602,7 @@ const REPORT_BADGE: Record<ReportStatus, { variant: BadgeVariant; icon: LucideIc
   OPEN: { variant: 'warning', icon: CircleAlert },
   REVIEWING: { variant: 'info', icon: Eye },
   ACTIONED: { variant: 'outline', icon: Gavel },
-  DISMISSED: { variant: 'muted', icon: CircleMinus },
+  DISMISSED: { variant: 'outline', icon: CircleMinus },
 }
 
 export function ReportStatusBadge({ status }: { status: ReportStatus }) {
@@ -596,7 +619,7 @@ const DISPUTE_BADGE: Record<DisputeStatus, { variant: BadgeVariant; icon: Lucide
   OPEN: { variant: 'warning', icon: CircleAlert },
   UNDER_REVIEW: { variant: 'info', icon: Clock3 },
   RESOLVED: { variant: 'outline', icon: CheckCircle2 },
-  DISMISSED: { variant: 'muted', icon: CircleMinus },
+  DISMISSED: { variant: 'outline', icon: CircleMinus },
 }
 
 export function DisputeStatusBadge({ status }: { status: DisputeStatus }) {
@@ -609,10 +632,13 @@ export function DisputeStatusBadge({ status }: { status: DisputeStatus }) {
   )
 }
 
-const HEALTH_BADGE: Record<string, { variant: BadgeVariant; icon: LucideIcon; label: string }> = {
-  ok: { variant: 'success', icon: CheckCircle2, label: 'OK' },
+const HEALTH_BADGE: Record<
+  string,
+  { variant: BadgeVariant; icon: LucideIcon; label: string; tone?: string }
+> = {
+  ok: { variant: 'outline', icon: CheckCircle2, label: 'OK', tone: 'text-success' },
   error: { variant: 'danger', icon: CircleAlert, label: 'Error' },
-  disabled: { variant: 'muted', icon: CircleMinus, label: 'Disabled' },
+  disabled: { variant: 'outline', icon: CircleMinus, label: 'Disabled', tone: 'text-muted-foreground' },
   degraded: { variant: 'warning', icon: TriangleAlert, label: 'Degraded' },
 }
 
@@ -623,7 +649,7 @@ export function HealthBadge({ state }: { state: string }) {
   const Icon = known.icon
   return (
     <Badge variant={known.variant}>
-      <Icon aria-hidden />
+      <Icon className={known.tone} aria-hidden />
       {known.label}
     </Badge>
   )

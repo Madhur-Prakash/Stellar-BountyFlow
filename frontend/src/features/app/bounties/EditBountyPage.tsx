@@ -18,7 +18,7 @@ export default function EditBountyPage() {
   const navigate = useNavigate()
 
   return (
-    <div className="mx-auto max-w-3xl">
+    <div className="mx-auto max-w-6xl">
       <QueryView query={query} errorTitle="Could not load this bounty">
         {(bounty) => {
           const editable =
@@ -32,11 +32,6 @@ export default function EditBountyPage() {
                   { label: 'Edit' },
                 ]}
                 title="Edit bounty"
-                description={
-                  bounty.status === 'DRAFT'
-                    ? 'Drafts can be changed freely.'
-                    : 'Content can change until the bounty is funded.'
-                }
               />
               {!bounty.viewer?.is_owner ? (
                 <EmptyState icon={Lock} title="Only the requester can edit this bounty" />
@@ -44,7 +39,7 @@ export default function EditBountyPage() {
                 <EmptyState
                   icon={Lock}
                   title="This bounty can no longer be edited"
-                  description="Content is locked once a bounty is funded, so contributors can rely on what they applied to."
+                  description="Content is locked once a bounty is funded."
                   action={
                     <Button asChild variant="outline">
                       <Link to={`/app/bounties/${bounty.id}`}>Back to bounty</Link>
@@ -56,7 +51,12 @@ export default function EditBountyPage() {
                   defaultValues={fromBounty(bounty)}
                   submitLabel="Save changes"
                   lockEconomics={bounty.status !== 'DRAFT'}
+                  status={bounty.status}
                   pending={update.isPending}
+                  cancelTo={`/app/bounties/${bounty.id}`}
+                  footerNote={
+                    bounty.status === 'DRAFT' ? undefined : 'Content can change until the bounty is funded.'
+                  }
                   onSubmit={async (body) => {
                     await update.mutateAsync(body)
                     toast.success('Bounty updated')

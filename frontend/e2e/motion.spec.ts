@@ -22,7 +22,9 @@ test('landing: Lenis scrolling, the live bounty preview and escrow states that e
   const funded = page.locator('#escrow [data-node="funded"] > g')
   await funded.scrollIntoViewIfNeeded()
   await funded.hover()
-  await expect(page.locator('#escrow figcaption')).toContainText('The full amount is confirmed in the contract')
+  await expect(page.locator('#escrow figcaption')).toContainText(
+    'The full amount is confirmed in the contract',
+  )
 })
 
 test('landing: the hero preview opens its bounty', async ({ page }) => {
@@ -64,7 +66,9 @@ test.describe('reduced motion', () => {
     await page.goto('/')
     await expect(page.getByRole('heading', { level: 1, name: /reward held in escrow/i })).toBeVisible()
     await expect(page.locator('html')).not.toHaveClass(/lenis/)
-    await expect(page.locator('section[aria-labelledby="hero-title"] article')).toBeVisible({ timeout: 15_000 })
+    await expect(page.locator('section[aria-labelledby="hero-title"] article')).toBeVisible({
+      timeout: 15_000,
+    })
     await expect(page.locator('#escrow h3').first()).toHaveCSS('opacity', '1')
   })
 })

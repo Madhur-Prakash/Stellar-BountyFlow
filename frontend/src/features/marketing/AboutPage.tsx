@@ -105,9 +105,7 @@ function AtAGlance() {
             '—'
           )}
         </Fact>
-        <Fact label="Bounties published">
-          {figure(stats ? formatNumber(stats.published_bounties) : '—')}
-        </Fact>
+        <Fact label="Bounties published">{figure(stats ? formatNumber(stats.published_bounties) : '—')}</Fact>
         <Fact label="Members">{figure(stats ? formatNumber(stats.registered_users) : '—')}</Fact>
         <Fact label="Verified payouts">
           {figure(stats ? `${formatAmount(stats.verified_payout_volume, { maxDecimals: 2 })} XLM` : '—')}
@@ -117,7 +115,17 @@ function AtAGlance() {
   )
 }
 
-function List({ id, title, items, tone }: { id: string; title: string; items: string[]; tone: 'yes' | 'no' }) {
+function List({
+  id,
+  title,
+  items,
+  tone,
+}: {
+  id: string
+  title: string
+  items: string[]
+  tone: 'yes' | 'no'
+}) {
   const Icon = tone === 'yes' ? Check : X
   return (
     <div className="rounded-xl border bg-card shadow-soft">
@@ -128,7 +136,11 @@ function List({ id, title, items, tone }: { id: string; title: string; items: st
         {items.map((item) => (
           <li key={item} className="flex items-start gap-3 py-3.5 text-sm">
             <Icon
-              className={tone === 'yes' ? 'mt-0.5 size-4 shrink-0 text-success' : 'mt-0.5 size-4 shrink-0 text-destructive'}
+              className={
+                tone === 'yes'
+                  ? 'mt-0.5 size-4 shrink-0 text-success'
+                  : 'mt-0.5 size-4 shrink-0 text-destructive'
+              }
               aria-hidden
             />
             {item}
@@ -155,7 +167,8 @@ export default function AboutPage() {
             <div className="mt-6 space-y-4 text-[1.0625rem] leading-relaxed text-muted-foreground">
               <p>
                 Paid open work, like bug fixes, audits, docs and design, usually runs on trust. A requester
-                promises a reward and the contributor hopes it arrives. When it doesn’t, there’s little recourse.
+                promises a reward and the contributor hopes it arrives. When it doesn’t, there’s little
+                recourse.
               </p>
               <p>
                 BountyFlow moves that promise into a Soroban smart contract on Stellar. Low fees and fast
@@ -163,8 +176,8 @@ export default function AboutPage() {
                 approved.
               </p>
               <p>
-                This deployment runs on Stellar Testnet. Every escrow, payout and refund is a real contract call
-                you can inspect on the explorer, using test XLM that has no monetary value.
+                This deployment runs on Stellar Testnet. Every escrow, payout and refund is a real contract
+                call you can inspect on the explorer, using test XLM that has no monetary value.
               </p>
             </div>
             <div className="mt-8 flex flex-wrap gap-3">

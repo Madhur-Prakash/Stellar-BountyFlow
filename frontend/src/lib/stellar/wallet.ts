@@ -17,6 +17,7 @@
  * `@stellar/freighter-api` is loaded on first use (`freighterApi()`), so pages
  * that never touch a wallet do not download it.
  */
+import type freighterApiDefault from '@stellar/freighter-api'
 
 export type WalletErrorCode =
   'NOT_INSTALLED' | 'USER_REJECTED' | 'WRONG_NETWORK' | 'ADDRESS_MISMATCH' | 'NOT_CONNECTED' | 'UNKNOWN'
@@ -84,7 +85,7 @@ function toWalletError(err: FreighterErrorLike, fallback: string): WalletError {
   return new WalletError('UNKNOWN', message || fallback)
 }
 
-type FreighterApi = (typeof import('@stellar/freighter-api'))['default']
+type FreighterApi = typeof freighterApiDefault
 
 let freighterModule: Promise<FreighterApi> | null = null
 

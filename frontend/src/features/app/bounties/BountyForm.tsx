@@ -1,8 +1,12 @@
 import { zodResolver } from '@hookform/resolvers/zod'
 import { LoaderCircle, Lock } from 'lucide-react'
 import { useState, type ReactNode } from 'react'
-import { useForm, useWatch, type Path } from 'react-hook-form'
+import { useForm, useWatch, type Control, type Path } from 'react-hook-form'
+import { Link } from 'react-router'
 
+import { BountyStatusBadge } from '@/components/bounty/BountyStatusBadge'
+import { MetaList } from '@/components/bounty/MetaList'
+import { SkillTags } from '@/components/bounty/SkillTags'
 import { SafeMarkdown } from '@/components/markdown/SafeMarkdown'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
@@ -20,12 +24,12 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Textarea } from '@/components/ui/textarea'
 import { FormErrorAlert } from '@/features/auth/AuthCard'
-import { CATEGORIES, DIFFICULTIES, type CreateBountyRequest } from '@/lib/api/types'
-import { CATEGORY_LABELS, DIFFICULTY_LABELS } from '@/lib/format'
+import { CATEGORIES, DIFFICULTIES, type BountyStatus, type CreateBountyRequest } from '@/lib/api/types'
+import { CATEGORY_LABELS, DIFFICULTY_LABELS, formatDate } from '@/lib/format'
 import { applyApiErrors } from '@/lib/form-errors'
 import { formatAmount, isValidAmount, multiplyAmount } from '@/lib/money'
 
-import { bountyFormSchema, toRequest, type BountyFormValues } from './bounty-form-schema'
+import { bountyFormSchema, localInputToIso, toRequest, type BountyFormValues } from './bounty-form-schema'
 
 const FIELDS: Path<BountyFormValues>[] = [
   'title',
@@ -47,6 +51,8 @@ const FIELDS: Path<BountyFormValues>[] = [
   'links',
 ]
 
+const HELP = 'text-[0.8125rem]'
+
 function Section({
   title,
   description,
@@ -58,12 +64,76 @@ function Section({
 }) {
   return (
     <Card>
-      <CardHeader>
-        <CardTitle className="text-base">{title}</CardTitle>
+      <CardHeader className="border-b">
+        <CardTitle>{title}</CardTitle>
         {description && <CardDescription>{description}</CardDescription>}
       </CardHeader>
       <CardContent className="space-y-5">{children}</CardContent>
     </Card>
+  )
+}
+
+const csvList = (v: string) =>
+  Array.from(
+    new Set(
+      v
+        .split(',')
+        .map((s) => s.trim().toLowerCase())
+        .filter(Boolean),
+    ),
+  )
+
+/** How the bounty will read on a marketplace card, from what has been typed so far. */
+function LivePreview({ control, status }: { control: Control<BountyFormValues>; status: BountyStatus }) {
+  const [title, summary, category, difficulty, skills, reward, positions, closes] = useWatch({
+    control,
+    name: [
+      'title',
+      'short_description',
+      'category',
+      'difficulty',
+      'required_skills',
+      'reward_amount',
+      'positions_available',
+      'application_deadline',
+    ],
+  })
+  const count = /^\d+$/.test(positions) ? Number(positions) : 0
+  const closesIso = localInputToIso(closes)
+  return (
+    <aside aria-label="Live preview" className="hidden xl:block">
+      <div className="sticky top-20 space-y-2">
+        <p className="px-1 text-xs font-medium text-muted-foreground">Preview</p>
+        <div className="rounded-xl border bg-card p-5 shadow-soft">
+          <BountyStatusBadge status={status} />
+          <p className="mt-2.5 text-[0.9375rem] leading-snug font-semibold wrap-break-word">
+            {title.trim() || <span className="text-muted-foreground">Untitled bounty</span>}
+          </p>
+          {summary.trim() && (
+            <p className="mt-1 line-clamp-3 text-sm wrap-break-word text-muted-foreground">{summary}</p>
+          )}
+          <MetaList className="mt-3">
+            <span>{CATEGORY_LABELS[category]}</span>
+            <span>{DIFFICULTY_LABELS[difficulty]}</span>
+          </MetaList>
+          <SkillTags skills={csvList(skills)} max={3} className="mt-3" label="Skills" />
+          <div className="mt-4 border-t pt-4 text-sm">
+            {isValidAmount(reward) ? (
+              <p>
+                <span className="amount text-lg">{formatAmount(reward)}</span>{' '}
+                <span className="text-muted-foreground">XLM per position</span>
+              </p>
+            ) : (
+              <p className="text-muted-foreground">No reward set</p>
+            )}
+            <p className="mt-1 text-xs text-muted-foreground">
+              {count === 1 ? '1 position' : `${count} positions`}
+              {closesIso ? `, applications close ${formatDate(closesIso)}` : ''}
+            </p>
+          </div>
+        </div>
+      </div>
+    </aside>
   )
 }
 
@@ -77,12 +147,21 @@ export function BountyForm({
   lockEconomics = false,
   pending,
   onSubmit,
+  cancelTo,
+  footerNote,
+  status = 'DRAFT',
 }: {
   defaultValues: BountyFormValues
   submitLabel: string
   lockEconomics?: boolean
   pending: boolean
   onSubmit: (body: CreateBountyRequest) => Promise<unknown>
+  /** Where "Cancel" goes. */
+  cancelTo?: string
+  /** Short line beside the actions in the sticky footer. */
+  footerNote?: string
+  /** Current status, shown on the preview card. */
+  status?: BountyStatus
 }) {
   const [formError, setFormError] = useState<string | null>(null)
   const form = useForm<BountyFormValues>({
@@ -98,6 +177,7 @@ export function BountyForm({
     isValidAmount(reward) && /^\d+$/.test(positions) && Number(positions) > 0
       ? multiplyAmount(reward, Number(positions))
       : null
+  const busy = pending || form.formState.isSubmitting
 
   const submit = form.handleSubmit(async (values) => {
     setFormError(null)
@@ -145,7 +225,38 @@ export function BountyForm({
               />
             )}
           </FormControl>
-          {opts.description && <FormDescription>{opts.description}</FormDescription>}
+          {opts.description && <FormDescription className={HELP}>{opts.description}</FormDescription>}
+          <FormMessage />
+        </FormItem>
+      )}
+    />
+  )
+
+  const selectField = (
+    name: 'category' | 'difficulty' | 'visibility',
+    label: string,
+    options: { value: string; label: string }[],
+  ) => (
+    <FormField
+      control={form.control}
+      name={name}
+      render={({ field }) => (
+        <FormItem className="min-w-0">
+          <FormLabel>{label}</FormLabel>
+          <Select value={field.value} onValueChange={field.onChange}>
+            <FormControl>
+              <SelectTrigger className="w-full min-w-0 *:data-[slot=select-value]:block *:data-[slot=select-value]:truncate">
+                <SelectValue />
+              </SelectTrigger>
+            </FormControl>
+            <SelectContent>
+              {options.map((o) => (
+                <SelectItem key={o.value} value={o.value}>
+                  {o.label}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
           <FormMessage />
         </FormItem>
       )}
@@ -154,183 +265,141 @@ export function BountyForm({
 
   return (
     <Form {...form}>
-      <form onSubmit={submit} className="space-y-6" noValidate>
-        <Section title="Basics" description="What needs doing, in a sentence or two.">
-          {textField('title', 'Title', { placeholder: 'e.g. Add pagination to the payouts API' })}
-          {textField('short_description', 'Summary', {
-            rows: 2,
-            description: 'Shown on marketplace cards (up to 280 characters).',
-          })}
-          <div className="grid gap-5 sm:grid-cols-3">
-            <FormField
-              control={form.control}
-              name="category"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Category</FormLabel>
-                  <Select value={field.value} onValueChange={field.onChange}>
-                    <FormControl>
-                      <SelectTrigger className="w-full">
-                        <SelectValue />
-                      </SelectTrigger>
-                    </FormControl>
-                    <SelectContent>
-                      {CATEGORIES.map((c) => (
-                        <SelectItem key={c} value={c}>
-                          {CATEGORY_LABELS[c]}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-            <FormField
-              control={form.control}
-              name="difficulty"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Difficulty</FormLabel>
-                  <Select value={field.value} onValueChange={field.onChange}>
-                    <FormControl>
-                      <SelectTrigger className="w-full">
-                        <SelectValue />
-                      </SelectTrigger>
-                    </FormControl>
-                    <SelectContent>
-                      {DIFFICULTIES.map((d) => (
-                        <SelectItem key={d} value={d}>
-                          {DIFFICULTY_LABELS[d]}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-            <FormField
-              control={form.control}
-              name="visibility"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Visibility</FormLabel>
-                  <Select value={field.value} onValueChange={field.onChange}>
-                    <FormControl>
-                      <SelectTrigger className="w-full">
-                        <SelectValue />
-                      </SelectTrigger>
-                    </FormControl>
-                    <SelectContent>
-                      <SelectItem value="PUBLIC">Public (listed in the marketplace)</SelectItem>
-                      <SelectItem value="UNLISTED">Unlisted (anyone with the link)</SelectItem>
-                    </SelectContent>
-                  </Select>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-          </div>
-          <div className="grid gap-5 sm:grid-cols-2">
-            {textField('required_skills', 'Required skills', {
-              placeholder: 'rust, soroban',
-              description: 'Comma separated.',
+      <form onSubmit={submit} className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_18rem]" noValidate>
+        <div className="min-w-0 space-y-6">
+          <Section title="Basics">
+            {textField('title', 'Title', { placeholder: 'e.g. Add pagination to the payouts API' })}
+            {textField('short_description', 'Summary', {
+              rows: 2,
+              description: 'Shown on marketplace cards. Up to 280 characters.',
             })}
-            {textField('tags', 'Tags', { placeholder: 'backend, api', description: 'Comma separated.' })}
-          </div>
-        </Section>
-
-        <Section title="Description" description="Markdown supported. Raw HTML is not rendered.">
-          <Tabs defaultValue="write">
-            <TabsList>
-              <TabsTrigger value="write">Write</TabsTrigger>
-              <TabsTrigger value="preview">Preview</TabsTrigger>
-            </TabsList>
-            <TabsContent value="write" className="mt-3">
-              {textField('description', 'Full description', { rows: 12 })}
-            </TabsContent>
-            <TabsContent value="preview" className="mt-3 min-h-40 rounded-lg border p-4">
-              {description ? (
-                <SafeMarkdown>{description}</SafeMarkdown>
-              ) : (
-                <p className="text-sm text-muted-foreground">Nothing to preview yet.</p>
+            <div className="grid gap-5 sm:grid-cols-3">
+              {selectField(
+                'category',
+                'Category',
+                CATEGORIES.map((c) => ({ value: c, label: CATEGORY_LABELS[c] })),
               )}
-            </TabsContent>
-          </Tabs>
-        </Section>
+              {selectField(
+                'difficulty',
+                'Difficulty',
+                DIFFICULTIES.map((d) => ({ value: d, label: DIFFICULTY_LABELS[d] })),
+              )}
+              {selectField('visibility', 'Visibility', [
+                { value: 'PUBLIC', label: 'Public (listed in the marketplace)' },
+                { value: 'UNLISTED', label: 'Unlisted (anyone with the link)' },
+              ])}
+            </div>
+          </Section>
 
-        <Section
-          title="Reward & escrow"
-          description="The reward is per position. You’ll fund reward × positions into escrow after publishing."
-        >
-          {lockEconomics && (
-            <p className="flex items-center gap-2 rounded-lg border bg-muted/40 p-3 text-sm text-muted-foreground">
-              <Lock className="size-4" aria-hidden /> Reward and positions can only change while the bounty is
-              a draft.
-            </p>
-          )}
-          <div className="grid gap-5 sm:grid-cols-2">
-            {textField('reward_amount', 'Reward per position (XLM)', {
-              inputMode: 'decimal',
-              disabled: lockEconomics,
-              placeholder: '250',
+          <Section title="Scope and criteria">
+            <Tabs defaultValue="write" className="gap-3">
+              <TabsList>
+                <TabsTrigger value="write" className="px-3">
+                  Write
+                </TabsTrigger>
+                <TabsTrigger value="preview" className="px-3">
+                  Preview
+                </TabsTrigger>
+              </TabsList>
+              <TabsContent value="write">
+                {textField('description', 'Full description', {
+                  rows: 12,
+                  description: 'Markdown supported.',
+                })}
+              </TabsContent>
+              <TabsContent value="preview" className="min-h-40 rounded-lg border bg-surface/40 p-4">
+                {description ? (
+                  <SafeMarkdown>{description}</SafeMarkdown>
+                ) : (
+                  <p className="text-sm text-muted-foreground">Nothing to preview yet.</p>
+                )}
+              </TabsContent>
+            </Tabs>
+            {textField('acceptance_criteria', 'Acceptance criteria', {
+              rows: 4,
+              placeholder: '- Tests pass\n- Docs updated',
             })}
-            {textField('positions_available', 'Positions', { inputMode: 'numeric', disabled: lockEconomics })}
-          </div>
-          <div className="flex items-center justify-between rounded-lg border bg-surface-raised/50 p-4">
-            <span className="text-sm text-muted-foreground">Escrow required</span>
-            <span className="text-lg font-semibold tabular-nums">
-              {total ? `${formatAmount(total)} XLM` : '—'}
-            </span>
-          </div>
-        </Section>
-
-        <Section title="Timeline">
-          <div className="grid gap-5 sm:grid-cols-2">
-            {textField('application_deadline', 'Applications close', {
-              type: 'datetime-local',
-              description: 'Optional. Your local time.',
+            {textField('submission_requirements', 'Submission requirements', {
+              rows: 3,
+              placeholder: 'Link a PR and a short screen recording.',
             })}
-            {textField('completion_deadline', 'Work due', {
-              type: 'datetime-local',
-              description: 'Optional. Your local time.',
+          </Section>
+
+          <Section title="Reward and positions">
+            {lockEconomics && (
+              <p className="flex items-center gap-2 rounded-lg border bg-surface/60 px-3 py-2.5 text-sm text-muted-foreground">
+                <Lock className="size-4 shrink-0" aria-hidden /> Reward and positions can only change while
+                the bounty is a draft.
+              </p>
+            )}
+            <div className="grid gap-5 sm:grid-cols-2">
+              {textField('reward_amount', 'Reward per position (XLM)', {
+                inputMode: 'decimal',
+                disabled: lockEconomics,
+                placeholder: '250',
+              })}
+              {textField('positions_available', 'Positions', {
+                inputMode: 'numeric',
+                disabled: lockEconomics,
+              })}
+            </div>
+            <div className="flex items-center justify-between gap-3 rounded-lg border bg-surface/60 px-4 py-3">
+              <span className="text-sm text-muted-foreground">Escrow required</span>
+              <span className="amount text-base">{total ? `${formatAmount(total)} XLM` : '—'}</span>
+            </div>
+          </Section>
+
+          <Section title="Timeline">
+            <div className="grid gap-5 sm:grid-cols-2">
+              {textField('application_deadline', 'Applications close', {
+                type: 'datetime-local',
+                description: 'Optional, in your local time.',
+              })}
+              {textField('completion_deadline', 'Work due', {
+                type: 'datetime-local',
+                description: 'Optional, in your local time.',
+              })}
+            </div>
+          </Section>
+
+          <Section title="Skills and eligibility">
+            <div className="grid gap-5 sm:grid-cols-2">
+              {textField('required_skills', 'Required skills', {
+                placeholder: 'rust, soroban',
+                description: 'Comma separated.',
+              })}
+              {textField('tags', 'Tags', { placeholder: 'backend, api', description: 'Comma separated.' })}
+            </div>
+            {textField('eligibility_criteria', 'Eligibility', { rows: 3 })}
+          </Section>
+
+          <Section title="Links">
+            {textField('repository_url', 'Repository URL', { placeholder: 'https://github.com/org/repo' })}
+            {textField('links', 'Other links', {
+              rows: 3,
+              placeholder: 'Design spec | https://…',
+              description: 'One per line, as "Label | URL".',
             })}
+          </Section>
+
+          <FormErrorAlert message={formError} />
+        </div>
+
+        <LivePreview control={form.control} status={status} />
+
+        <div className="sticky bottom-3 z-10 flex flex-col-reverse gap-3 rounded-xl border bg-card/95 px-4 py-3 shadow-lift backdrop-blur supports-backdrop-filter:bg-card/85 sm:flex-row sm:items-center sm:justify-between xl:col-span-2">
+          <p className="hidden text-[0.8125rem] text-muted-foreground sm:block">{footerNote}</p>
+          <div className="flex gap-2">
+            {cancelTo && (
+              <Button asChild variant="ghost" className="flex-1 sm:flex-none">
+                <Link to={cancelTo}>Cancel</Link>
+              </Button>
+            )}
+            <Button type="submit" className="flex-1 sm:flex-none" disabled={busy}>
+              {busy && <LoaderCircle className="animate-spin" />}
+              {submitLabel}
+            </Button>
           </div>
-        </Section>
-
-        <Section title="Criteria" description="Clear criteria make reviews fair and disputes rare.">
-          {textField('acceptance_criteria', 'Acceptance criteria', {
-            rows: 4,
-            placeholder: '- Tests pass\n- Docs updated',
-          })}
-          {textField('submission_requirements', 'Submission requirements', {
-            rows: 3,
-            placeholder: 'Link a PR and a short screen recording.',
-          })}
-          {textField('eligibility_criteria', 'Eligibility', { rows: 3 })}
-        </Section>
-
-        <Section title="Links">
-          {textField('repository_url', 'Repository URL', { placeholder: 'https://github.com/org/repo' })}
-          {textField('links', 'Other links', {
-            rows: 3,
-            placeholder: 'Design spec | https://…',
-            description: 'One per line: "Label | URL".',
-          })}
-        </Section>
-
-        <FormErrorAlert message={formError} />
-        <div className="flex justify-end">
-          <Button
-            type="submit"
-            size="lg"
-            className="w-full sm:w-auto"
-            disabled={pending || form.formState.isSubmitting}
-          >
-            {(pending || form.formState.isSubmitting) && <LoaderCircle className="animate-spin" />}
-            {submitLabel}
-          </Button>
         </div>
       </form>
     </Form>

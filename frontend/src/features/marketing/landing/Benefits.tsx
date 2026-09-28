@@ -44,7 +44,17 @@ const CONTRIBUTORS: Point[] = [
   },
 ]
 
-function Column({ id, title, icon: Icon, points }: { id: string; title: string; icon: LucideIcon; points: Point[] }) {
+function Column({
+  id,
+  title,
+  icon: Icon,
+  points,
+}: {
+  id: string
+  title: string
+  icon: LucideIcon
+  points: Point[]
+}) {
   return (
     <div className="rounded-xl border bg-card p-6 shadow-soft">
       <div className="flex items-center gap-3">
@@ -57,12 +67,12 @@ function Column({ id, title, icon: Icon, points }: { id: string; title: string; 
       </div>
       <dl aria-labelledby={id} className="mt-5 space-y-4">
         {points.map((p) => (
-          <div key={p.title} className="grid grid-cols-[1.25rem_minmax(0,1fr)] gap-x-2.5">
-            <Check className="mt-0.5 size-4 text-success" aria-hidden />
-            <div>
-              <dt className="text-sm font-medium">{p.title}</dt>
-              <dd className="mt-0.5 text-sm leading-relaxed text-muted-foreground">{p.text}</dd>
-            </div>
+          <div key={p.title}>
+            <dt className="flex items-center gap-2.5 text-sm font-medium">
+              <Check className="size-4 shrink-0 text-success" aria-hidden />
+              {p.title}
+            </dt>
+            <dd className="mt-0.5 pl-6.5 text-sm leading-relaxed text-muted-foreground">{p.text}</dd>
           </div>
         ))}
       </dl>
@@ -74,10 +84,7 @@ export function Benefits() {
   return (
     <section aria-labelledby="benefits-title" className={SECTION}>
       <PageContainer>
-        <SectionHeading
-          id="benefits-title"
-          title="Why teams and contributors use it"
-        />
+        <SectionHeading id="benefits-title" title="Why teams and contributors use it" />
         <div className="mt-8 grid gap-6 md:grid-cols-2">
           <Column
             id="benefits-requesters"

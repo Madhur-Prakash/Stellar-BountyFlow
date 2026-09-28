@@ -111,16 +111,16 @@
   --secondary: #f4f4f5;
   --secondary-foreground: #18181b;
   --muted: #f4f4f5;
-  --muted-foreground: #71717a;
+  --muted-foreground: #6b6b75;
   --accent: #f4f4f5;
   --accent-foreground: #18181b;
 
   --cyan: #0a7686;
-  --success: #15803d;
+  --success: #12733a;
   --success-foreground: #ffffff;
-  --warning: #a16207;
+  --warning: #8f5606;
   --warning-foreground: #ffffff;
-  --destructive: #dc2626;
+  --destructive: #c81e1e;
   --destructive-foreground: #ffffff;
   --info: #3563e9;
 
@@ -130,12 +130,12 @@
 
   --chart-1: #3563e9;
   --chart-2: #0a7686;
-  --chart-3: #15803d;
+  --chart-3: #12733a;
   --chart-4: #b45309;
-  --chart-5: #71717a;
+  --chart-5: #6b6b75;
 
   --sidebar: #ffffff;
-  --sidebar-foreground: #52525b;
+  --sidebar-foreground: #4b4b54;
   --sidebar-primary: #3563e9;
   --sidebar-primary-foreground: #ffffff;
   --sidebar-accent: #f4f4f5;
@@ -146,11 +146,11 @@
   /* The escrow diagram and similar "ledger" panels. */
   --vault: #fafafa;
   --vault-foreground: #18181b;
-  --vault-muted: #71717a;
+  --vault-muted: #6b6b75;
   --vault-line: #e4e4e7;
   --vault-accent: #3563e9;
-  --vault-green: #15803d;
-  --vault-warn: #a16207;
+  --vault-green: #12733a;
+  --vault-warn: #8f5606;
   --vault-panel: #ffffff;
   --vault-node: #ffffff;
   --vault-node-ok: #f0fdf4;
@@ -175,7 +175,7 @@
   --popover: #18181b;
   --popover-foreground: #fafafa;
 
-  --primary: #4b77f5;
+  --primary: #3a62e4;
   --primary-foreground: #ffffff;
   --primary-emphasis: #93b0ff;
   --secondary: #1c1c20;
@@ -206,7 +206,7 @@
 
   --sidebar: #0c0c0e;
   --sidebar-foreground: #a1a1aa;
-  --sidebar-primary: #4b77f5;
+  --sidebar-primary: #3a62e4;
   --sidebar-primary-foreground: #ffffff;
   --sidebar-accent: #1c1c20;
   --sidebar-accent-foreground: #fafafa;

@@ -5,7 +5,7 @@ export function useReducedMotion(): boolean {
   return useMediaQuery('(prefers-reduced-motion: reduce)')
 }
 
-/** Non-hook check for imperative code (GSAP setup, smooth scrolling). */
+/** Non-hook check for imperative code (smooth scrolling, scroll-to-anchor). */
 export function prefersReducedMotion(): boolean {
   return typeof window !== 'undefined' && !!window.matchMedia?.('(prefers-reduced-motion: reduce)').matches
 }

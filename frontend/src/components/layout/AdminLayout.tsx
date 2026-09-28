@@ -10,36 +10,58 @@ import {
 } from 'lucide-react'
 import { Link } from 'react-router'
 
-import { Button } from '@/components/ui/button'
+import { SidebarMenu, SidebarMenuButton, SidebarMenuItem } from '@/components/ui/sidebar'
+import { useMe } from '@/lib/api/queries/auth'
+import type { Permission } from '@/lib/api/types'
+import { hasPermission } from '@/lib/permissions'
 
-import { AppShell, type ShellNavGroup } from './AppShell'
+import { AppShell, type ShellNavGroup, type ShellNavItem } from './AppShell'
 
-const ADMIN_NAV: ShellNavGroup[] = [
+/** Each section is listed only for staff who hold the permission its API needs. */
+const ADMIN_NAV: (ShellNavItem & { permission?: Permission })[] = [
+  { label: 'Overview', to: '/admin', icon: LayoutDashboard, end: true },
+  { label: 'Users', to: '/admin/users', icon: Users, permission: 'user:view_all' },
+  { label: 'Bounties', to: '/admin/bounties', icon: BriefcaseBusiness, permission: 'bounty:view_all' },
+  { label: 'Reports', to: '/admin/reports', icon: Flag, permission: 'report:review' },
+  { label: 'Disputes', to: '/admin/disputes', icon: Scale, permission: 'dispute:view_all' },
   {
-    label: 'Admin',
-    items: [
-      { label: 'Overview', to: '/admin', icon: LayoutDashboard, end: true },
-      { label: 'Users', to: '/admin/users', icon: Users },
-      { label: 'Bounties', to: '/admin/bounties', icon: BriefcaseBusiness },
-      { label: 'Reports', to: '/admin/reports', icon: Flag },
-      { label: 'Disputes', to: '/admin/disputes', icon: Scale },
-      { label: 'Transactions', to: '/admin/transactions', icon: ArrowLeftRight },
-      { label: 'Audit logs', to: '/admin/audit-logs', icon: ScrollText },
-    ],
+    label: 'Transactions',
+    to: '/admin/transactions',
+    icon: ArrowLeftRight,
+    permission: 'transaction:view_all',
   },
+  { label: 'Audit logs', to: '/admin/audit-logs', icon: ScrollText, permission: 'audit:read' },
 ]
 
 export function AdminLayout() {
+  const { data: me } = useMe()
+  const groups: ShellNavGroup[] = [
+    {
+      label: 'Admin',
+      items: ADMIN_NAV.filter((item) => !item.permission || hasPermission(me, item.permission)).map(
+        ({ permission: _permission, ...item }) => item,
+      ),
+    },
+  ]
   return (
     <AppShell
       areaLabel="Admin console"
-      groups={ADMIN_NAV}
+      groups={groups}
       footer={
-        <Button asChild variant="ghost" className="justify-start group-data-[collapsible=icon]:hidden">
-          <Link to="/app">
-            <ArrowLeft /> Back to workspace
-          </Link>
-        </Button>
+        <SidebarMenu>
+          <SidebarMenuItem>
+            <SidebarMenuButton
+              asChild
+              tooltip="Back to workspace"
+              className="h-8 font-medium text-sidebar-foreground [&>svg]:text-muted-foreground"
+            >
+              <Link to="/app">
+                <ArrowLeft aria-hidden />
+                <span>Back to workspace</span>
+              </Link>
+            </SidebarMenuButton>
+          </SidebarMenuItem>
+        </SidebarMenu>
       }
     />
   )

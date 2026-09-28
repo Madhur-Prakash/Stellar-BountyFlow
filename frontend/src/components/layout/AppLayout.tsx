@@ -1,5 +1,4 @@
 import {
-  Activity,
   ArrowLeftRight,
   Bell,
   Bookmark,
@@ -17,7 +16,8 @@ import {
 } from 'lucide-react'
 import { Link } from 'react-router'
 
-import { Button } from '@/components/ui/button'
+import { UserAvatar } from '@/components/common/UserAvatar'
+import { SidebarMenu, SidebarMenuButton, SidebarMenuItem } from '@/components/ui/sidebar'
 import { useMe } from '@/lib/api/queries/auth'
 import { hasPermission, STAFF_PERMISSION } from '@/lib/permissions'
 
@@ -64,23 +64,34 @@ const APP_NAV: ShellNavGroup[] = [
   },
 ]
 
+/** Who is signed in, at the foot of the sidebar (just the avatar on the icon rail). */
+function SignedInAs() {
+  const { data: me } = useMe()
+  if (!me) return null
+  return (
+    <SidebarMenu>
+      <SidebarMenuItem>
+        <SidebarMenuButton asChild size="lg" tooltip={me.display_name}>
+          <Link to="/app/profile" aria-label={`${me.display_name}, profile`}>
+            <UserAvatar user={me} className="size-8" />
+            <span className="grid min-w-0 flex-1 leading-tight">
+              <span className="truncate text-sm font-medium text-sidebar-accent-foreground">
+                {me.display_name}
+              </span>
+              <span className="truncate text-xs text-muted-foreground">{me.email}</span>
+            </span>
+          </Link>
+        </SidebarMenuButton>
+      </SidebarMenuItem>
+    </SidebarMenu>
+  )
+}
+
 export function AppLayout() {
   const { data: me } = useMe()
   const staff = hasPermission(me, STAFF_PERMISSION)
   const groups: ShellNavGroup[] = staff
     ? [...APP_NAV, { label: 'Staff', items: [{ label: 'Admin console', to: '/admin', icon: ShieldCheck }] }]
     : APP_NAV
-  return (
-    <AppShell
-      areaLabel="Workspace"
-      groups={groups}
-      footer={
-        <Button asChild variant="ghost" className="justify-start group-data-[collapsible=icon]:hidden">
-          <Link to="/bounties">
-            <Activity /> Browse marketplace
-          </Link>
-        </Button>
-      }
-    />
-  )
+  return <AppShell areaLabel="Workspace" groups={groups} footer={<SignedInAs />} />
 }
