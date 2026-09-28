@@ -6,11 +6,11 @@
     1280
   ],
   "wait": 1500,
-  "color": "#e2e6ec",
-  "darkColor": "#1a2233",
+  "color": "#ececef",
+  "darkColor": "#1c1c20",
   "animate": "shimmer",
-  "shimmerColor": "#eef1f5",
-  "darkShimmerColor": "#243049",
+  "shimmerColor": "#f6f6f7",
+  "darkShimmerColor": "#27272b",
   "speed": "1.6s",
   "transition": 200
 }

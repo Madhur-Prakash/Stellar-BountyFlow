@@ -6,7 +6,6 @@ import { toast } from 'sonner'
 import { PageHeader } from '@/components/layout/PageHeader'
 import { PaginationBar } from '@/components/layout/PaginationBar'
 import { QueryView } from '@/components/layout/QueryView'
-import { Reveal } from '@/components/motion/Reveal'
 import { Button } from '@/components/ui/button'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { errorMessage } from '@/lib/api/client'
@@ -131,17 +130,11 @@ export default function NotificationsPage() {
           >
             {(data) => (
               <>
-                <Reveal
-                  as="ul"
-                  className="divide-y overflow-hidden rounded-xl border bg-card shadow-soft"
-                  y={12}
-                  stagger={0.03}
-                  deps={[data.items.map((n) => n.id).join()]}
-                >
+                <ul className="divide-y overflow-hidden rounded-xl border bg-card shadow-soft">
                   {data.items.map((n) => (
                     <NotificationRow key={n.id} n={n} />
                   ))}
-                </Reveal>
+                </ul>
                 <PaginationBar
                   page={data.page}
                   pages={data.pages}

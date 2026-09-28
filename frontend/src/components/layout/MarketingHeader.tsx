@@ -18,7 +18,7 @@ import {
 import { useAnchorNavigation } from '@/hooks/useAnchorNavigation'
 import { motionAllowed } from '@/hooks/useReducedMotion'
 import { useMe } from '@/lib/api/queries/auth'
-import { gsap, ScrollTrigger, useGSAP } from '@/lib/gsap'
+import { gsap, useGSAP } from '@/lib/gsap'
 import { cn } from '@/lib/utils'
 
 type NavItem = { label: string; to: string; wideOnly?: boolean }
@@ -34,7 +34,7 @@ const MOBILE_NAV: NavItem[] = [...MARKETING_NAV, { label: 'Escrow contract', to:
 
 function AccountLinks({ stacked = false, onNavigate }: { stacked?: boolean; onNavigate?: () => void }) {
   const { data: me, isPending } = useMe()
-  if (isPending) return <div className={cn('h-10', stacked ? 'w-full' : 'w-20')} aria-hidden />
+  if (isPending) return <div className={cn('h-9', stacked ? 'w-full' : 'w-20')} aria-hidden />
   if (me) {
     return (
       <Button asChild variant={stacked ? 'outline' : 'ghost'} className={cn(stacked && 'w-full')}>
@@ -103,66 +103,26 @@ function MobileNavList({ onNavigate }: { onNavigate: () => void }) {
   )
 }
 
-/**
- * Fixed site header. It slides away while you scroll down through a page and comes back as soon as you scroll
- * up; it never hides near the top, under reduced motion, or while focus is inside it.
- */
+/** Sticky site header: logo, primary navigation, theme, account and the main action. */
 export function MarketingHeader() {
   const [open, setOpen] = useState(false)
-  const header = useRef<HTMLElement>(null)
-
-  useGSAP(
-    () => {
-      const el = header.current
-      if (!el) return
-      let hidden = false
-      const setHidden = (next: boolean) => {
-        if (next === hidden) return
-        hidden = next
-        gsap.to(el, { yPercent: next ? -100 : 0, duration: 0.4, ease: 'bf-snap', overwrite: true })
-      }
-      const trigger = ScrollTrigger.create({
-        start: 0,
-        end: 'max',
-        onUpdate: (self) => {
-          const y = self.scroll()
-          el.toggleAttribute('data-scrolled', y > 8)
-          if (!motionAllowed()) return
-          const keepVisible = y < 160 || self.direction < 0 || el.contains(document.activeElement)
-          setHidden(!keepVisible)
-        },
-      })
-      // Keyboard users tabbing into a hidden header bring it back.
-      const onFocus = () => setHidden(false)
-      el.addEventListener('focusin', onFocus)
-      return () => {
-        trigger.kill()
-        el.removeEventListener('focusin', onFocus)
-      }
-    },
-    { scope: header },
-  )
 
   return (
-    <header
-      ref={header}
-      className="fixed inset-x-0 top-0 z-40 border-b border-transparent bg-background/90 backdrop-blur-md transition-[border-color,box-shadow] duration-300 data-scrolled:border-border data-scrolled:shadow-[0_8px_24px_-18px_rgb(16_24_40/0.25)]"
-    >
+    <header className="sticky top-0 z-40 border-b bg-background/80 backdrop-blur-lg supports-backdrop-filter:bg-background/70">
       <div className="mx-auto flex h-16 max-w-384 items-center gap-3 px-4 sm:px-6 lg:px-8 2xl:px-12">
         <Link to="/" className="shrink-0 rounded-md" aria-label="BountyFlow home">
           <Logo />
         </Link>
 
-        <nav aria-label="Primary" className="ml-6 hidden items-center gap-1 lg:flex">
+        <nav aria-label="Primary" className="ml-8 hidden items-center gap-0.5 lg:flex">
           {MARKETING_NAV.map((item) => (
             <NavLink
               key={item.to}
               to={item.to}
               className={({ isActive }) =>
                 cn(
-                  'relative rounded-md px-3 py-2 text-[0.9375rem] whitespace-nowrap transition-colors hover:text-foreground',
-                  'after:absolute after:inset-x-3 after:bottom-1 after:h-px after:origin-left after:scale-x-0 after:bg-foreground after:transition-transform after:duration-300 hover:after:scale-x-100',
-                  isActive ? 'font-medium text-foreground after:scale-x-100' : 'text-muted-foreground',
+                  'rounded-md px-3 py-1.5 text-sm font-medium whitespace-nowrap transition-colors hover:bg-muted hover:text-foreground',
+                  isActive ? 'bg-muted text-foreground' : 'text-muted-foreground',
                   item.wideOnly && 'hidden xl:inline-flex',
                 )
               }
@@ -172,7 +132,7 @@ export function MarketingHeader() {
           ))}
         </nav>
 
-        <div className="ml-auto flex items-center gap-1.5 sm:gap-2">
+        <div className="ml-auto flex items-center gap-1.5">
           <ThemeToggle className="hidden sm:inline-flex" />
           <div className="hidden items-center gap-1.5 lg:flex">
             <AccountLinks />

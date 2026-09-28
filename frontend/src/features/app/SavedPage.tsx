@@ -7,7 +7,6 @@ import { BountyGridSkeleton } from '@/components/bounty/BountyCardSkeleton'
 import { PageHeader } from '@/components/layout/PageHeader'
 import { PaginationBar } from '@/components/layout/PaginationBar'
 import { QueryView } from '@/components/layout/QueryView'
-import { Reveal } from '@/components/motion/Reveal'
 import { Button } from '@/components/ui/button'
 import { useSavedBounties } from '@/lib/api/queries/bounties'
 
@@ -35,14 +34,11 @@ export default function SavedPage() {
       >
         {(data) => (
           <>
-            <Reveal
-              className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3"
-              deps={[data.items.map((b) => b.id).join()]}
-            >
+            <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
               {data.items.map((b) => (
                 <BountyCard key={b.id} bounty={b} />
               ))}
-            </Reveal>
+            </div>
             <PaginationBar
               page={data.page}
               pages={data.pages}

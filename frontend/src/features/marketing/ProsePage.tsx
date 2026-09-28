@@ -1,7 +1,6 @@
 import { useEffect, useRef, useState, type ReactNode } from 'react'
 
 import { PageContainer } from '@/components/layout/PageContainer'
-import { SplitHeading } from '@/components/motion/SplitHeading'
 import { motionAllowed } from '@/hooks/useReducedMotion'
 import { scrollToAnchor } from '@/lib/scroll'
 import { cn } from '@/lib/utils'
@@ -74,14 +73,8 @@ export function ProsePage({
   return (
     <PageContainer className="py-14 sm:py-20">
       <header className="max-w-4xl">
-        <SplitHeading
-          as="h1"
-          trigger="load"
-          className="font-display text-[clamp(2.5rem,5vw,4rem)] leading-[1.02] tracking-[-0.015em]"
-        >
-          {title}
-        </SplitHeading>
-        <div className="mt-5 max-w-3xl text-lg text-muted-foreground">{intro}</div>
+        <h1 className="font-display text-[2.125rem] leading-[1.1] sm:text-[2.5rem]">{title}</h1>
+        <div className="mt-4 max-w-3xl text-[1.0625rem] leading-relaxed text-muted-foreground">{intro}</div>
         {updated && <p className="mt-3 text-sm text-muted-foreground">Last updated {updated}</p>}
         {notice && <div className="mt-6">{notice}</div>}
       </header>
@@ -129,10 +122,10 @@ export function ProsePage({
         <div className="max-w-184 space-y-16">
           {sections.map((s) => (
             <section key={s.id} id={s.id} aria-labelledby={`${s.id}-h`} className="scroll-mt-24">
-              <h2 id={`${s.id}-h`} className="font-display text-[1.75rem] leading-tight">
+              <h2 id={`${s.id}-h`} className="font-display text-[1.375rem] leading-tight">
                 {s.title}
               </h2>
-              <div className="mt-4 space-y-4 text-[1rem] leading-7 text-foreground/85 [&_a]:text-primary-emphasis [&_a]:underline [&_a]:underline-offset-4 [&_code]:rounded [&_code]:bg-muted [&_code]:px-1.5 [&_code]:py-0.5 [&_code]:font-mono [&_code]:text-[0.85em] [&_li]:my-1 [&_ol]:list-decimal [&_ol]:pl-6 [&_strong]:text-foreground [&_ul]:list-disc [&_ul]:pl-6">
+              <div className="mt-3 space-y-4 text-[0.9375rem] leading-7 text-foreground/85 [&_a]:text-primary-emphasis [&_a]:underline [&_a]:underline-offset-4 [&_code]:rounded [&_code]:bg-muted [&_code]:px-1.5 [&_code]:py-0.5 [&_code]:font-mono [&_code]:text-[0.85em] [&_li]:my-1 [&_ol]:list-decimal [&_ol]:pl-6 [&_strong]:text-foreground [&_ul]:list-disc [&_ul]:pl-6">
                 {s.body}
               </div>
             </section>

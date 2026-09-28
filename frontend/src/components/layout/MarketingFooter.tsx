@@ -52,7 +52,7 @@ function FooterNetwork() {
 
 export function MarketingFooter() {
   return (
-    <footer className="border-t bg-surface/60">
+    <footer className="border-t bg-card">
       <div className="mx-auto max-w-384 px-4 py-12 sm:px-6 lg:px-8 2xl:px-12">
         <div className="grid gap-10 lg:grid-cols-[1.2fr_2fr]">
           <div className="space-y-4">

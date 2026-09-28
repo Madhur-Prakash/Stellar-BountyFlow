@@ -268,7 +268,7 @@ export async function expectNoHorizontalOverflow(page: Page, label = page.url())
 export async function waitForAppIdle(page: Page): Promise<void> {
   await page.waitForLoadState('domcontentloaded')
   // Lazy route chunks + data requests settle, then no loading placeholders (skeletons, boneyard bones, busy
-  // regions such as the landing reward pool) remain.
+  // regions) remain.
   await page.waitForLoadState('networkidle', { timeout: 15_000 }).catch(() => {})
   await expect(
     page

@@ -3,7 +3,7 @@ import { expect, test } from '@playwright/test'
 test.describe('public pages', () => {
   test('landing renders hero and primary navigation', async ({ page }) => {
     await page.goto('/')
-    await expect(page.getByRole('heading', { level: 1 })).toContainText('Work gets done')
+    await expect(page.getByRole('heading', { level: 1 })).toContainText('reward held in escrow')
     await expect(page.getByRole('main').getByRole('link', { name: 'Browse bounties' }).first()).toBeVisible()
     await expect(page.getByRole('banner')).toBeVisible()
   })

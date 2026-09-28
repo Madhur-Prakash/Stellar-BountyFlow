@@ -1,5 +1,5 @@
 import { CheckCircle2, CircleAlert, LoaderCircle, RotateCw, Wallet } from 'lucide-react'
-import { useEffect, useRef, type ReactNode } from 'react'
+import type { ReactNode } from 'react'
 import { Link } from 'react-router'
 
 import { MonoValue } from '@/components/common/MonoValue'
@@ -14,8 +14,6 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog'
 import { usePublicConfig } from '@/lib/api/queries/config'
-import type { TxType } from '@/lib/api/types'
-import { burstCoins } from '@/lib/coin-burst'
 import { formatDateTime } from '@/lib/format'
 import { formatAmount, formatStroops } from '@/lib/money'
 import { contractExplorerUrl, networkDisplayName } from '@/lib/stellar/explorer'
@@ -103,18 +101,9 @@ const STATUS_TEXT: Partial<Record<ChainStep, string>> = {
   confirming: 'Waiting for network confirmation. This usually takes a few seconds.',
 }
 
-/** Confirmed transactions that moved money get a coin burst: green when it reached a contributor. */
-const MONEY_MOVES: Partial<Record<TxType, 'fund' | 'release'>> = {
-  ESCROW_CREATE: 'fund',
-  ESCROW_FUND: 'fund',
-  PAYOUT: 'release',
-  REFUND: 'fund',
-}
-
 /**
  * Review / sign / confirm dialog shared by every on-chain action.
- * Deliberately calm while you review and sign; the only flourish is a coin burst once the network has confirmed a
- * transaction that moved funds.
+ * Deliberately calm: review, sign, and a clear confirmation once the network has accepted the transaction.
  */
 export function ChainActionDialog({
   controller,
@@ -145,15 +134,6 @@ export function ChainActionDialog({
 
   const summary = prepared?.summary
   const contractHref = contractExplorerUrl(config, summary?.contract_id)
-
-  const confirmedAlert = useRef<HTMLDivElement>(null)
-  const celebrated = useRef<string | null>(null)
-  useEffect(() => {
-    if (step !== 'confirmed' || !transaction || celebrated.current === transaction.id) return
-    const tone = MONEY_MOVES[transaction.transaction_type]
-    celebrated.current = transaction.id
-    if (tone && confirmedAlert.current) void burstCoins(confirmedAlert.current, { tone })
-  }, [step, transaction])
 
   return (
     <Dialog open={open} onOpenChange={handleOpenChange}>
@@ -244,7 +224,7 @@ export function ChainActionDialog({
         )}
 
         {step === 'confirmed' && (
-          <Alert variant="success" ref={confirmedAlert}>
+          <Alert variant="success">
             <CheckCircle2 />
             <AlertTitle>Confirmed on Stellar</AlertTitle>
             <AlertDescription>

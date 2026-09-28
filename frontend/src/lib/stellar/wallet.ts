@@ -13,14 +13,10 @@
  * refuses to build production bundles with it) AND the test runner injected
  * `window.__BOUNTYFLOW_TEST_WALLET__`. The injected object signs through a
  * function exposed by the test process, so no secret key is ever in the page.
+ *
+ * `@stellar/freighter-api` is loaded on first use (`freighterApi()`), so pages
+ * that never touch a wallet do not download it.
  */
-import {
-  getAddress as freighterGetAddress,
-  getNetworkDetails as freighterGetNetworkDetails,
-  isConnected as freighterIsConnected,
-  requestAccess as freighterRequestAccess,
-  signTransaction as freighterSignTransaction,
-} from '@stellar/freighter-api'
 
 export type WalletErrorCode =
   'NOT_INSTALLED' | 'USER_REJECTED' | 'WRONG_NETWORK' | 'ADDRESS_MISMATCH' | 'NOT_CONNECTED' | 'UNKNOWN'
@@ -88,29 +84,44 @@ function toWalletError(err: FreighterErrorLike, fallback: string): WalletError {
   return new WalletError('UNKNOWN', message || fallback)
 }
 
+type FreighterApi = (typeof import('@stellar/freighter-api'))['default']
+
+let freighterModule: Promise<FreighterApi> | null = null
+
+/** Loads the Freighter SDK once, on first use. A failed load is retried on the next call. */
+function freighterApi(): Promise<FreighterApi> {
+  freighterModule ??= import('@stellar/freighter-api')
+    .then((m): FreighterApi => (typeof m.isConnected === 'function' ? m : m.default))
+    .catch((e: unknown) => {
+      freighterModule = null
+      throw e
+    })
+  return freighterModule
+}
+
 const freighter: WalletProvider = {
   name: 'Freighter',
   async isInstalled() {
     try {
-      const res = await freighterIsConnected()
+      const res = await (await freighterApi()).isConnected()
       return !res.error && res.isConnected
     } catch {
       return false
     }
   },
   async requestAccess() {
-    const res = await freighterRequestAccess()
+    const res = await (await freighterApi()).requestAccess()
     if (res.error) throw toWalletError(res.error, 'Could not connect to Freighter.')
     if (!res.address) throw new WalletError('USER_REJECTED', 'Freighter did not share an address.')
     return res.address
   },
   async getAddress() {
-    const res = await freighterGetAddress()
+    const res = await (await freighterApi()).getAddress()
     if (res.error || !res.address) return null
     return res.address
   },
   async getNetwork() {
-    const res = await freighterGetNetworkDetails()
+    const res = await (await freighterApi()).getNetworkDetails()
     if (res.error) throw toWalletError(res.error, 'Could not read the Freighter network.')
     return {
       network: res.network,
@@ -120,7 +131,7 @@ const freighter: WalletProvider = {
     }
   },
   async sign(xdr, { networkPassphrase, address }) {
-    const res = await freighterSignTransaction(xdr, { networkPassphrase, address })
+    const res = await (await freighterApi()).signTransaction(xdr, { networkPassphrase, address })
     if (res.error) throw toWalletError(res.error, 'Freighter could not sign the transaction.')
     if (!res.signedTxXdr) throw new WalletError('USER_REJECTED', 'The transaction was not signed.')
     return { signedXdr: res.signedTxXdr, signer: res.signerAddress ?? null }

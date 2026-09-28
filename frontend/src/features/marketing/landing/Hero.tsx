@@ -1,172 +1,244 @@
-import { useEffect, useRef, useState } from 'react'
+import { ArrowRight, Check, ExternalLink } from 'lucide-react'
 import { Link } from 'react-router'
 
-import { Scramble } from '@/components/motion/Scramble'
-import { SplitHeading } from '@/components/motion/SplitHeading'
+import { DeadlineCountdown } from '@/components/bounty/DeadlineCountdown'
+import { FundingStatusBadge } from '@/components/bounty/FundingStatusBadge'
+import { UserAvatar } from '@/components/common/UserAvatar'
+import { Bones } from '@/components/layout/Bones'
+import { PageContainer } from '@/components/layout/PageContainer'
+import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
-import { useMediaQuery } from '@/hooks/useMediaQuery'
-import { hasFinePointer, motionAllowed } from '@/hooks/useReducedMotion'
+import { Skeleton } from '@/components/ui/skeleton'
 import { useBounties } from '@/lib/api/queries/bounties'
 import { usePublicConfig } from '@/lib/api/queries/config'
-import { gsap, useGSAP } from '@/lib/gsap'
-import { addAmounts, formatAmount } from '@/lib/money'
+import type { BountyStatus, BountySummary } from '@/lib/api/types'
+import { CATEGORY_LABELS } from '@/lib/format'
+import { formatAmount } from '@/lib/money'
 import { contractExplorerUrl, networkDisplayName } from '@/lib/stellar/explorer'
+import { cn } from '@/lib/utils'
 
-import { RewardPool } from './RewardPool'
+const TOP_REWARD = { sort: 'reward_high', page_size: 1 } as const
 
-const POOL_QUERY = { sort: 'reward_high', page_size: 12 } as const
+const POINTS = [
+  'The reward is locked in escrow before work starts',
+  'You sign every transfer in your own wallet',
+  'Every payout and refund is public on Stellar',
+]
 
-/** The window's inner height, kept current on resize. */
-function useViewportHeight(): number {
-  const [height, setHeight] = useState(() => (typeof window === 'undefined' ? 900 : window.innerHeight))
-  useEffect(() => {
-    const onResize = () => setHeight(window.innerHeight)
-    window.addEventListener('resize', onResize)
-    return () => window.removeEventListener('resize', onResize)
-  }, [])
-  return height
+/** The lifecycle a bounty moves through, and where each status sits on it. */
+const STAGES = ['Published', 'Funded', 'In progress', 'In review', 'Paid out'] as const
+const STAGE_OF: Partial<Record<BountyStatus, number>> = {
+  OPEN: 0,
+  FUNDING_PENDING: 0,
+  FUNDED: 1,
+  IN_PROGRESS: 2,
+  UNDER_REVIEW: 3,
+  COMPLETED: 4,
 }
 
-function ContractLine() {
+function Lifecycle({ status }: { status: BountyStatus }) {
+  const current = STAGE_OF[status] ?? 0
+  return (
+    <ol className="grid grid-cols-5 gap-1.5" aria-label="Lifecycle">
+      {STAGES.map((stage, i) => (
+        <li key={stage} aria-current={i === current ? 'step' : undefined} className="min-w-0">
+          <span
+            aria-hidden
+            className={cn('block h-1 rounded-full', i <= current ? 'bg-primary' : 'bg-muted')}
+          />
+          <span
+            className={cn(
+              'mt-1.5 block truncate text-[0.6875rem]',
+              i === current ? 'font-medium text-foreground' : 'text-muted-foreground',
+            )}
+          >
+            {stage}
+          </span>
+        </li>
+      ))}
+    </ol>
+  )
+}
+
+function ContractRow() {
   const { data } = usePublicConfig()
   if (!data?.contract_id) return null
   const href = data.contract_explorer_url ?? contractExplorerUrl(data, data.contract_id)
-  const id = `${data.contract_id.slice(0, 6)}…${data.contract_id.slice(-6)}`
+  const short = `${data.contract_id.slice(0, 6)}…${data.contract_id.slice(-6)}`
   return (
-    <p className="text-sm text-muted-foreground">
-      Escrow contract on {networkDisplayName(data.network, data.blockchain_mode)}:{' '}
+    <div className="flex items-center justify-between gap-3 text-xs text-muted-foreground">
+      <span>Escrow contract on {networkDisplayName(data.network, data.blockchain_mode)}</span>
       {href ? (
         <a
           href={href}
           target="_blank"
           rel="noopener noreferrer"
           aria-label={`Escrow contract ${data.contract_id} on the Stellar explorer`}
-          className="text-foreground underline decoration-border underline-offset-4 hover:decoration-foreground"
+          className="inline-flex items-center gap-1 font-mono text-foreground hover:underline"
         >
-          <Scramble text={id} className="text-[0.8125rem]" />
+          {short}
+          <ExternalLink className="size-3" aria-hidden />
         </a>
       ) : (
-        <Scramble text={id} className="text-[0.8125rem] text-foreground" />
+        <span className="font-mono text-foreground">{short}</span>
       )}
-    </p>
+    </div>
   )
 }
 
-/** What is open right now, from the same data as the coins: count, total rewards, and how to use the floor. */
-function LiveSummary({ query }: { query: ReturnType<typeof useBounties> }) {
-  const { data, isPending, isError, refetch } = query
-  if (isPending) return <p className="text-sm text-muted-foreground">Loading open bounties…</p>
-  if (isError) {
-    return (
-      <p className="text-sm text-muted-foreground" role="alert">
-        Open bounties could not be loaded.{' '}
-        <button
-          type="button"
-          onClick={() => refetch()}
-          className="text-foreground underline underline-offset-4"
-        >
-          Try again
-        </button>
-      </p>
-    )
-  }
-  if (data.items.length === 0) {
-    return (
-      <p className="text-sm text-muted-foreground">
-        No open bounties right now.{' '}
-        <Link to="/app/bounties/create" className="text-foreground underline underline-offset-4">
-          Post the first one
-        </Link>
-      </p>
-    )
-  }
-  const total = formatAmount(addAmounts(...data.items.map((b) => b.total_reward)), { maxDecimals: 0 })
-  const complete = data.total <= data.items.length
+/** A live bounty (the largest open reward) as it appears in the product: reward, escrow and where it stands. */
+function BountyPreview({ bounty }: { bounty: BountySummary }) {
+  const href = `/bounties/${bounty.slug || bounty.id}`
+  const positions = bounty.positions_available
   return (
-    <p className="text-sm leading-relaxed text-muted-foreground">
-      <span className="font-medium text-foreground">
-        {data.total} open {data.total === 1 ? 'bounty' : 'bounties'}
-      </span>
-      {complete ? (
-        <>
-          {' '}
-          with <span className="font-medium text-foreground">{total} XLM</span> in rewards.
-        </>
-      ) : (
-        <>; the {data.items.length} largest rewards are below.</>
-      )}{' '}
-      {motionAllowed() && hasFinePointer()
-        ? 'Pick up a coin and throw it, or click one to open the bounty.'
-        : 'Each coin opens its bounty.'}{' '}
-      <span className="whitespace-nowrap">
-        <span className="mr-1 inline-block size-2.5 rounded-full bg-success align-[-1px]" aria-hidden />
-        Green means funded in escrow.
-      </span>
-    </p>
+    <article
+      aria-labelledby="hero-bounty-title"
+      className="relative rounded-2xl border bg-card p-5 shadow-lift sm:p-6"
+    >
+      <div className="flex items-center justify-between gap-3">
+        <div className="flex flex-wrap items-center gap-1.5">
+          <Badge variant="outline">{CATEGORY_LABELS[bounty.category]}</Badge>
+          <FundingStatusBadge status={bounty.funding_status} bountyStatus={bounty.status} />
+        </div>
+        <DeadlineCountdown deadline={bounty.application_deadline} className="text-xs" />
+      </div>
+
+      <h2 id="hero-bounty-title" className="mt-4 text-base leading-snug font-semibold">
+        <Link to={href} className="hover:underline">
+          {bounty.title}
+        </Link>
+      </h2>
+      <div className="mt-2 flex items-center gap-2 text-sm text-muted-foreground">
+        <UserAvatar user={bounty.requester} className="size-5" />
+        <span className="truncate">{bounty.requester.display_name}</span>
+      </div>
+
+      <dl className="mt-5 grid grid-cols-2 gap-px overflow-hidden rounded-xl border bg-border">
+        <div className="bg-surface/60 px-4 py-3">
+          <dt className="text-xs text-muted-foreground">{positions > 1 ? 'Reward per position' : 'Reward'}</dt>
+          <dd className="mt-1">
+            <span className="amount text-[1.375rem]">{formatAmount(bounty.reward_amount)}</span>{' '}
+            <span className="text-sm text-muted-foreground">{bounty.reward_asset.code}</span>
+          </dd>
+        </div>
+        {positions > 1 ? (
+          <div className="bg-surface/60 px-4 py-3">
+            <dt className="text-xs text-muted-foreground">Escrow for {positions} positions</dt>
+            <dd className="mt-1">
+              <span className="amount text-[1.375rem]">{formatAmount(bounty.total_reward)}</span>{' '}
+              <span className="text-sm text-muted-foreground">{bounty.reward_asset.code}</span>
+            </dd>
+          </div>
+        ) : (
+          <div className="bg-surface/60 px-4 py-3">
+            <dt className="text-xs text-muted-foreground">Applicants</dt>
+            <dd className="mt-1">
+              <span className="amount text-[1.375rem]">{bounty.applications_count}</span>{' '}
+              <span className="text-sm text-muted-foreground">so far</span>
+            </dd>
+          </div>
+        )}
+      </dl>
+
+      <div className="mt-5">
+        <Lifecycle status={bounty.status} />
+      </div>
+
+      <div className="mt-5 space-y-3 border-t pt-4">
+        <ContractRow />
+        <Button asChild variant="outline" className="w-full">
+          <Link to={href}>
+            View this bounty <ArrowRight aria-hidden />
+          </Link>
+        </Button>
+      </div>
+    </article>
+  )
+}
+
+function PreviewFallback() {
+  return (
+    <div className="rounded-2xl border bg-card p-6 shadow-lift" aria-hidden>
+      <div className="flex gap-2">
+        <Skeleton className="h-5 w-20" />
+        <Skeleton className="h-5 w-24" />
+      </div>
+      <Skeleton className="mt-5 h-5 w-4/5" />
+      <Skeleton className="mt-3 h-4 w-1/3" />
+      <Skeleton className="mt-6 h-20 w-full rounded-xl" />
+      <Skeleton className="mt-6 h-8 w-full" />
+      <Skeleton className="mt-6 h-9 w-full" />
+    </div>
+  )
+}
+
+function Preview() {
+  const { data, isPending, isError } = useBounties(TOP_REWARD)
+  const bounty = data?.items[0]
+  if (isError) return null
+  if (!isPending && !bounty) {
+    return (
+      <div className="rounded-2xl border border-dashed bg-card p-8 text-center">
+        <p className="font-medium">No open bounties right now</p>
+        <p className="mt-1 text-sm text-muted-foreground">
+          Post the first one: describe the work, set a reward and fund it from your wallet.
+        </p>
+        <Button asChild size="sm" className="mt-4">
+          <Link to="/app/bounties/create">Post a bounty</Link>
+        </Button>
+      </div>
+    )
+  }
+  return (
+    <Bones name="landing-hero-bounty" loading={isPending} fallback={<PreviewFallback />}>
+      {bounty && <BountyPreview bounty={bounty} />}
+    </Bones>
   )
 }
 
 export function Hero() {
-  const scope = useRef<HTMLElement>(null)
-  const query = useBounties(POOL_QUERY)
-  const wide = useMediaQuery('(min-width: 1024px)')
-  const medium = useMediaQuery('(min-width: 640px)')
-  const viewportHeight = useViewportHeight()
-  // Height of the band along the bottom of the hero where the coins come to rest: about a third of the screen on
-  // desktop, so the headline, the actions and the coins all fit on the first screen.
-  const band = wide ? Math.max(200, Math.min(300, Math.round(viewportHeight * 0.32))) : medium ? 240 : 200
-
-  useGSAP(
-    () => {
-      if (!motionAllowed()) return
-      gsap.from('[data-hero-fade]', { autoAlpha: 0, y: 18, duration: 0.8, stagger: 0.1, delay: 0.5 })
-    },
-    { scope },
-  )
-
   return (
-    <section
-      ref={scope}
-      aria-labelledby="hero-title"
-      className="relative isolate flex min-h-[calc(100svh-4rem)] flex-col overflow-hidden border-b"
-    >
+    <section aria-labelledby="hero-title" className="relative isolate overflow-hidden border-b">
+      {/* A faint wash of the brand colour behind the top of the page. */}
       <div
-        className="mx-auto grid w-full max-w-384 flex-1 grid-cols-1 content-center gap-10 px-4 pt-12 sm:px-6 sm:pt-16 lg:grid-cols-[minmax(0,1.1fr)_minmax(0,1fr)] lg:items-end lg:gap-16 lg:px-8 lg:pt-10 2xl:px-12"
-        style={{ paddingBottom: band + 32 }}
-      >
-        <SplitHeading
-          as="h1"
-          id="hero-title"
-          trigger="load"
-          expand
-          className="font-display text-[clamp(2.9rem,6vw,6.25rem)] leading-[0.92] tracking-tight"
-        >
-          Work gets done. Rewards move transparently.
-        </SplitHeading>
-
-        <div className="min-w-0 space-y-7 lg:pb-3">
-          <p data-hero-fade className="max-w-xl text-lg leading-relaxed text-muted-foreground">
-            Post a task with a reward in XLM. The reward is locked in a Soroban escrow contract before anyone
-            starts, and it is released to the contributor when you approve the work.
+        aria-hidden
+        className="pointer-events-none absolute inset-x-0 top-0 -z-10 h-[34rem] bg-[radial-gradient(60%_60%_at_50%_0%,color-mix(in_oklab,var(--primary)_9%,transparent),transparent)]"
+      />
+      <PageContainer className="grid items-center gap-12 py-16 sm:py-20 lg:grid-cols-[minmax(0,1.15fr)_minmax(0,1fr)] lg:gap-16 lg:py-24">
+        <div className="max-w-2xl">
+          <h1
+            id="hero-title"
+            className="font-display text-[2.25rem] leading-[1.08] sm:text-[2.75rem] lg:text-[3.25rem]"
+          >
+            Bounties with the reward held in escrow
+          </h1>
+          <p className="mt-5 max-w-xl text-[1.0625rem] leading-relaxed text-muted-foreground">
+            Post a task with a reward in XLM. The reward is locked in a Soroban escrow contract on Stellar before
+            anyone starts, and it is released to the contributor when you approve the work.
           </p>
-          <div data-hero-fade className="flex flex-col gap-3 sm:flex-row">
-            <Button asChild size="lg" className="sm:min-w-40">
+          <div className="mt-8 flex flex-col gap-3 sm:flex-row">
+            <Button asChild size="lg">
               <Link to="/bounties">Browse bounties</Link>
             </Button>
-            <Button asChild size="lg" variant="outline" className="sm:min-w-40">
+            <Button asChild size="lg" variant="outline">
               <Link to="/app/bounties/create">Post a bounty</Link>
             </Button>
           </div>
-          <div data-hero-fade className="max-w-xl space-y-2">
-            <LiveSummary query={query} />
-            <ContractLine />
-          </div>
+          <ul className="mt-8 space-y-2.5">
+            {POINTS.map((point) => (
+              <li key={point} className="flex items-start gap-2.5 text-sm text-muted-foreground">
+                <span className="mt-0.5 flex size-4 shrink-0 items-center justify-center rounded-full bg-success/12 text-success">
+                  <Check className="size-3" strokeWidth={3} aria-hidden />
+                </span>
+                {point}
+              </li>
+            ))}
+          </ul>
         </div>
-      </div>
-
-      {/* The floor the coins rest on. */}
-      <span aria-hidden className="absolute inset-x-0 bottom-0 h-px bg-border" />
-      {query.data && query.data.items.length > 0 && <RewardPool bounties={query.data.items} band={band} />}
+        <div className="w-full max-w-lg lg:justify-self-end">
+          <Preview />
+        </div>
+      </PageContainer>
     </section>
   )
 }

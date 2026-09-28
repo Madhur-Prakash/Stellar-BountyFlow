@@ -7,7 +7,6 @@ import { WalletButton } from '@/components/chain/WalletButton'
 import { EmailNotVerifiedNotice } from '@/components/common/EmailNotVerifiedNotice'
 import { LoadingState } from '@/components/layout/LoadingState'
 import { PageHeader } from '@/components/layout/PageHeader'
-import { Reveal } from '@/components/motion/Reveal'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Checkbox } from '@/components/ui/checkbox'
@@ -146,13 +145,7 @@ export default function OnboardingPage() {
         description={`${done} of ${STEPS.length} steps done. Everything except email verification can be finished later.`}
       />
 
-      <Reveal
-        as="ol"
-        className="mb-8 grid gap-2 sm:grid-cols-2 lg:grid-cols-5"
-        aria-label="Onboarding progress"
-        y={14}
-        stagger={0.05}
-      >
+      <ol className="mb-8 grid gap-2 sm:grid-cols-2 lg:grid-cols-5" aria-label="Onboarding progress">
         {STEPS.map((s) => (
           <li
             key={s.key}
@@ -173,7 +166,7 @@ export default function OnboardingPage() {
             </span>
           </li>
         ))}
-      </Reveal>
+      </ol>
 
       <div className="space-y-6">
         {!me.email_verified && <EmailNotVerifiedNotice action="publish bounties and receive payouts" />}

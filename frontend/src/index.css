@@ -1,7 +1,7 @@
 @import 'tailwindcss';
 @import 'tw-animate-css';
 @import 'shadcn/tailwind.css';
-@import '@fontsource-variable/ibm-plex-sans/wdth.css';
+@import '@fontsource-variable/inter';
 @import '@fontsource/ibm-plex-mono/400.css';
 @import '@fontsource/ibm-plex-mono/500.css';
 
@@ -16,10 +16,10 @@
 @custom-variant light (&:not(:where(.dark, .dark *)));
 
 @theme inline {
-  /* IBM Plex: one engineering-rooted family. Headlines and reward amounts use its condensed width
-     (see .font-display); Plex Mono is reserved for machine data such as hashes and addresses. */
+  /* Inter for the interface, set small and confident; Plex Mono only for machine data (hashes, addresses,
+     contract ids). */
   --font-heading: var(--font-sans);
-  --font-sans: 'IBM Plex Sans Variable', ui-sans-serif, system-ui, sans-serif;
+  --font-sans: 'Inter Variable', ui-sans-serif, system-ui, -apple-system, 'Segoe UI', sans-serif;
   --font-mono: 'IBM Plex Mono', ui-monospace, SFMono-Regular, Menlo, monospace;
 
   --color-background: var(--background);
@@ -91,142 +91,143 @@
 /* ---------- Light (default) ---------- */
 :root {
   color-scheme: light;
-  --radius: 0.5rem;
+  /* 10px: buttons and fields use rounded-md (8px), cards rounded-xl (14px). */
+  --radius: 0.625rem;
 
-  /* Ink on paper: white page, deep navy ink, one Stellar blue, green reserved for funded money. */
-  --background: #ffffff;
-  --foreground: #121826;
-  --surface: #f6f7f9;
+  /* Cool zinc neutrals on an off-white canvas; white cards; one Stellar blue; green only for funded money. */
+  --background: #fafafa;
+  --foreground: #18181b;
+  --surface: #f4f4f5;
   --card: #ffffff;
-  --card-foreground: #121826;
+  --card-foreground: #18181b;
   --surface-raised: #ffffff;
   --popover: #ffffff;
-  --popover-foreground: #121826;
+  --popover-foreground: #18181b;
 
-  /* Stellar blue; white text on it is 5.2:1. */
-  --primary: #2b59e0;
+  /* Stellar blue; white text on it is 5.1:1. */
+  --primary: #3563e9;
   --primary-foreground: #ffffff;
-  --primary-emphasis: #2148bf;
-  --secondary: #f0f2f5;
-  --secondary-foreground: #121826;
-  --muted: #f0f2f5;
-  --muted-foreground: #596275;
-  --accent: #eef2fb;
-  --accent-foreground: #121826;
+  --primary-emphasis: #264fcf;
+  --secondary: #f4f4f5;
+  --secondary-foreground: #18181b;
+  --muted: #f4f4f5;
+  --muted-foreground: #71717a;
+  --accent: #f4f4f5;
+  --accent-foreground: #18181b;
 
   --cyan: #0a7686;
-  --success: #137a46;
+  --success: #15803d;
   --success-foreground: #ffffff;
-  --warning: #955700;
+  --warning: #a16207;
   --warning-foreground: #ffffff;
-  --destructive: #c8303a;
+  --destructive: #dc2626;
   --destructive-foreground: #ffffff;
-  --info: #2c58dc;
+  --info: #3563e9;
 
-  --border: #e4e7ed;
-  --input: #d5dae3;
-  --ring: #2b59e0;
+  --border: #e4e4e7;
+  --input: #e4e4e7;
+  --ring: #3563e9;
 
-  --chart-1: #2c58dc;
+  --chart-1: #3563e9;
   --chart-2: #0a7686;
-  --chart-3: #137a46;
-  --chart-4: #b06a00;
-  --chart-5: #6b7488;
+  --chart-3: #15803d;
+  --chart-4: #b45309;
+  --chart-5: #71717a;
 
-  --sidebar: #fbfbfd;
-  --sidebar-foreground: #0b1220;
-  --sidebar-primary: #2c58dc;
+  --sidebar: #ffffff;
+  --sidebar-foreground: #52525b;
+  --sidebar-primary: #3563e9;
   --sidebar-primary-foreground: #ffffff;
-  --sidebar-accent: #eef1f6;
-  --sidebar-accent-foreground: #0b1220;
-  --sidebar-border: #e6e8ee;
-  --sidebar-ring: #2c58dc;
+  --sidebar-accent: #f4f4f5;
+  --sidebar-accent-foreground: #18181b;
+  --sidebar-border: #e4e4e7;
+  --sidebar-ring: #3563e9;
 
-  /* The escrow section ("vault"), where money is shown moving through the contract. It follows the theme. */
-  --vault: #f3f5fa;
-  --vault-foreground: #121826;
-  --vault-muted: #596275;
-  --vault-line: #d8deea;
-  --vault-accent: #2b59e0;
-  --vault-green: #137a46;
-  --vault-warn: #a35f00;
+  /* The escrow diagram and similar "ledger" panels. */
+  --vault: #fafafa;
+  --vault-foreground: #18181b;
+  --vault-muted: #71717a;
+  --vault-line: #e4e4e7;
+  --vault-accent: #3563e9;
+  --vault-green: #15803d;
+  --vault-warn: #a16207;
   --vault-panel: #ffffff;
   --vault-node: #ffffff;
-  --vault-node-ok: #effaf4;
-  --vault-node-warn: #fff7ea;
-  --vault-node-alt: #f7f8fb;
+  --vault-node-ok: #f0fdf4;
+  --vault-node-warn: #fffbeb;
+  --vault-node-alt: #fafafa;
 
-  /* Soft elevation for cards and popovers (none in the dark theme, where borders carry the depth). */
-  --shadow-card: 0 1px 2px rgb(16 24 40 / 0.04), 0 1px 3px rgb(16 24 40 / 0.06);
-  --shadow-raised: 0 1px 2px rgb(16 24 40 / 0.05), 0 12px 32px -12px rgb(16 24 40 / 0.18);
+  /* Cards lift slightly off the canvas; popovers and dialogs more. */
+  --shadow-card: 0 1px 2px rgb(24 24 27 / 0.04), 0 2px 8px -2px rgb(24 24 27 / 0.05);
+  --shadow-raised: 0 1px 2px rgb(24 24 27 / 0.04), 0 16px 40px -12px rgb(24 24 27 / 0.16);
 }
 
 /* ---------- Dark ---------- */
 .dark {
   color-scheme: dark;
 
-  --background: #070a12;
-  --foreground: #e8ecf4;
-  --surface: #0b0f19;
-  --card: #0e131f;
-  --card-foreground: #e8ecf4;
-  --surface-raised: #141a28;
-  --popover: #111726;
-  --popover-foreground: #e8ecf4;
+  --background: #09090b;
+  --foreground: #fafafa;
+  --surface: #111113;
+  --card: #131316;
+  --card-foreground: #fafafa;
+  --surface-raised: #18181b;
+  --popover: #18181b;
+  --popover-foreground: #fafafa;
 
-  --primary: #3b6af0;
+  --primary: #4b77f5;
   --primary-foreground: #ffffff;
-  --primary-emphasis: #8aa8ff;
-  --secondary: #161d2d;
-  --secondary-foreground: #e8ecf4;
-  --muted: #141a28;
-  --muted-foreground: #8a93a6;
-  --accent: #182033;
-  --accent-foreground: #e8ecf4;
+  --primary-emphasis: #93b0ff;
+  --secondary: #1c1c20;
+  --secondary-foreground: #fafafa;
+  --muted: #1c1c20;
+  --muted-foreground: #a1a1aa;
+  --accent: #1c1c20;
+  --accent-foreground: #fafafa;
 
   --cyan: #22c3d6;
-  --success: #34c77b;
-  --success-foreground: #04150c;
-  --warning: #f2b04a;
-  --warning-foreground: #1d1203;
-  --destructive: #f0616a;
+  --success: #4ade80;
+  --success-foreground: #052e16;
+  --warning: #fbbf24;
+  --warning-foreground: #1c1003;
+  --destructive: #f87171;
   --destructive-foreground: #ffffff;
-  --info: #5b8cff;
+  --info: #6b8fff;
 
-  --border: #1d2536;
-  --input: #232c40;
-  --ring: #5b86ff;
+  --border: #27272a;
+  --input: #2e2e33;
+  --ring: #6b8fff;
 
-  --chart-1: #4c7dff;
+  --chart-1: #6b8fff;
   --chart-2: #22c3d6;
-  --chart-3: #34c77b;
-  --chart-4: #f2b04a;
-  --chart-5: #8a93a6;
+  --chart-3: #4ade80;
+  --chart-4: #fbbf24;
+  --chart-5: #a1a1aa;
 
-  --sidebar: #0a0e18;
-  --sidebar-foreground: #e8ecf4;
-  --sidebar-primary: #3b6af0;
+  --sidebar: #0c0c0e;
+  --sidebar-foreground: #a1a1aa;
+  --sidebar-primary: #4b77f5;
   --sidebar-primary-foreground: #ffffff;
-  --sidebar-accent: #141a28;
-  --sidebar-accent-foreground: #e8ecf4;
-  --sidebar-border: #1a2131;
-  --sidebar-ring: #5b86ff;
+  --sidebar-accent: #1c1c20;
+  --sidebar-accent-foreground: #fafafa;
+  --sidebar-border: #232327;
+  --sidebar-ring: #6b8fff;
 
   --shadow-card: none;
-  --shadow-raised: 0 24px 48px -24px rgb(0 0 0 / 0.5);
+  --shadow-raised: 0 16px 40px -16px rgb(0 0 0 / 0.7);
 
-  --vault: #0a0f1c;
-  --vault-foreground: #e9eef9;
-  --vault-muted: #93a0bf;
-  --vault-line: #243150;
-  --vault-accent: #7a9bff;
-  --vault-green: #43d08a;
-  --vault-warn: #f2b04a;
-  --vault-panel: #0d1426;
-  --vault-node: #111a30;
-  --vault-node-ok: #0f2236;
-  --vault-node-warn: #1f1b27;
-  --vault-node-alt: #0d1428;
+  --vault: #0c0c0e;
+  --vault-foreground: #fafafa;
+  --vault-muted: #a1a1aa;
+  --vault-line: #2e2e33;
+  --vault-accent: #6b8fff;
+  --vault-green: #4ade80;
+  --vault-warn: #fbbf24;
+  --vault-panel: #131316;
+  --vault-node: #18181b;
+  --vault-node-ok: #0d2418;
+  --vault-node-warn: #241c0b;
+  --vault-node-alt: #151518;
 }
 
 @layer base {
@@ -241,8 +242,9 @@
   }
   body {
     @apply bg-background text-foreground;
-    font-size: 1rem;
+    font-size: 0.9375rem;
     line-height: 1.55;
+    font-feature-settings: 'cv11', 'ss01';
   }
   button:not(:disabled),
   [role='button']:not(:disabled) {
@@ -260,7 +262,7 @@
   h3,
   h4 {
     text-wrap: balance;
-    letter-spacing: -0.01em;
+    letter-spacing: -0.015em;
   }
   p {
     text-wrap: pretty;
@@ -268,20 +270,18 @@
 }
 
 @layer utilities {
-  /* Condensed Plex for headlines and reward amounts: the one expressive typographic element. */
+  /* Headlines: Inter semibold, tightened. Sizes come from the call site and stay restrained. */
   .font-display {
     font-family: var(--font-sans);
-    font-stretch: 80%;
     font-weight: 600;
-    letter-spacing: -0.012em;
+    letter-spacing: -0.025em;
   }
-  /* Reward figures: condensed, tabular, tight. */
+  /* Money and counts: tabular figures so columns of amounts line up. */
   .amount {
     font-family: var(--font-sans);
-    font-stretch: 80%;
     font-weight: 600;
     font-variant-numeric: tabular-nums;
-    letter-spacing: -0.01em;
+    letter-spacing: -0.012em;
   }
   .text-balance {
     text-wrap: balance;
@@ -312,40 +312,6 @@ html.lenis body {
 }
 .lenis [data-lenis-prevent] {
   overscroll-behavior: contain;
-}
-
-/* Coins thrown by burstCoins() when escrow is funded or a reward is released (see lib/coin-burst.ts). */
-.bf-coin-layer {
-  position: fixed;
-  inset: 0;
-  z-index: 100;
-  overflow: hidden;
-  pointer-events: none;
-}
-.bf-coin {
-  position: absolute;
-  border-radius: 9999px;
-  box-shadow:
-    inset 0 0 0 1.5px rgb(255 255 255 / 0.55),
-    0 1px 2px rgb(16 24 40 / 0.25);
-}
-.bf-coin--fund {
-  background: radial-gradient(circle at 32% 28%, #a9c0ff, var(--primary) 58%, #1c3fa8);
-}
-.bf-coin--release {
-  background: radial-gradient(circle at 32% 28%, #9be8bd, var(--success) 58%, #0c5a33);
-}
-
-/* ScrollSmoother: the wrapper is only fixed while ScrollSmoother runs; without it the page scrolls normally. */
-#smooth-content {
-  will-change: auto;
-}
-
-/* SplitText line masks (SplitHeading): extend the clip box so descenders and accents are not cut off at tight
-   line heights while characters rise into place. */
-.split-line-mask {
-  padding-block: 0.06em 0.16em;
-  margin-block: -0.06em -0.16em;
 }
 
 /* Theme switch (lib/theme-transition.ts): the View Transition reveal is driven from script, so turn off the default

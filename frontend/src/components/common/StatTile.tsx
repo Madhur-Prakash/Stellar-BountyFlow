@@ -4,8 +4,11 @@ import type { ReactNode } from 'react'
 import { Skeleton } from '@/components/ui/skeleton'
 import { cn } from '@/lib/utils'
 
-/** A single figure: the number set in condensed Plex, its label underneath. The `icon` prop is accepted for
- * call-site compatibility but not drawn; decorative corner icons added noise without information. */
+/**
+ * One figure: a quiet label above a tabular number, with an optional hint. Tiles are usually laid out in a
+ * `StatGrid`, which draws them as one bordered strip. The `icon` prop is accepted for call-site compatibility
+ * but not drawn.
+ */
 export function StatTile({
   label,
   value,
@@ -21,12 +24,29 @@ export function StatTile({
   className?: string
 }) {
   return (
-    <div className={cn('rounded-lg border bg-card px-4 py-3.5', className)}>
-      <div className="amount text-[2rem] leading-none">
-        {loading ? <Skeleton className="h-8 w-20" /> : value}
+    <div data-stat-tile className={cn('min-w-0 bg-card px-5 py-4', className)}>
+      <div className="truncate text-[0.8125rem] font-medium text-muted-foreground">{label}</div>
+      <div className="amount mt-1.5 text-[1.625rem] leading-tight">
+        {loading ? <Skeleton className="h-7 w-20" /> : value}
       </div>
-      <div className="mt-2 text-sm text-muted-foreground">{label}</div>
       {hint && <div className="mt-1 text-xs text-muted-foreground">{hint}</div>}
+    </div>
+  )
+}
+
+/**
+ * Stat tiles as one card: a hairline grid (1px gaps over the border colour) so rows and columns share dividers
+ * at every breakpoint. Pass the column classes, e.g. `grid-cols-2 lg:grid-cols-4`.
+ */
+export function StatGrid({ children, className }: { children: ReactNode; className?: string }) {
+  return (
+    <div
+      className={cn(
+        'grid gap-px overflow-hidden rounded-xl border bg-border shadow-soft',
+        className,
+      )}
+    >
+      {children}
     </div>
   )
 }

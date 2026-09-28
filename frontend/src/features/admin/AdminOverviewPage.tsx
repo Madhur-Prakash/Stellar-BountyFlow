@@ -15,13 +15,11 @@ import { StatTile } from '@/components/common/StatTile'
 import { ListSkeleton } from '@/components/layout/LoadingState'
 import { PageHeader } from '@/components/layout/PageHeader'
 import { QueryView } from '@/components/layout/QueryView'
-import { CountUp } from '@/components/motion/CountUp'
-import { Reveal } from '@/components/motion/Reveal'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { useAdminOverview } from '@/lib/api/queries/admin'
 import type { AdminOverview } from '@/lib/api/types'
-import { formatDateTime, formatRelative } from '@/lib/format'
+import { formatDateTime, formatNumber, formatRelative } from '@/lib/format'
 import { networkDisplayName } from '@/lib/stellar/explorer'
 import { cn } from '@/lib/utils'
 
@@ -129,7 +127,7 @@ function CountTile({ item, value }: { item: CountItem; value: number }) {
   const tile = (
     <StatTile
       label={item.label}
-      value={<CountUp value={value} />}
+      value={formatNumber(value)}
       hint={item.hint}
       className={cn('h-full transition-colors', flagged && 'border-warning/40 bg-warning/5')}
     />
@@ -153,18 +151,13 @@ function OverviewContent({ data }: { data: AdminOverview }) {
           <h2 id={`overview-${group.id}`} className="mb-3 text-lg font-semibold">
             {group.title}
           </h2>
-          <Reveal
-            as="ul"
-            className="grid grid-cols-1 gap-3 min-[420px]:grid-cols-2 md:grid-cols-3 xl:grid-cols-5"
-            y={14}
-            stagger={0.05}
-          >
+          <ul className="grid grid-cols-1 gap-3 min-[420px]:grid-cols-2 md:grid-cols-3 xl:grid-cols-5">
             {group.items.map((item) => (
               <li key={item.key}>
                 <CountTile item={item} value={data.counts[item.key] ?? 0} />
               </li>
             ))}
-          </Reveal>
+          </ul>
         </section>
       ))}
 
@@ -239,7 +232,7 @@ export default function AdminOverviewPage() {
           <h2 id="overview-links" className="mb-3 text-lg font-semibold">
             Admin areas
           </h2>
-          <Reveal as="ul" className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3" y={14} stagger={0.05}>
+          <ul className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
             {QUICK_LINKS.map(({ to, label, description, icon: Icon }) => (
               <li key={to}>
                 <Link
@@ -256,7 +249,7 @@ export default function AdminOverviewPage() {
                 </Link>
               </li>
             ))}
-          </Reveal>
+          </ul>
         </section>
       </div>
     </div>

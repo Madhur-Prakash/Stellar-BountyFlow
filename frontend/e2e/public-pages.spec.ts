@@ -8,30 +8,26 @@ const narrow = (name: string) => name !== 'desktop-chromium'
 test.describe('landing page', () => {
   test('hero, featured bounties, stats with methodology and the FAQ accordion', async ({ page }) => {
     await page.goto('/')
-    await expect(page.getByRole('heading', { level: 1 })).toContainText('Work gets done')
+    await expect(page.getByRole('heading', { level: 1 })).toContainText('reward held in escrow')
     await expect(page.getByRole('main').getByRole('link', { name: 'Browse bounties' }).first()).toBeVisible()
 
-    // The hero's reward pool shows real open bounties from the API as tokens, each linking to its detail page.
-    const hero = page.locator('section[aria-labelledby="hero-title"]')
-    const pool = hero.getByRole('group', { name: 'Open bounty rewards' })
-    const token = pool.locator('[data-reward-token]').first()
-    await expect(token).toBeVisible()
-    await expect(token).toHaveAttribute('href', /^\/bounties\/[a-z0-9-]+$/)
-    await expect(token).toContainText('XLM')
-    await expect(token).toHaveAttribute('aria-label', /XLM reward, (funded in escrow|not funded yet)$/)
+    // The hero previews the largest open reward from the API, linking to its detail page.
+    const preview = page.locator('section[aria-labelledby="hero-title"] article')
+    await expect(preview).toBeVisible()
+    await expect(preview.locator('h2 a')).toHaveAttribute('href', /^\/bounties\/[a-z0-9-]+$/)
+    await expect(preview).toContainText('XLM')
 
-    // Below it, the open bounties rail: real cards, with previous / next controls.
-    const rail = page.locator('section[aria-labelledby="open-bounties-title"]')
-    await expect(rail.getByRole('heading', { name: 'Open bounties' })).toBeVisible()
-    await expect(
-      rail.getByRole('region', { name: 'Open bounties list' }).getByRole('article').first(),
-    ).toBeVisible()
-    await expect(rail.getByRole('button', { name: 'Next open bounties' })).toBeVisible()
+    // Below it, the open bounties table: real bounties with their reward, linking to the marketplace.
+    const open = page.locator('section[aria-labelledby="open-bounties-title"]')
+    await expect(open.getByRole('heading', { name: 'Open bounties' })).toBeVisible()
+    const list = open.getByRole('list', { name: 'Open bounties list' })
+    await expect(list.getByRole('link').first()).toHaveAttribute('href', /^\/bounties\/[a-z0-9-]+$/)
+    await expect(open.getByRole('link', { name: 'View marketplace' })).toBeVisible()
 
     const stats = page.locator('section[aria-labelledby="stats-title"]')
     await stats.scrollIntoViewIfNeeded()
     await expect(stats.getByText('Verified payout volume')).toBeVisible()
-    await expect(stats.getByText(/Network: Testnet/)).toBeVisible()
+    await expect(stats.getByText(/Stellar Testnet\./)).toBeVisible()
     await stats.getByRole('button', { name: 'How we count' }).click()
     const methodology = page.getByRole('dialog').filter({ hasText: /count|method/i })
     await expect(methodology).toBeVisible()

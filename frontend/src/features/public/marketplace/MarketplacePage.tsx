@@ -11,7 +11,6 @@ import { ErrorState } from '@/components/layout/ErrorState'
 import { PageContainer } from '@/components/layout/PageContainer'
 import { PageHeader } from '@/components/layout/PageHeader'
 import { PaginationBar } from '@/components/layout/PaginationBar'
-import { Reveal } from '@/components/motion/Reveal'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -248,16 +247,11 @@ export default function MarketplacePage() {
               {data && (
                 <>
                   <div className={isPlaceholderData ? 'opacity-60 transition-opacity' : 'transition-opacity'}>
-                    <Reveal
-                      className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3"
-                      y={22}
-                      stagger={0.05}
-                      deps={[data.items.map((b) => b.id).join()]}
-                    >
+                    <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
                       {data.items.map((b) => (
                         <BountyCard key={b.id} bounty={b} />
                       ))}
-                    </Reveal>
+                    </div>
                   </div>
                   <PaginationBar
                     page={data.page}

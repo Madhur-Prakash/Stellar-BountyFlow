@@ -27,8 +27,6 @@ import { StatTile } from '@/components/common/StatTile'
 import { EmptyState } from '@/components/layout/EmptyState'
 import { PageHeader } from '@/components/layout/PageHeader'
 import { QueryView } from '@/components/layout/QueryView'
-import { CountUp } from '@/components/motion/CountUp'
-import { Reveal } from '@/components/motion/Reveal'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { errorMessage, isEmailNotVerifiedError } from '@/lib/api/client'
@@ -37,6 +35,7 @@ import { useBounty, useCancelBounty, usePublishBounty } from '@/lib/api/queries/
 import { useBountyTransactions } from '@/lib/api/queries/chain'
 import type { BountyDetail } from '@/lib/api/types'
 import { formatAmount } from '@/lib/money'
+import { formatNumber } from '@/lib/format'
 
 function Actions({ bounty }: { bounty: BountyDetail }) {
   const publish = usePublishBounty()
@@ -181,15 +180,9 @@ function Actions({ bounty }: { bounty: BountyDetail }) {
   )
 }
 
-/** A reward amount that counts up on first view and settles on the exact (full-precision) amount. */
+/** A reward amount at full precision. */
 function RewardFigure({ amount }: { amount: string }) {
-  return (
-    <CountUp
-      value={Number(amount) || 0}
-      format={(n) => formatAmount(n.toFixed(2), { maxDecimals: 2 })}
-      display={formatAmount(amount)}
-    />
-  )
+  return <>{formatAmount(amount)}</>
 }
 
 function Transactions({ bountyId }: { bountyId: string }) {
@@ -248,8 +241,8 @@ export default function ManageBountyPage() {
                       <BountyTimeline bounty={bounty} />
                     </CardContent>
                   </Card>
-                  <Reveal className="grid grid-cols-2 gap-3 md:grid-cols-4" y={14} stagger={0.05}>
-                    <StatTile label="Applicants" value={<CountUp value={bounty.applications_count} />} />
+                  <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
+                    <StatTile label="Applicants" value={formatNumber(bounty.applications_count)} />
                     <StatTile
                       label="Positions filled"
                       value={`${bounty.positions_filled} / ${bounty.positions_available}`}
@@ -264,7 +257,7 @@ export default function ManageBountyPage() {
                       value={<RewardFigure amount={bounty.total_reward} />}
                       hint={bounty.reward_asset.code}
                     />
-                  </Reveal>
+                  </div>
                   <div className="grid gap-3 sm:grid-cols-2">
                     <Button asChild variant="outline" size="lg" className="justify-start">
                       <Link to={`/app/bounties/${bounty.id}/applications`}>

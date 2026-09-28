@@ -11,7 +11,6 @@ import { UserAvatar } from '@/components/common/UserAvatar'
 import { PageHeader } from '@/components/layout/PageHeader'
 import { PaginationBar } from '@/components/layout/PaginationBar'
 import { QueryView } from '@/components/layout/QueryView'
-import { Reveal } from '@/components/motion/Reveal'
 import { SafeMarkdown } from '@/components/markdown/SafeMarkdown'
 import { Button } from '@/components/ui/button'
 import { errorMessage } from '@/lib/api/client'
@@ -204,11 +203,11 @@ export default function BountySubmissionsPage() {
       >
         {(data) => (
           <>
-            <Reveal as="ul" className="space-y-4" deps={[data.items.map((s) => s.id).join()]}>
+            <ul className="space-y-4">
               {data.items.map((s) => (
                 <SubmissionCard key={s.id} s={s} isOwner={isOwner} />
               ))}
-            </Reveal>
+            </ul>
             <PaginationBar
               page={data.page}
               pages={data.pages}

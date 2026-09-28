@@ -14,10 +14,10 @@ import { defineConfig, devices } from '@playwright/test'
  *   journey specs (`*.journey.spec.ts`).
  * - tablet (768×1024) and mobile (Pixel 7) run the public, responsive and
  *   accessibility specs.
- * - motion (1280×800) runs `motion.spec.ts` with animations on: smooth
- *   scrolling, the reward pool, the draggable rail, pinned scrolling and skeletons.
- * Every other project runs as a reduced-motion user, so GSAP entrances and
- * smooth scrolling are off and assertions see final, fully visible content.
+ * - motion (1280×800) runs `motion.spec.ts` with animations on: Lenis smooth
+ *   scrolling, hover explanations, the theme switch and skeletons.
+ * Every other project runs as a reduced-motion user, so transitions and smooth
+ * scrolling are off and assertions see final, fully visible content.
  */
 const baseURL = process.env.E2E_BASE_URL ?? process.env.PW_BASE_URL ?? 'http://localhost:5174'
 

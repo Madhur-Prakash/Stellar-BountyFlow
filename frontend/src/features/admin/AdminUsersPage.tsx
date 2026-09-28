@@ -2,7 +2,6 @@ import { MailCheck, MailWarning, UserCheck, Users, UserX } from 'lucide-react'
 import { useState } from 'react'
 import { toast } from 'sonner'
 
-import { DataTable, type Column } from '@/components/layout/DataTable'
 import { PageHeader } from '@/components/layout/PageHeader'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -15,14 +14,15 @@ import { ROLES, type AdminUser, type Role } from '@/lib/api/types'
 import { hasPermission } from '@/lib/permissions'
 
 import {
+  AdminTable,
   ConfirmDialog,
   DateCell,
-  FilterBar,
   FilterSelect,
   PagedResults,
   RoleBadge,
   SearchField,
   UserCell,
+  type AdminColumn,
 } from './admin-shared'
 import { ADMIN_PAGE_SIZE, ROLE_LABELS, scrollToTop, useFilteredPage } from './admin-utils'
 
@@ -75,10 +75,11 @@ export default function AdminUsersPage() {
     )
   }
 
-  const columns: Column<AdminUser>[] = [
+  const columns: AdminColumn<AdminUser>[] = [
     {
       key: 'user',
       header: 'User',
+      mobile: 'title',
       cell: (u) => (
         <span className="inline-flex max-w-full min-w-0 items-center gap-2">
           <UserCell user={u} />
@@ -89,7 +90,8 @@ export default function AdminUsersPage() {
     {
       key: 'email',
       header: 'Email',
-      cell: (u) => <span className="text-sm break-all">{u.email}</span>,
+      wide: true,
+      cell: (u) => <span className="break-all whitespace-normal">{u.email}</span>,
     },
     {
       key: 'role',
@@ -104,7 +106,7 @@ export default function AdminUsersPage() {
             onValueChange={(v) => changeRole(u, v as Role)}
             disabled={pendingId === u.id}
           >
-            <SelectTrigger className="w-36" aria-label={`Role for @${u.username}`}>
+            <SelectTrigger size="sm" className="w-32" aria-label={`Role for @${u.username}`}>
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
@@ -123,7 +125,7 @@ export default function AdminUsersPage() {
       header: 'Email verified',
       cell: (u) =>
         u.email_verified ? (
-          <Badge variant="success">
+          <Badge variant="muted">
             <MailCheck aria-hidden /> Verified
           </Badge>
         ) : (
@@ -135,9 +137,10 @@ export default function AdminUsersPage() {
     {
       key: 'status',
       header: 'Status',
+      mobile: 'aside',
       cell: (u) =>
         u.is_active ? (
-          <Badge variant="success">
+          <Badge variant="outline">
             <UserCheck aria-hidden /> Active
           </Badge>
         ) : (
@@ -157,14 +160,15 @@ export default function AdminUsersPage() {
     columns.push({
       key: 'actions',
       header: 'Account',
+      hideHeader: true,
       className: 'text-right',
-      hideLabelOnMobile: true,
+      mobile: 'actions',
       cell: (u) =>
-        u.id === me?.id ? (
-          <span className="text-xs text-muted-foreground">Your own account</span>
-        ) : (
+        u.id === me?.id ? null : (
           <Button
-            variant={u.is_active ? 'destructive' : 'outline'}
+            variant="outline"
+            size="sm"
+            className={u.is_active ? 'text-destructive hover:text-destructive' : undefined}
             disabled={pendingId === u.id}
             aria-label={u.is_active ? `Suspend @${u.username}` : `Reactivate @${u.username}`}
             onClick={() => {
@@ -186,35 +190,12 @@ export default function AdminUsersPage() {
   }
 
   return (
-    <div className="mx-auto w-full max-w-7xl">
+    <div>
       <PageHeader
         title="Users"
-        description={
-          canAssignRole || canManage
-            ? 'Search accounts, change roles, and suspend or reactivate access.'
-            : 'Search accounts. Role and account changes are limited to administrators.'
-        }
+        description={canAssignRole || canManage ? undefined : 'Role and account changes need an admin.'}
         breadcrumbs={[{ label: 'Admin', to: '/admin' }, { label: 'Users' }]}
       />
-
-      <FilterBar>
-        <SearchField
-          id="admin-users-search"
-          label="Search users"
-          placeholder="Search by name, username, or email"
-          value={search}
-          onChange={setSearch}
-        />
-        <FilterSelect
-          id="admin-users-role"
-          label="Filter by role"
-          value={role}
-          onChange={setRole}
-          options={ROLES}
-          labels={ROLE_LABELS}
-          allLabel="All roles"
-        />
-      </FilterBar>
 
       <PagedResults
         query={query}
@@ -222,16 +203,36 @@ export default function AdminUsersPage() {
         label="Users"
         itemLabel="users"
         errorTitle="Could not load users"
-        empty={{ icon: Users, title: 'No users yet', description: 'Registered accounts will appear here.' }}
+        empty={{ icon: Users, title: 'No users yet' }}
         filtered={filtered}
         onClearFilters={clearFilters}
         onPageChange={(p) => {
           setPage(p)
           scrollToTop()
         }}
+        toolbar={
+          <>
+            <SearchField
+              id="admin-users-search"
+              label="Search users"
+              placeholder="Name, username or email"
+              value={search}
+              onChange={setSearch}
+            />
+            <FilterSelect
+              id="admin-users-role"
+              label="Filter by role"
+              value={role}
+              onChange={setRole}
+              options={ROLES}
+              labels={ROLE_LABELS}
+              allLabel="All roles"
+            />
+          </>
+        }
       >
         {(items) => (
-          <DataTable rows={items} columns={columns} getKey={(u) => u.id} caption="Registered users" />
+          <AdminTable rows={items} columns={columns} getKey={(u) => u.id} caption="Registered users" />
         )}
       </PagedResults>
 
@@ -245,8 +246,8 @@ export default function AdminUsersPage() {
         }
         description={
           statusTarget?.is_active
-            ? 'The account is signed out of every session and cannot sign in until it is reactivated. The change is recorded in the audit log.'
-            : 'The account can sign in and use BountyFlow again. The change is recorded in the audit log.'
+            ? 'They are signed out of every session and can’t sign in until reactivated. This is recorded in the audit log.'
+            : 'They can sign in and use BountyFlow again. This is recorded in the audit log.'
         }
         confirmLabel={statusTarget?.is_active ? 'Suspend account' : 'Reactivate account'}
         destructive={!!statusTarget?.is_active}

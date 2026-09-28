@@ -10,7 +10,6 @@ import { UserAvatar } from '@/components/common/UserAvatar'
 import { PageHeader } from '@/components/layout/PageHeader'
 import { PaginationBar } from '@/components/layout/PaginationBar'
 import { QueryView } from '@/components/layout/QueryView'
-import { Reveal } from '@/components/motion/Reveal'
 import { Alert, AlertDescription } from '@/components/ui/alert'
 import { Button } from '@/components/ui/button'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
@@ -256,7 +255,7 @@ export default function BountyApplicationsPage() {
           >
             {(data) => (
               <>
-                <Reveal as="ul" className="space-y-4" deps={[data.items.map((a) => a.id).join()]}>
+                <ul className="space-y-4">
                   {data.items.map((a) => (
                     <ApplicationCard
                       key={a.id}
@@ -266,7 +265,7 @@ export default function BountyApplicationsPage() {
                       assignees={assignees}
                     />
                   ))}
-                </Reveal>
+                </ul>
                 <PaginationBar
                   page={data.page}
                   pages={data.pages}

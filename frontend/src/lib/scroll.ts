@@ -1,4 +1,3 @@
-import type { ScrollSmoother } from 'gsap/ScrollSmoother'
 import type Lenis from 'lenis'
 import { create } from 'zustand'
 
@@ -6,31 +5,25 @@ import { motionAllowed } from '@/hooks/useReducedMotion'
 import { gsap } from '@/lib/gsap'
 
 /**
- * The page's active smooth-scroll engine. At most one runs at a time: ScrollSmoother on the story pages
- * (landing, how it works, about), Lenis everywhere else, neither under reduced motion. See useSmoothScroll.
+ * The page's smooth-scroll engine: Lenis on the public site, none in the workspace or under reduced motion.
+ * See useSmoothScroll.
  */
 type ScrollEngine = {
-  smoother: ScrollSmoother | null
   lenis: Lenis | null
-  set: (engine: Partial<Pick<ScrollEngine, 'smoother' | 'lenis'>>) => void
+  set: (engine: Partial<Pick<ScrollEngine, 'lenis'>>) => void
 }
 
 export const useScrollEngine = create<ScrollEngine>()((set) => ({
-  smoother: null,
   lenis: null,
   set: (engine) => set(engine),
 }))
 
-/** Height of the fixed site header plus breathing room: anchor targets land below it. */
+/** Height of the sticky site header plus breathing room: anchor targets land below it. */
 export const HEADER_OFFSET = 80
 
 /** Scroll so `el` sits just below the header, through whichever engine is active. */
 export function scrollToElement(el: Element, { offset = HEADER_OFFSET, immediate = false } = {}) {
-  const { smoother, lenis } = useScrollEngine.getState()
-  if (smoother) {
-    smoother.scrollTo(el, !immediate, `top ${offset}px`)
-    return
-  }
+  const { lenis } = useScrollEngine.getState()
   if (lenis) {
     // Lenis caches the scroll limit; content that loaded since the last resize would clamp the target.
     lenis.resize()
@@ -50,17 +43,15 @@ export function scrollToElement(el: Element, { offset = HEADER_OFFSET, immediate
 
 /** Jump to the top of the page (e.g. after changing a results page), keeping the smooth-scroll engine in sync. */
 export function scrollToTop() {
-  const { smoother, lenis } = useScrollEngine.getState()
-  if (smoother) smoother.scrollTo(0, false)
-  else if (lenis) lenis.scrollTo(0, { immediate: true })
+  const { lenis } = useScrollEngine.getState()
+  if (lenis) lenis.scrollTo(0, { immediate: true })
   else window.scrollTo({ top: 0 })
 }
 
-/** Scroll the page to an absolute position (e.g. a point inside a pinned section) through the active engine. */
+/** Scroll the page to an absolute position through the active engine. */
 export function scrollToY(y: number) {
-  const { smoother, lenis } = useScrollEngine.getState()
-  if (smoother) smoother.scrollTo(y, true)
-  else if (lenis) lenis.scrollTo(y, { duration: 1 })
+  const { lenis } = useScrollEngine.getState()
+  if (lenis) lenis.scrollTo(y, { duration: 1 })
   else if (motionAllowed())
     gsap.to(window, { duration: 0.9, ease: 'power2.inOut', scrollTo: { y, autoKill: true } })
   else window.scrollTo({ top: y })

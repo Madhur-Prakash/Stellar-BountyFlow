@@ -14,33 +14,26 @@ export function LogoMark({ className, title }: { className?: string; title?: str
       aria-hidden={title ? undefined : true}
       aria-label={title}
     >
-      <rect x="0.5" y="0.5" width="31" height="31" rx="8.5" className="fill-surface-raised stroke-border" />
+      <rect width="32" height="32" rx="8" className="fill-primary" />
       <path
         d="M25.4 12.6A10 10 0 1 1 19.4 6.6"
-        className="stroke-muted-foreground"
+        stroke="white"
+        strokeOpacity="0.55"
         strokeWidth="2.2"
         strokeLinecap="round"
       />
-      <path d="M9.5 22.5 22.5 9.5" className="stroke-primary" strokeWidth="2.6" strokeLinecap="round" />
-      <path
-        d="M15.5 9.5h7v7"
-        className="stroke-primary"
-        strokeWidth="2.6"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
-      <circle cx="9.5" cy="22.5" r="1.9" className="fill-cyan" />
+      <path d="M9.5 22.5 22.5 9.5" stroke="white" strokeWidth="2.6" strokeLinecap="round" />
+      <path d="M15.5 9.5h7v7" stroke="white" strokeWidth="2.6" strokeLinecap="round" strokeLinejoin="round" />
+      <circle cx="9.5" cy="22.5" r="1.9" fill="white" />
     </svg>
   )
 }
 
 export function Logo({ className, markClassName }: { className?: string; markClassName?: string }) {
   return (
-    <span className={cn('inline-flex items-center gap-2.5', className)}>
+    <span className={cn('inline-flex items-center gap-2', className)}>
       <LogoMark className={markClassName} />
-      <span className="text-[1.05rem] font-semibold tracking-tight text-foreground">
-        Bounty<span className="text-muted-foreground">Flow</span>
-      </span>
+      <span className="text-[0.975rem] font-semibold tracking-tight text-foreground">BountyFlow</span>
     </span>
   )
 }

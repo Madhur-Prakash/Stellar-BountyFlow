@@ -1,13 +1,12 @@
 import { Info } from 'lucide-react'
 import { Link } from 'react-router'
 
+import { StatGrid, StatTile } from '@/components/common/StatTile'
 import { Bones } from '@/components/layout/Bones'
 import { ErrorState } from '@/components/layout/ErrorState'
 import { PageContainer } from '@/components/layout/PageContainer'
-import { CountUp } from '@/components/motion/CountUp'
 import { Button } from '@/components/ui/button'
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
-import { Skeleton } from '@/components/ui/skeleton'
 import { usePublicStats } from '@/lib/api/queries/analytics'
 import type { PublicStats } from '@/lib/api/types'
 import { formatDateTime, formatNumber, humanize } from '@/lib/format'
@@ -16,7 +15,7 @@ import { networkDisplayName } from '@/lib/stellar/explorer'
 
 import { SectionHeading } from './SectionHeading'
 
-type StatKey = keyof Pick<
+type CountKey = keyof Pick<
   PublicStats,
   | 'published_bounties'
   | 'open_bounties'
@@ -27,14 +26,21 @@ type StatKey = keyof Pick<
   | 'unique_transacting_wallets'
 >
 
-const COUNTS: { key: StatKey; label: string }[] = [
-  { key: 'published_bounties', label: 'Bounties published' },
+const COUNTS: CountKey[] = [
+  'published_bounties',
+  'open_bounties',
+  'funded_bounties',
+  'completed_bounties',
+  'registered_users',
+  'successful_transactions',
+  'unique_transacting_wallets',
+]
+
+const SHOWN: { key: CountKey; label: string }[] = [
   { key: 'open_bounties', label: 'Open right now' },
   { key: 'funded_bounties', label: 'Funded in escrow' },
   { key: 'completed_bounties', label: 'Completed' },
-  { key: 'registered_users', label: 'Registered users' },
-  { key: 'successful_transactions', label: 'Confirmed transactions' },
-  { key: 'unique_transacting_wallets', label: 'Transacting wallets' },
+  { key: 'registered_users', label: 'Members' },
 ]
 
 function Methodology({ methodology }: { methodology: Record<string, string> }) {
@@ -67,92 +73,64 @@ function Methodology({ methodology }: { methodology: Record<string, string> }) {
   )
 }
 
-function StatsFallback() {
+function Tiles({ data }: { data?: PublicStats }) {
   return (
-    <div className="grid grid-cols-2 gap-8 lg:grid-cols-5" aria-hidden>
-      {Array.from({ length: 5 }, (_, i) => (
-        <div key={i}>
-          <Skeleton className="h-12 w-24" />
-          <Skeleton className="mt-2 h-4 w-28" />
-        </div>
+    <StatGrid className="grid-cols-2 lg:grid-cols-5">
+      <StatTile
+        className="col-span-2 lg:col-span-1"
+        label="Verified payout volume"
+        value={
+          data ? (
+            <>
+              {formatAmount(data.verified_payout_volume, { maxDecimals: 2 })}{' '}
+              <span className="text-sm font-normal text-muted-foreground">XLM</span>
+            </>
+          ) : (
+            '—'
+          )
+        }
+      />
+      {SHOWN.map(({ key, label }) => (
+        <StatTile key={key} label={label} value={data ? formatNumber(data[key]) : '—'} />
       ))}
-    </div>
+    </StatGrid>
   )
 }
-
-const PRIMARY: { key: StatKey; label: string }[] = [
-  { key: 'open_bounties', label: 'Open right now' },
-  { key: 'funded_bounties', label: 'Funded in escrow' },
-  { key: 'completed_bounties', label: 'Completed' },
-  { key: 'registered_users', label: 'People signed up' },
-]
 
 /** Real platform numbers from GET /analytics/public. Zeros are shown as zeros. */
 export function PlatformStats() {
   const { data, isPending, isError, error, refetch } = usePublicStats()
-
   const allZero =
-    !!data && COUNTS.every(({ key }) => data[key] === 0) && isZeroAmount(data.verified_payout_volume || '0')
+    !!data && COUNTS.every((key) => data[key] === 0) && isZeroAmount(data.verified_payout_volume || '0')
 
   return (
-    <section aria-labelledby="stats-title" className="border-b bg-surface py-16 sm:py-20">
+    <section aria-labelledby="stats-title" className="py-12 sm:py-14">
       <PageContainer>
-        <div className="flex flex-col items-start gap-4 sm:flex-row sm:items-end sm:justify-between">
-          <SectionHeading
-            id="stats-title"
-            title="Activity so far"
-            description="Live figures from the API. Payout volume counts only payouts confirmed on-chain."
-          />
-          {data && <Methodology methodology={data.methodology} />}
-        </div>
-
-        <div className="mt-12" aria-live="polite">
+        <SectionHeading
+          id="stats-title"
+          title="Activity on BountyFlow"
+          description="Payouts are counted once they are confirmed on Stellar."
+          actions={data && <Methodology methodology={data.methodology} />}
+        />
+        <div className="mt-6" aria-live="polite">
           {isError ? (
             <ErrorState error={error} title="Statistics are unavailable" onRetry={() => refetch()} />
           ) : (
-            <Bones name="platform-stats" loading={isPending} fallback={<StatsFallback />}>
+            <Bones name="platform-stats" loading={isPending} fallback={<Tiles />}>
               {data && (
                 <>
-                  <dl className="grid grid-cols-2 gap-x-8 gap-y-8 lg:grid-cols-5 lg:divide-x lg:divide-border">
-                    <div className="col-span-2 lg:col-span-1 lg:pr-8">
-                      <dd className="amount text-[3rem] leading-none sm:text-[3.5rem]">
-                        <CountUp
-                          value={Number(data.verified_payout_volume) || 0}
-                          format={(n) => formatAmount(n.toFixed(2), { maxDecimals: 2 })}
-                          display={formatAmount(data.verified_payout_volume, { maxDecimals: 2 })}
-                        />
-                        <span
-                          className="ml-1.5 text-lg font-normal text-muted-foreground"
-                          style={{ fontStretch: '100%' }}
-                        >
-                          XLM
-                        </span>
-                      </dd>
-                      <dt className="mt-2 text-sm text-muted-foreground">Verified payout volume</dt>
-                    </div>
-                    {PRIMARY.map(({ key, label }) => (
-                      <div key={key} className="lg:px-8">
-                        <dd className="amount text-[3rem] leading-none sm:text-[3.5rem]">
-                          <CountUp value={data[key]} />
-                        </dd>
-                        <dt className="mt-2 text-sm text-muted-foreground">{label}</dt>
-                      </div>
-                    ))}
-                  </dl>
-
-                  <p className="mt-8 text-sm text-muted-foreground">
-                    Network: {networkDisplayName(data.network)}. {formatNumber(data.successful_transactions)}{' '}
-                    confirmed transactions from {formatNumber(data.unique_transacting_wallets)} wallets.
-                    Updated <time dateTime={data.generated_at}>{formatDateTime(data.generated_at)}</time>.
+                  <Tiles data={data} />
+                  <p className="mt-3 text-xs text-muted-foreground">
+                    Stellar {networkDisplayName(data.network)}. {formatNumber(data.successful_transactions)}{' '}
+                    confirmed transactions from {formatNumber(data.unique_transacting_wallets)} wallets. Updated{' '}
+                    <time dateTime={data.generated_at}>{formatDateTime(data.generated_at)}</time>.
                   </p>
-
                   {allZero && (
-                    <div className="mt-8 flex flex-col items-start gap-3 border-t pt-6 sm:flex-row sm:items-center sm:justify-between">
-                      <p className="text-[0.9375rem]">
-                        Nothing has settled on this network yet. The first funded bounty starts every number
-                        above.
+                    <div className="mt-6 flex flex-col items-start gap-3 rounded-xl border bg-card p-5 sm:flex-row sm:items-center sm:justify-between">
+                      <p className="text-sm">
+                        Nothing has settled on this network yet. The first funded bounty starts every number above.
                       </p>
-                      <Button asChild>
+                      <Button asChild size="sm">
                         <Link to="/app/bounties/create">Post the first bounty</Link>
                       </Button>
                     </div>

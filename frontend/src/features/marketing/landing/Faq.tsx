@@ -2,10 +2,9 @@ import type { ReactNode } from 'react'
 import { Link } from 'react-router'
 
 import { PageContainer } from '@/components/layout/PageContainer'
-import { Reveal } from '@/components/motion/Reveal'
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion'
 
-import { SectionHeading } from './SectionHeading'
+import { SECTION, SectionHeading } from './SectionHeading'
 
 const FAQS: { q: string; a: ReactNode }[] = [
   {
@@ -57,37 +56,38 @@ const FAQS: { q: string; a: ReactNode }[] = [
 
 export function Faq() {
   return (
-    <section id="faq" aria-labelledby="faq-title" className="border-b py-20 sm:py-24">
+    <section id="faq" aria-labelledby="faq-title" className={SECTION}>
       <PageContainer>
-        <div className="grid gap-10 lg:grid-cols-[minmax(0,4fr)_minmax(0,7fr)] lg:gap-16">
-          <div>
-            <SectionHeading
-              id="faq-title"
-              title="Common questions"
-              description={
-                <>
-                  More detail lives in the{' '}
-                  <Link to="/guide" className="text-primary-emphasis underline underline-offset-4">
-                    guide
-                  </Link>
-                  .
-                </>
-              }
-            />
-          </div>
-          <Accordion type="single" collapsible className="border-t">
-            <Reveal selector="[data-slot='accordion-item']" y={16} stagger={0.05}>
-              {FAQS.map((f, i) => (
-                <AccordionItem key={f.q} value={`q-${i}`}>
-                  <AccordionTrigger className="min-h-14 text-left text-base font-medium">
-                    {f.q}
-                  </AccordionTrigger>
-                  <AccordionContent className="max-w-prose text-[0.9375rem] leading-relaxed text-muted-foreground">
-                    {f.a}
-                  </AccordionContent>
-                </AccordionItem>
-              ))}
-            </Reveal>
+        <div className="grid gap-8 lg:grid-cols-[minmax(0,1fr)_minmax(0,2fr)] lg:gap-12">
+          <SectionHeading
+            className="self-start sm:items-start"
+            id="faq-title"
+            title="Common questions"
+            description={
+              <>
+                More detail lives in the{' '}
+                <Link to="/guide" className="text-primary-emphasis underline underline-offset-4">
+                  guide
+                </Link>
+                .
+              </>
+            }
+          />
+          <Accordion
+            type="single"
+            collapsible
+            className="divide-y rounded-xl border bg-card px-5 shadow-soft"
+          >
+            {FAQS.map((f, i) => (
+              <AccordionItem key={f.q} value={`q-${i}`} className="border-b-0">
+                <AccordionTrigger className="min-h-14 text-left text-[0.9375rem] font-medium">
+                  {f.q}
+                </AccordionTrigger>
+                <AccordionContent className="max-w-prose text-sm leading-relaxed text-muted-foreground">
+                  {f.a}
+                </AccordionContent>
+              </AccordionItem>
+            ))}
           </Accordion>
         </div>
       </PageContainer>

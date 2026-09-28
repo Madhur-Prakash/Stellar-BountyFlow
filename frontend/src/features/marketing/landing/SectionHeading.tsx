@@ -1,40 +1,35 @@
 import type { ReactNode } from 'react'
 
-import { SplitHeading } from '@/components/motion/SplitHeading'
 import { cn } from '@/lib/utils'
 
+/** A section title with an optional description on the left and optional actions on the right. */
 export function SectionHeading({
   id,
   title,
   description,
+  actions,
   className,
-  tone = 'default',
 }: {
   id: string
   title: string
   description?: ReactNode
+  actions?: ReactNode
   className?: string
-  /** `vault`: light text for the dark escrow band. */
-  tone?: 'default' | 'vault'
 }) {
   return (
-    <div className={cn('max-w-2xl', className)}>
-      <SplitHeading
-        id={id}
-        className="font-display text-[2.25rem] leading-[1.02] sm:text-[3rem] lg:text-[3.5rem]"
-      >
-        {title}
-      </SplitHeading>
-      {description && (
-        <p
-          className={cn(
-            'mt-4 text-[1.0625rem] leading-relaxed',
-            tone === 'vault' ? 'text-vault-muted' : 'text-muted-foreground',
-          )}
-        >
-          {description}
-        </p>
-      )}
+    <div className={cn('flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between', className)}>
+      <div className="max-w-2xl">
+        <h2 id={id} className="font-display text-[1.625rem] leading-tight sm:text-[1.875rem]">
+          {title}
+        </h2>
+        {description && (
+          <p className="mt-2 text-[0.9375rem] leading-relaxed text-muted-foreground">{description}</p>
+        )}
+      </div>
+      {actions && <div className="flex shrink-0 flex-wrap items-center gap-2">{actions}</div>}
     </div>
   )
 }
+
+/** Vertical rhythm shared by every landing section. */
+export const SECTION = 'py-12 sm:py-16'

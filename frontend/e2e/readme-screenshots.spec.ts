@@ -27,7 +27,7 @@ test.describe('README screenshots', () => {
   test('public pages', async ({ page }) => {
     await page.goto('/')
     await waitForAppIdle(page)
-    await expect(page.locator('[data-reward-token]').first()).toBeVisible()
+    await expect(page.locator('section[aria-labelledby="hero-title"] article')).toBeVisible()
     await page.screenshot({ path: `${OUT}/landing-desktop.png` })
 
     await page.goto('/bounties')

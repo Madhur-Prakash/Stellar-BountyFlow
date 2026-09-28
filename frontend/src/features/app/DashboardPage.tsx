@@ -18,14 +18,12 @@ import { UserAvatar } from '@/components/common/UserAvatar'
 import { EmptyState } from '@/components/layout/EmptyState'
 import { PageHeader } from '@/components/layout/PageHeader'
 import { QueryView } from '@/components/layout/QueryView'
-import { CountUp } from '@/components/motion/CountUp'
-import { Reveal } from '@/components/motion/Reveal'
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
 import { Button } from '@/components/ui/button'
 import { Skeleton } from '@/components/ui/skeleton'
 import { useDashboard } from '@/lib/api/queries/analytics'
 import { useMe } from '@/lib/api/queries/auth'
-import { describeActivity, formatRelative } from '@/lib/format'
+import { describeActivity, formatNumber, formatRelative } from '@/lib/format'
 
 export default function DashboardPage() {
   const { data: me } = useMe()
@@ -86,7 +84,7 @@ export default function DashboardPage() {
               <h2 id="req-h" className="mb-3 text-sm font-medium text-muted-foreground">
                 As a requester
               </h2>
-              <Reveal className="grid grid-cols-2 gap-3 lg:grid-cols-4" y={14} stagger={0.05}>
+              <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
                 {[
                   {
                     label: 'Active bounties',
@@ -117,21 +115,21 @@ export default function DashboardPage() {
                     <Link to={t.to} className="block rounded-xl focus-visible:outline-2">
                       <StatTile
                         label={t.label}
-                        value={<CountUp value={t.value} />}
+                        value={formatNumber(t.value)}
                         icon={t.icon}
                         className="transition-colors hover:border-foreground/20"
                       />
                     </Link>
                   </div>
                 ))}
-              </Reveal>
+              </div>
             </section>
 
             <section aria-labelledby="con-h">
               <h2 id="con-h" className="mb-3 text-sm font-medium text-muted-foreground">
                 As a contributor
               </h2>
-              <Reveal className="grid grid-cols-2 gap-3 lg:grid-cols-3" y={14} stagger={0.05}>
+              <div className="grid grid-cols-2 gap-3 lg:grid-cols-3">
                 {[
                   {
                     label: 'Pending applications',
@@ -156,14 +154,14 @@ export default function DashboardPage() {
                     <Link to={t.to} className="block rounded-xl">
                       <StatTile
                         label={t.label}
-                        value={<CountUp value={t.value} />}
+                        value={formatNumber(t.value)}
                         icon={t.icon}
                         className="transition-colors hover:border-foreground/20"
                       />
                     </Link>
                   </div>
                 ))}
-              </Reveal>
+              </div>
             </section>
 
             <div className="grid gap-8 lg:grid-cols-[minmax(0,1fr)_380px]">
@@ -188,11 +186,11 @@ export default function DashboardPage() {
                     }
                   />
                 ) : (
-                  <Reveal className="grid gap-4 md:grid-cols-2">
+                  <div className="grid gap-4 md:grid-cols-2">
                     {d.recommendations.slice(0, 4).map((b) => (
                       <BountyCard key={b.id} bounty={b} />
                     ))}
-                  </Reveal>
+                  </div>
                 )}
               </section>
 
@@ -249,11 +247,11 @@ export default function DashboardPage() {
                 <h2 id="done-h" className="mb-3 font-semibold">
                   Recently completed
                 </h2>
-                <Reveal className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+                <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
                   {d.recent_completed.slice(0, 3).map((b) => (
                     <BountyCard key={b.id} bounty={b} showBookmark={false} />
                   ))}
-                </Reveal>
+                </div>
               </section>
             )}
           </div>

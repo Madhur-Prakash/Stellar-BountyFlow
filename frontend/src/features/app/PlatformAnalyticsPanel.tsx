@@ -4,8 +4,6 @@ import { CartesianGrid, Line, LineChart, XAxis, YAxis } from 'recharts'
 
 import { StatTile } from '@/components/common/StatTile'
 import { QueryView } from '@/components/layout/QueryView'
-import { CountUp } from '@/components/motion/CountUp'
-import { Reveal } from '@/components/motion/Reveal'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import {
   ChartContainer,
@@ -104,9 +102,9 @@ function Group({ id, title, children }: { id: string; title: string; children: R
       <h3 id={`platform-${id}`} className="mb-3 text-sm font-semibold">
         {title}
       </h3>
-      <Reveal className="grid grid-cols-1 gap-3 min-[420px]:grid-cols-2 lg:grid-cols-4" y={14} stagger={0.05}>
+      <div className="grid grid-cols-1 gap-3 min-[420px]:grid-cols-2 lg:grid-cols-4">
         {children}
-      </Reveal>
+      </div>
     </section>
   )
 }
@@ -116,51 +114,47 @@ function PlatformContent({ data }: { data: PlatformAnalytics }) {
   return (
     <div className="space-y-8">
       <Group id="users" title="Users">
-        <StatTile label="Registered users" value={<CountUp value={users.registered_users} />} />
+        <StatTile label="Registered users" value={formatNumber(users.registered_users)} />
         <StatTile
           label="Verified email"
-          value={<CountUp value={users.verified_users} />}
+          value={formatNumber(users.verified_users)}
           hint={`${pct(users.email_verification_rate)} of registered`}
         />
         <StatTile
           label="Connected wallets"
-          value={<CountUp value={users.connected_wallets} />}
+          value={formatNumber(users.connected_wallets)}
           hint={`${pct(users.wallet_connection_rate)} of registered`}
         />
-        <StatTile label="Active in 30 days" value={<CountUp value={users.active_users_30d} />} />
+        <StatTile label="Active in 30 days" value={formatNumber(users.active_users_30d)} />
       </Group>
       <Group id="bounties" title="Bounties">
-        <StatTile label="Published" value={<CountUp value={bounties.published_bounties} />} />
-        <StatTile label="Open" value={<CountUp value={bounties.open_bounties} />} />
-        <StatTile label="Funded" value={<CountUp value={bounties.funded_bounties} />} />
-        <StatTile label="Completed" value={<CountUp value={bounties.completed_bounties} />} />
+        <StatTile label="Published" value={formatNumber(bounties.published_bounties)} />
+        <StatTile label="Open" value={formatNumber(bounties.open_bounties)} />
+        <StatTile label="Funded" value={formatNumber(bounties.funded_bounties)} />
+        <StatTile label="Completed" value={formatNumber(bounties.completed_bounties)} />
       </Group>
       <Group id="transactions" title="On-chain">
         <StatTile
           label="Verified payout volume"
           value={
             <>
-              <CountUp
-                value={Number(transactions.verified_payout_volume) || 0}
-                format={(n) => formatAmount(n.toFixed(2), { maxDecimals: 2 })}
-                display={formatAmount(transactions.verified_payout_volume, { maxDecimals: 2 })}
-              />{' '}
+              {formatAmount(transactions.verified_payout_volume, { maxDecimals: 2 })}{' '}
               <span className="text-sm font-normal text-muted-foreground">XLM</span>
             </>
           }
         />
         <StatTile
           label="Successful transactions"
-          value={<CountUp value={transactions.successful_transactions} />}
+          value={formatNumber(transactions.successful_transactions)}
         />
-        <StatTile label="Failed transactions" value={<CountUp value={transactions.failed_transactions} />} />
+        <StatTile label="Failed transactions" value={formatNumber(transactions.failed_transactions)} />
         <StatTile
           label="Transacting wallets"
-          value={<CountUp value={transactions.unique_transacting_wallets} />}
+          value={formatNumber(transactions.unique_transacting_wallets)}
         />
       </Group>
       <Group id="engagement" title="Engagement">
-        <StatTile label="Repeat contributors" value={<CountUp value={engagement.repeat_contributors} />} />
+        <StatTile label="Repeat contributors" value={formatNumber(engagement.repeat_contributors)} />
         <StatTile
           label="Application acceptance"
           value={pct(engagement.application_acceptance_rate)}

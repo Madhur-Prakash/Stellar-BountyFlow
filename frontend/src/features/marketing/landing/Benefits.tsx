@@ -1,7 +1,8 @@
-import { PageContainer } from '@/components/layout/PageContainer'
-import { Reveal } from '@/components/motion/Reveal'
+import { BriefcaseBusiness, Check, UserRound, type LucideIcon } from 'lucide-react'
 
-import { SectionHeading } from './SectionHeading'
+import { PageContainer } from '@/components/layout/PageContainer'
+
+import { SECTION, SectionHeading } from './SectionHeading'
 
 type Point = { title: string; text: string }
 
@@ -43,32 +44,53 @@ const CONTRIBUTORS: Point[] = [
   },
 ]
 
-function Column({ id, title, points }: { id: string; title: string; points: Point[] }) {
+function Column({ id, title, icon: Icon, points }: { id: string; title: string; icon: LucideIcon; points: Point[] }) {
   return (
-    <div>
-      <h3 id={id} className="text-lg font-semibold">
-        {title}
-      </h3>
-      <Reveal as="dl" aria-labelledby={id} className="mt-4 divide-y border-y">
+    <div className="rounded-xl border bg-card p-6 shadow-soft">
+      <div className="flex items-center gap-3">
+        <span className="flex size-8 items-center justify-center rounded-lg bg-primary/10 text-primary">
+          <Icon className="size-4" aria-hidden />
+        </span>
+        <h3 id={id} className="text-[0.9375rem] font-semibold">
+          {title}
+        </h3>
+      </div>
+      <dl aria-labelledby={id} className="mt-5 space-y-4">
         {points.map((p) => (
-          <div key={p.title} className="py-4">
-            <dt className="font-medium">{p.title}</dt>
-            <dd className="mt-1 text-[0.9375rem] leading-relaxed text-muted-foreground">{p.text}</dd>
+          <div key={p.title} className="grid grid-cols-[1.25rem_minmax(0,1fr)] gap-x-2.5">
+            <Check className="mt-0.5 size-4 text-success" aria-hidden />
+            <div>
+              <dt className="text-sm font-medium">{p.title}</dt>
+              <dd className="mt-0.5 text-sm leading-relaxed text-muted-foreground">{p.text}</dd>
+            </div>
           </div>
         ))}
-      </Reveal>
+      </dl>
     </div>
   )
 }
 
 export function Benefits() {
   return (
-    <section aria-labelledby="benefits-title" className="border-b py-20 sm:py-24">
+    <section aria-labelledby="benefits-title" className={SECTION}>
       <PageContainer>
-        <SectionHeading id="benefits-title" title="Why teams and contributors use it" />
-        <div className="mt-10 grid gap-12 md:grid-cols-2 md:gap-16">
-          <Column id="benefits-requesters" title="For people posting work" points={REQUESTERS} />
-          <Column id="benefits-contributors" title="For people doing the work" points={CONTRIBUTORS} />
+        <SectionHeading
+          id="benefits-title"
+          title="Why teams and contributors use it"
+        />
+        <div className="mt-8 grid gap-6 md:grid-cols-2">
+          <Column
+            id="benefits-requesters"
+            title="For people posting work"
+            icon={BriefcaseBusiness}
+            points={REQUESTERS}
+          />
+          <Column
+            id="benefits-contributors"
+            title="For people doing the work"
+            icon={UserRound}
+            points={CONTRIBUTORS}
+          />
         </div>
       </PageContainer>
     </section>

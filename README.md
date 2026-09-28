@@ -1,6 +1,46 @@
-# BountyFlow
+<div align="center">
 
-**Work gets done. Rewards move transparently.**
+<h1>BountyFlow</h1>
+
+<p align="center">
+  <strong>Work gets done. Rewards move transparently.</strong><br>
+  Bounty rewards are held in a Soroban escrow contract on Stellar and paid out on-chain.
+</p>
+
+<p align="center">
+  <a href="docs/blockchain.md"><img alt="network: Stellar Testnet" src="https://img.shields.io/badge/network-Stellar%20Testnet-7D00FF?logo=stellar&logoColor=white"></a>
+  <a href="https://stellar.expert/explorer/testnet/contract/CDX6FN2MIGLHCMUJOU6C7FYP3QTNDL6BVIPEG4B5HAUEPU7NI4SFY4CY"><img alt="escrow: Soroban contract on testnet" src="https://img.shields.io/badge/escrow-Soroban%20contract%20on%20testnet-0F172A?logo=stellar&logoColor=white"></a>
+  <a href="./LICENSE"><img alt="licence: MIT" src="https://img.shields.io/badge/licence-MIT-2E7D32"></a>
+  <a href="https://www.freighter.app/"><img alt="wallet: Freighter" src="https://img.shields.io/badge/wallet-Freighter-5B5BD6"></a>
+  <a href="docs/security.md"><img alt="custody: non-custodial" src="https://img.shields.io/badge/custody-non--custodial-2E7D32"></a>
+</p>
+
+<p align="center">
+  <img alt="Python 3.12" src="https://img.shields.io/badge/Python-3.12-3776AB?logo=python&logoColor=white">
+  <img alt="FastAPI 0.141" src="https://img.shields.io/badge/FastAPI-0.141-009688?logo=fastapi&logoColor=white">
+  <img alt="PostgreSQL 17" src="https://img.shields.io/badge/PostgreSQL-17-4169E1?logo=postgresql&logoColor=white">
+  <img alt="Redis 7.4" src="https://img.shields.io/badge/Redis-7.4-DC382D?logo=redis&logoColor=white">
+  <img alt="Apache Kafka 3.9" src="https://img.shields.io/badge/Apache%20Kafka-3.9-231F20?logo=apachekafka&logoColor=white">
+  <img alt="Rust / Soroban SDK 28" src="https://img.shields.io/badge/Rust-Soroban%20SDK%2028-000000?logo=rust&logoColor=white">
+  <img alt="React 19" src="https://img.shields.io/badge/React-19-087EA4?logo=react&logoColor=white">
+  <img alt="TypeScript 6.0" src="https://img.shields.io/badge/TypeScript-6.0-3178C6?logo=typescript&logoColor=white">
+  <img alt="Vite 8" src="https://img.shields.io/badge/Vite-8-646CFF?logo=vite&logoColor=white">
+  <img alt="Tailwind CSS 4" src="https://img.shields.io/badge/Tailwind%20CSS-4-06B6D4?logo=tailwindcss&logoColor=white">
+</p>
+
+<p align="center">
+  <a href="#key-features">Features</a> ·
+  <a href="#screenshots">Screenshots</a> ·
+  <a href="#architecture">Architecture</a> ·
+  <a href="#quick-start">Quick start</a> ·
+  <a href="#makefile-commands">Commands</a> ·
+  <a href="#documentation">Documentation</a> ·
+  <a href="#security">Security</a> ·
+  <a href="#contributing">Contributing</a> ·
+  <a href="#license">License</a>
+</p>
+
+</div>
 
 BountyFlow is a full-stack bounty marketplace on **Stellar**. Requesters post funded bounties, contributors apply
 and deliver work, and rewards settle through a **Soroban escrow contract**. Every funding, payout and refund is
@@ -22,7 +62,8 @@ verified on-chain before the app records it.
 [Quick start](#quick-start) · [Configuration](#environment-configuration) · [Database](#database-migrations--seed-data) ·
 [Commands](#makefile-commands) · [API](#api) · [Kafka](#kafka-architecture) · [Caching](#redis-caching-strategy) ·
 [Stellar](#stellar-testnet--wallets) · [Contract](#soroban-contract) · [Testing](#testing) ·
-[Security](#security) · [Limitations](#known-limitations) · [Roadmap](#roadmap) · [Contributing](#contributing)
+[Documentation](#documentation) · [Security](#security) · [Limitations](#known-limitations) · [Roadmap](#roadmap) ·
+[Contributing](#contributing) · [License](#license)
 
 ## Problem & solution
 
@@ -284,11 +325,31 @@ See [docs/testing.md](docs/testing.md).
 
 More in [docs/development.md](docs/development.md).
 
+## Documentation
+
+| Document | What it covers |
+|---|---|
+| [docs/architecture.md](docs/architecture.md) | System overview, request lifecycle, module layout, funding and payout sequence, key decisions |
+| [docs/api.md](docs/api.md) | REST contract under `/api/v1`: conventions, enums, shared shapes, endpoints |
+| [docs/database.md](docs/database.md) | Entity relationships, tables, concurrency, search |
+| [docs/blockchain.md](docs/blockchain.md) | Networks, wallet ownership proof, transaction lifecycle, real-network test |
+| [docs/smart-contracts.md](docs/smart-contracts.md) | Testnet deployment, escrow model, trust assumptions, how the backend calls the contract |
+| [contracts/README.md](contracts/README.md) | Full contract interface, state machine, storage, events, error codes, build and deploy |
+| [docs/kafka-events.md](docs/kafka-events.md) | Topics, event envelope, reliability, running without Kafka, periodic jobs |
+| [docs/security.md](docs/security.md) | Threat model, sessions, CSRF, RBAC, transaction verification, review findings |
+| [docs/testing.md](docs/testing.md) | Test suites, isolation, Playwright E2E scenarios, CI |
+| [docs/development.md](docs/development.md) | Prerequisites, first run, backend and frontend conventions, troubleshooting |
+| [docs/deployment.md](docs/deployment.md) | Images, production checklist, mainnet, scaling |
+| [docs/product-roadmap.md](docs/product-roadmap.md) | What has shipped, what is next, current limitations |
+
 ## Security
 
 A threat model, RBAC matrix, session and CSRF design, transaction verification and contract trust assumptions are
 documented in [docs/security.md](docs/security.md). BountyFlow never asks for, receives or stores seed phrases or
 private keys.
+
+To report a vulnerability, use GitHub's private **Report a vulnerability** form on the repository's Security tab,
+not a public issue. The policy, scope and security model summary are in [SECURITY.md](SECURITY.md).
 
 ## Known limitations
 
@@ -311,6 +372,8 @@ on-chain reputation attestations, GitHub PR verification, and fee sponsorship. S
    `docs/api.md`.
 4. Never commit secrets. `.env` is ignored and the placeholders in `.env.example` are rejected in production.
 
+Setup, quality gates, coding conventions and pull request guidelines are in [CONTRIBUTING.md](CONTRIBUTING.md).
+
 ## License
 
-MIT. Built for the Stellar ecosystem.
+Released under the MIT License. See [LICENSE](./LICENSE).

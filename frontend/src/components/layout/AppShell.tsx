@@ -34,7 +34,6 @@ import {
   useSidebar,
 } from '@/components/ui/sidebar'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
-import { useSmoothScroll } from '@/hooks/useSmoothScroll'
 import { errorMessage } from '@/lib/api/client'
 import { useLogout, useMe } from '@/lib/api/queries/auth'
 import { useUnreadNotificationCount } from '@/lib/api/queries/notifications'
@@ -64,7 +63,12 @@ function NavItems({ groups }: { groups: ShellNavGroup[] }) {
                   : location.pathname === item.to || location.pathname.startsWith(`${item.to}/`)
                 return (
                   <SidebarMenuItem key={item.to}>
-                    <SidebarMenuButton asChild isActive={active} tooltip={item.label} className="h-10">
+                    <SidebarMenuButton
+                      asChild
+                      isActive={active}
+                      tooltip={item.label}
+                      className="h-8 font-medium text-sidebar-foreground data-active:text-sidebar-accent-foreground [&>svg]:text-muted-foreground data-active:[&>svg]:text-primary"
+                    >
                       <NavLink to={item.to} end={item.end} onClick={() => isMobile && setOpenMobile(false)}>
                         <item.icon aria-hidden />
                         <span>{item.label}</span>
@@ -180,7 +184,7 @@ function sidebarStartsOpen(): boolean {
   return window.matchMedia('(min-width: 1024px)').matches
 }
 
-/** Authenticated shell: shadcn Sidebar (Sheet on mobile) + top bar. Lenis smooths the page scroll. */
+/** Authenticated shell: shadcn Sidebar (Sheet on mobile) + top bar. The workspace keeps native scrolling. */
 export function AppShell({
   groups,
   footer,
@@ -190,12 +194,11 @@ export function AppShell({
   footer?: ReactNode
   areaLabel: string
 }) {
-  useSmoothScroll('lenis')
   return (
     <SidebarProvider defaultOpen={sidebarStartsOpen()}>
       <SkipLink />
       <Sidebar collapsible="icon" aria-label={`${areaLabel} navigation`}>
-        <SidebarHeader className="h-16 justify-center border-b border-sidebar-border px-3">
+        <SidebarHeader className="h-14 justify-center px-3">
           <Link to="/" className="rounded-md" aria-label="BountyFlow home">
             <Logo className="group-data-[collapsible=icon]:[&>span:last-child]:hidden" />
           </Link>
@@ -206,9 +209,10 @@ export function AppShell({
         {footer && <SidebarFooter className="border-t border-sidebar-border">{footer}</SidebarFooter>}
       </Sidebar>
       <div className="flex min-h-dvh w-full min-w-0 flex-1 flex-col">
-        <header className="sticky top-0 z-30 flex h-16 items-center gap-2 border-b bg-background/85 px-3 backdrop-blur-md sm:px-4">
-          <SidebarTrigger className="size-10" aria-label="Toggle navigation" />
-          <span className="hidden text-sm text-muted-foreground lg:inline">{areaLabel}</span>
+        <header className="sticky top-0 z-30 flex h-14 items-center gap-2 border-b bg-background/80 px-3 backdrop-blur-lg sm:px-4">
+          <SidebarTrigger className="size-8 text-muted-foreground" aria-label="Toggle navigation" />
+          <span aria-hidden className="hidden h-4 w-px bg-border lg:block" />
+          <span className="hidden text-sm font-medium text-muted-foreground lg:inline">{areaLabel}</span>
           <div className="ml-auto flex items-center gap-1.5 sm:gap-2">
             <NetworkBadge compact />
             <NotificationsBell />
@@ -221,7 +225,7 @@ export function AppShell({
           <WalletButton className="w-full sm:w-auto" />
         </div>
         <main id={MAIN_CONTENT_ID} tabIndex={-1} className="flex-1 outline-none">
-          <AnimatedOutlet className="px-4 py-6 sm:px-6 lg:px-8 lg:py-8" />
+          <AnimatedOutlet className="mx-auto w-full max-w-384 px-4 py-6 sm:px-6 lg:px-8 lg:py-8" />
         </main>
       </div>
     </SidebarProvider>

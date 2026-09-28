@@ -12,8 +12,6 @@ import { StatTile } from '@/components/common/StatTile'
 import { EmptyState } from '@/components/layout/EmptyState'
 import { PageHeader } from '@/components/layout/PageHeader'
 import { QueryView } from '@/components/layout/QueryView'
-import { CountUp } from '@/components/motion/CountUp'
-import { Reveal } from '@/components/motion/Reveal'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { ChartContainer, ChartTooltip, ChartTooltipContent, type ChartConfig } from '@/components/ui/chart'
 import { Skeleton } from '@/components/ui/skeleton'
@@ -40,11 +38,7 @@ function toChartNumber(amount: string): number {
 function XlmFigure({ amount }: { amount: string }) {
   return (
     <>
-      <CountUp
-        value={toChartNumber(amount)}
-        format={(n) => formatAmount(n.toFixed(2), { maxDecimals: 2 })}
-        display={formatAmount(amount, { maxDecimals: 2 })}
-      />{' '}
+      {formatAmount(amount, { maxDecimals: 2 })}{' '}
       <span className="text-sm font-normal text-muted-foreground">XLM</span>
     </>
   )
@@ -160,7 +154,7 @@ export default function AnalyticsPage() {
               {staff && <TabsTrigger value="platform">Platform</TabsTrigger>}
             </TabsList>
             <TabsContent value="requester" className="mt-6 space-y-6">
-              <Reveal className="grid grid-cols-2 gap-3 lg:grid-cols-4" y={14} stagger={0.05}>
+              <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
                 <StatTile
                   label="Total escrowed"
                   icon={Wallet}
@@ -174,7 +168,7 @@ export default function AnalyticsPage() {
                 <StatTile
                   label="Applications received"
                   icon={GitPullRequest}
-                  value={<CountUp value={r.applications_received} />}
+                  value={formatNumber(r.applications_received)}
                 />
                 <StatTile
                   label="Time to first application"
@@ -186,18 +180,18 @@ export default function AnalyticsPage() {
                   }
                   hint="Average across your bounties"
                 />
-              </Reveal>
-              <Reveal className="grid gap-6 lg:grid-cols-2">
+              </div>
+              <div className="grid gap-6 lg:grid-cols-2">
                 <MonthlyChart
                   title="Spending by month"
                   description="Confirmed payouts you released"
                   data={r.spending_by_month}
                 />
                 <StatusChart title="Bounties by status" counts={r.bounties_by_status} />
-              </Reveal>
+              </div>
             </TabsContent>
             <TabsContent value="contributor" className="mt-6 space-y-6">
-              <Reveal className="grid grid-cols-2 gap-3 lg:grid-cols-3" y={14} stagger={0.05}>
+              <div className="grid grid-cols-2 gap-3 lg:grid-cols-3">
                 <StatTile
                   label="Total earned"
                   icon={CircleDollarSign}
@@ -206,9 +200,9 @@ export default function AnalyticsPage() {
                 <StatTile
                   label="Completed bounties"
                   icon={FileCheck2}
-                  value={<CountUp value={c.completed_count} />}
+                  value={formatNumber(c.completed_count)}
                 />
-              </Reveal>
+              </div>
               {c.earnings_by_month.length === 0 && c.completed_count === 0 ? (
                 <EmptyState
                   icon={ChartNoAxesCombined}
@@ -222,10 +216,10 @@ export default function AnalyticsPage() {
                   data={c.earnings_by_month}
                 />
               )}
-              <Reveal className="grid gap-6 lg:grid-cols-2">
+              <div className="grid gap-6 lg:grid-cols-2">
                 <StatusChart title="Applications by status" counts={c.applications_by_status} />
                 <StatusChart title="Submissions by status" counts={c.submissions_by_status} />
-              </Reveal>
+              </div>
             </TabsContent>
             {staff && (
               <TabsContent value="platform" className="mt-6">

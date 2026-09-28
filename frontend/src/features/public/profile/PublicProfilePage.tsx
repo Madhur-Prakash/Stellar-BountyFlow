@@ -14,15 +14,13 @@ import { ErrorState } from '@/components/layout/ErrorState'
 import { ListSkeleton, LoadingState } from '@/components/layout/LoadingState'
 import { PageContainer } from '@/components/layout/PageContainer'
 import { PaginationBar } from '@/components/layout/PaginationBar'
-import { CountUp } from '@/components/motion/CountUp'
-import { Reveal } from '@/components/motion/Reveal'
 import { Badge } from '@/components/ui/badge'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { isApiError } from '@/lib/api/client'
 import { usePublicConfig } from '@/lib/api/queries/config'
 import { usePublicProfile, useUserBounties, useUserContributions } from '@/lib/api/queries/users'
 import type { PublicProfile } from '@/lib/api/types'
-import { formatDate, formatPercent } from '@/lib/format'
+import { formatDate, formatNumber, formatPercent } from '@/lib/format'
 import { formatAmount } from '@/lib/money'
 import { accountExplorerUrl, networkDisplayName, txExplorerUrl } from '@/lib/stellar/explorer'
 
@@ -76,11 +74,11 @@ function CreatedBounties({ username }: { username: string }) {
   }
   return (
     <>
-      <Reveal className="grid gap-4 md:grid-cols-2" deps={[data.items.map((b) => b.id).join()]}>
+      <div className="grid gap-4 md:grid-cols-2">
         {data.items.map((b) => (
           <BountyCard key={b.id} bounty={b} />
         ))}
-      </Reveal>
+      </div>
       <PaginationBar
         page={data.page}
         pages={data.pages}
@@ -231,17 +229,17 @@ function ProfileView({ profile }: { profile: PublicProfile }) {
             <h2 id="stats-h" className="text-lg font-semibold">
               Marketplace stats
             </h2>
-            <Reveal className="mt-4 grid grid-cols-2 gap-3 md:grid-cols-4" y={14} stagger={0.04}>
-              <StatTile label="Bounties created" value={<CountUp value={s.bounties_created} />} />
+            <div className="mt-4 grid grid-cols-2 gap-3 md:grid-cols-4">
+              <StatTile label="Bounties created" value={formatNumber(s.bounties_created)} />
               <StatTile
                 label="Completed as requester"
-                value={<CountUp value={s.bounties_completed_as_requester} />}
+                value={formatNumber(s.bounties_completed_as_requester)}
               />
               <StatTile
                 label="Contributions completed"
-                value={<CountUp value={s.contributions_completed} />}
+                value={formatNumber(s.contributions_completed)}
               />
-              <StatTile label="Applications" value={<CountUp value={s.applications_submitted} />} />
+              <StatTile label="Applications" value={formatNumber(s.applications_submitted)} />
               <StatTile
                 label="Acceptance rate"
                 value={formatPercent(s.acceptance_rate)}
@@ -271,7 +269,7 @@ function ProfileView({ profile }: { profile: PublicProfile }) {
                   </>
                 }
               />
-            </Reveal>
+            </div>
           </section>
 
           <Tabs defaultValue="bounties">

@@ -30,7 +30,7 @@ export function PageHeader({
   className?: string
 }) {
   return (
-    <header className={cn('flex flex-col gap-4 pb-6 md:pb-8', className)}>
+    <header className={cn('flex flex-col gap-3 pb-6', className)}>
       {breadcrumbs && breadcrumbs.length > 0 && (
         <Breadcrumb>
           <BreadcrumbList>
@@ -52,12 +52,10 @@ export function PageHeader({
         </Breadcrumb>
       )}
       <div className="flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
-        <div className="min-w-0 space-y-1.5">
+        <div className="min-w-0 space-y-1">
           {eyebrow && <div className="text-sm font-medium text-primary-emphasis">{eyebrow}</div>}
-          <h1 className="font-display text-[1.875rem] leading-tight md:text-[2.25rem]">{title}</h1>
-          {description && (
-            <p className="max-w-2xl text-sm text-muted-foreground md:text-base">{description}</p>
-          )}
+          <h1 className="font-display text-[1.5rem] leading-tight md:text-[1.625rem]">{title}</h1>
+          {description && <p className="max-w-2xl text-sm text-muted-foreground">{description}</p>}
         </div>
         {actions && <div className="flex flex-wrap items-center gap-2">{actions}</div>}
       </div>
