@@ -1,0 +1,42 @@
+# Secrets & local config
+.env
+.env.*
+!.env.example
+!frontend/.env.example
+*.pem
+*.key
+
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+backend/logs/
+
+# Node / frontend
+node_modules/
+frontend/dist/
+frontend/playwright-report/
+frontend/test-results/
+frontend/blob-report/
+frontend/playwright/.cache/
+*.tsbuildinfo
+
+# Rust / Soroban
+contracts/target/
+contracts/**/test_snapshots/
+
+# Logs & OS
+logs/
+*.log
+.DS_Store
+Thumbs.db
+
+# Editors
+.idea/
+.vscode/*
+!.vscode/extensions.json

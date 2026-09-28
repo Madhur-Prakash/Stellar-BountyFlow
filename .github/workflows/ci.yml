@@ -1,0 +1,153 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  backend:
+    name: Backend (lint, types, tests)
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:17.6-alpine
+        env:
+          POSTGRES_USER: bountyflow
+          POSTGRES_PASSWORD: bountyflow
+          POSTGRES_DB: bountyflow_test
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U bountyflow -d bountyflow_test"
+          --health-interval 5s --health-timeout 5s --health-retries 20
+    env:
+      TEST_DATABASE_URL: postgresql+psycopg://bountyflow:bountyflow@localhost:5432/bountyflow_test
+      DATABASE_URL: postgresql+psycopg://bountyflow:bountyflow@localhost:5432/bountyflow_test
+      JWT_SECRET: ci-only-jwt-secret-${{ github.run_id }}-0123456789abcdef
+      BLOCKCHAIN_MODE: testnet
+      STELLAR_NETWORK: testnet
+      SOROBAN_CONTRACT_ID: CDX6FN2MIGLHCMUJOU6C7FYP3QTNDL6BVIPEG4B5HAUEPU7NI4SFY4CY
+      STELLAR_NATIVE_ASSET_CONTRACT_ID: CDLZFC3SYJYDZT7K67VZ75HPJVIEUVNIXF47ZG2FB2RMQQVU2HHGCYSC
+      KAFKA_ENABLED: "false"
+    defaults:
+      run:
+        working-directory: backend
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v6
+        with:
+          version: "0.9.5"
+          enable-cache: true
+      - run: uv python install 3.12
+      - run: uv sync --frozen
+      - name: Ruff
+        run: |
+          uv run ruff check app worker tests
+          uv run ruff format --check app worker tests
+      - name: Mypy
+        run: uv run mypy app worker
+      - name: Migrations apply cleanly (and match the models)
+        run: |
+          uv run alembic upgrade head
+          uv run alembic check
+          uv run alembic downgrade base
+      - name: Tests
+        run: uv run pytest -q --cov=app --cov=worker --cov-report=term-missing
+      - name: Dependency audit
+        run: uvx pip-audit --strict || echo "::warning::pip-audit reported advisories"
+
+  frontend:
+    name: Frontend (lint, types, unit tests, build)
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: frontend
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          package_json_file: frontend/package.json
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+          cache-dependency-path: frontend/pnpm-lock.yaml
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm lint
+      - run: pnpm typecheck
+      - run: pnpm test
+      - run: pnpm build
+      - name: Forbidden icons check (no sparkle icons)
+        run: "! grep -rnE '\\b(Sparkles?|WandSparkles|Stars)\\b' src --include=*.tsx --include=*.ts"
+      - run: pnpm audit --prod || echo "::warning::pnpm audit reported advisories"
+
+  contract:
+    name: Soroban contract (fmt, clippy, tests, wasm)
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: contracts
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: wasm32v1-none
+          components: clippy, rustfmt
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: contracts
+      - run: cargo fmt --all -- --check
+      - run: cargo clippy --all-targets -- -D warnings
+      - run: cargo test
+      - run: cargo build --target wasm32v1-none --release
+
+  e2e:
+    name: End-to-end (Playwright on Stellar Testnet)
+    runs-on: ubuntu-latest
+    needs: [backend, frontend]
+    steps:
+      - uses: actions/checkout@v4
+      - name: Prepare environment (Testnet, seeded accounts)
+        run: |
+          cp .env.example .env
+          sed -i "s|^JWT_SECRET=.*|JWT_SECRET=ci-e2e-$(openssl rand -hex 24)|" .env
+      - name: Start backend stack (Postgres, Redis, Kafka, Mailpit, API, worker)
+        run: docker compose up -d --build --wait postgres redis kafka mailpit api worker
+      - uses: pnpm/action-setup@v4
+        with:
+          package_json_file: frontend/package.json
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+          cache-dependency-path: frontend/pnpm-lock.yaml
+      - run: pnpm install --frozen-lockfile
+        working-directory: frontend
+      - run: pnpm exec playwright install --with-deps chromium
+        working-directory: frontend
+      - name: Start frontend (development build with the test-only wallet provider)
+        working-directory: frontend
+        run: |
+          VITE_ENABLE_TEST_WALLET=true VITE_API_PROXY_TARGET=http://localhost:8000 pnpm dev --port 5173 --strictPort &
+          npx --yes wait-on http://localhost:5173 --timeout 120000
+      - name: Playwright (real Testnet transactions, Friendbot-funded throwaway keys)
+        run: pnpm test:e2e
+        working-directory: frontend
+        env:
+          E2E_BASE_URL: http://localhost:5173
+          E2E_MAILPIT_URL: http://localhost:8025
+      - uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: playwright-report
+          path: frontend/playwright-report
+      - name: Compose logs on failure
+        if: failure()
+        run: docker compose logs --no-color api worker > compose-logs.txt && tail -300 compose-logs.txt
