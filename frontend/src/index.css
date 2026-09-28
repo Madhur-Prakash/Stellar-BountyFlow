@@ -1,7 +1,7 @@
 @import 'tailwindcss';
 @import 'tw-animate-css';
 @import 'shadcn/tailwind.css';
-@import '@fontsource-variable/inter';
+@import '@fontsource-variable/geist';
 @import '@fontsource/ibm-plex-mono/400.css';
 @import '@fontsource/ibm-plex-mono/500.css';
 
@@ -16,10 +16,10 @@
 @custom-variant light (&:not(:where(.dark, .dark *)));
 
 @theme inline {
-  /* Inter for the interface, set small and confident; Plex Mono only for machine data (hashes, addresses,
+  /* Geist for the interface and headlines; IBM Plex Mono for small labels and machine data (hashes, addresses,
      contract ids). */
   --font-heading: var(--font-sans);
-  --font-sans: 'Inter Variable', ui-sans-serif, system-ui, -apple-system, 'Segoe UI', sans-serif;
+  --font-sans: 'Geist Variable', ui-sans-serif, system-ui, -apple-system, 'Segoe UI', sans-serif;
   --font-mono: 'IBM Plex Mono', ui-monospace, SFMono-Regular, Menlo, monospace;
 
   --color-background: var(--background);
@@ -95,25 +95,25 @@
   --radius: 0.625rem;
 
   /* Cool zinc neutrals on an off-white canvas; white cards; one Stellar blue; green only for funded money. */
-  --background: #fafafa;
-  --foreground: #18181b;
-  --surface: #f4f4f5;
+  --background: #fbfaf8;
+  --foreground: #1b1a17;
+  --surface: #f3f1ec;
   --card: #ffffff;
-  --card-foreground: #18181b;
+  --card-foreground: #1b1a17;
   --surface-raised: #ffffff;
   --popover: #ffffff;
-  --popover-foreground: #18181b;
+  --popover-foreground: #1b1a17;
 
   /* Stellar blue; white text on it is 5.1:1. */
   --primary: #3563e9;
   --primary-foreground: #ffffff;
   --primary-emphasis: #264fcf;
-  --secondary: #f4f4f5;
-  --secondary-foreground: #18181b;
-  --muted: #f4f4f5;
-  --muted-foreground: #6b6b75;
-  --accent: #f4f4f5;
-  --accent-foreground: #18181b;
+  --secondary: #f1efe9;
+  --secondary-foreground: #1b1a17;
+  --muted: #f1efe9;
+  --muted-foreground: #69655c;
+  --accent: #f1efe9;
+  --accent-foreground: #1b1a17;
 
   --cyan: #0a7686;
   --success: #12733a;
@@ -124,30 +124,30 @@
   --destructive-foreground: #ffffff;
   --info: #3563e9;
 
-  --border: #e4e4e7;
-  --input: #e4e4e7;
+  --border: #e8e5de;
+  --input: #e1ddd4;
   --ring: #3563e9;
 
   --chart-1: #3563e9;
   --chart-2: #0a7686;
   --chart-3: #12733a;
   --chart-4: #b45309;
-  --chart-5: #6b6b75;
+  --chart-5: #69655c;
 
-  --sidebar: #ffffff;
-  --sidebar-foreground: #4b4b54;
+  --sidebar: #faf9f6;
+  --sidebar-foreground: #4a4740;
   --sidebar-primary: #3563e9;
   --sidebar-primary-foreground: #ffffff;
-  --sidebar-accent: #f4f4f5;
-  --sidebar-accent-foreground: #18181b;
-  --sidebar-border: #e4e4e7;
+  --sidebar-accent: #f1efe9;
+  --sidebar-accent-foreground: #1b1a17;
+  --sidebar-border: #e8e5de;
   --sidebar-ring: #3563e9;
 
   /* The escrow diagram and similar "ledger" panels. */
-  --vault: #fafafa;
-  --vault-foreground: #18181b;
-  --vault-muted: #6b6b75;
-  --vault-line: #e4e4e7;
+  --vault: #fbfaf8;
+  --vault-foreground: #1b1a17;
+  --vault-muted: #69655c;
+  --vault-line: #e8e5de;
   --vault-accent: #3563e9;
   --vault-green: #12733a;
   --vault-warn: #8f5606;
@@ -155,7 +155,7 @@
   --vault-node: #ffffff;
   --vault-node-ok: #f0fdf4;
   --vault-node-warn: #fffbeb;
-  --vault-node-alt: #fafafa;
+  --vault-node-alt: #faf9f6;
 
   /* Cards lift slightly off the canvas; popovers and dialogs more. */
   --shadow-card: 0 1px 2px rgb(24 24 27 / 0.04), 0 2px 8px -2px rgb(24 24 27 / 0.05);
@@ -166,24 +166,24 @@
 .dark {
   color-scheme: dark;
 
-  --background: #09090b;
-  --foreground: #fafafa;
-  --surface: #111113;
-  --card: #131316;
-  --card-foreground: #fafafa;
-  --surface-raised: #18181b;
-  --popover: #18181b;
-  --popover-foreground: #fafafa;
+  --background: #0d0c0a;
+  --foreground: #f5f4ef;
+  --surface: #12110e;
+  --card: #161511;
+  --card-foreground: #f5f4ef;
+  --surface-raised: #1b1a16;
+  --popover: #1b1a16;
+  --popover-foreground: #f5f4ef;
 
   --primary: #3a62e4;
   --primary-foreground: #ffffff;
   --primary-emphasis: #93b0ff;
-  --secondary: #1c1c20;
-  --secondary-foreground: #fafafa;
-  --muted: #1c1c20;
-  --muted-foreground: #a1a1aa;
-  --accent: #1c1c20;
-  --accent-foreground: #fafafa;
+  --secondary: #1e1c18;
+  --secondary-foreground: #f5f4ef;
+  --muted: #1e1c18;
+  --muted-foreground: #a8a396;
+  --accent: #1e1c18;
+  --accent-foreground: #f5f4ef;
 
   --cyan: #22c3d6;
   --success: #4ade80;
@@ -194,40 +194,40 @@
   --destructive-foreground: #ffffff;
   --info: #6b8fff;
 
-  --border: #27272a;
-  --input: #2e2e33;
+  --border: #2b2924;
+  --input: #34312b;
   --ring: #6b8fff;
 
   --chart-1: #6b8fff;
   --chart-2: #22c3d6;
   --chart-3: #4ade80;
   --chart-4: #fbbf24;
-  --chart-5: #a1a1aa;
+  --chart-5: #a8a396;
 
-  --sidebar: #0c0c0e;
-  --sidebar-foreground: #a1a1aa;
+  --sidebar: #0f0e0c;
+  --sidebar-foreground: #a8a396;
   --sidebar-primary: #3a62e4;
   --sidebar-primary-foreground: #ffffff;
-  --sidebar-accent: #1c1c20;
-  --sidebar-accent-foreground: #fafafa;
-  --sidebar-border: #232327;
+  --sidebar-accent: #1e1c18;
+  --sidebar-accent-foreground: #f5f4ef;
+  --sidebar-border: #26241f;
   --sidebar-ring: #6b8fff;
 
   --shadow-card: none;
   --shadow-raised: 0 16px 40px -16px rgb(0 0 0 / 0.7);
 
-  --vault: #0c0c0e;
-  --vault-foreground: #fafafa;
-  --vault-muted: #a1a1aa;
-  --vault-line: #2e2e33;
+  --vault: #0f0e0c;
+  --vault-foreground: #f5f4ef;
+  --vault-muted: #a8a396;
+  --vault-line: #34312b;
   --vault-accent: #6b8fff;
   --vault-green: #4ade80;
   --vault-warn: #fbbf24;
-  --vault-panel: #131316;
-  --vault-node: #18181b;
+  --vault-panel: #161511;
+  --vault-node: #1b1a16;
   --vault-node-ok: #0d2418;
   --vault-node-warn: #241c0b;
-  --vault-node-alt: #151518;
+  --vault-node-alt: #191815;
 }
 
 @layer base {
@@ -244,7 +244,7 @@
     @apply bg-background text-foreground;
     font-size: 0.9375rem;
     line-height: 1.55;
-    font-feature-settings: 'cv11', 'ss01';
+    font-feature-settings: 'ss01';
   }
   button:not(:disabled),
   [role='button']:not(:disabled) {
@@ -270,11 +270,19 @@
 }
 
 @layer utilities {
-  /* Headlines: Inter semibold, tightened. Sizes come from the call site and stay restrained. */
+  /* Headlines: Geist, medium weight, tight tracking. Large marketing headlines drop to regular weight at the
+     call site; sizes come from the call site. */
   .font-display {
     font-family: var(--font-sans);
-    font-weight: 600;
-    letter-spacing: -0.025em;
+    font-weight: 500;
+    letter-spacing: -0.03em;
+  }
+  /* Small section labels in Plex Mono (e.g. "Escrow"), used sparingly above a section heading. */
+  .label-mono {
+    font-family: var(--font-mono);
+    font-size: 0.8125rem;
+    letter-spacing: 0.01em;
+    color: var(--muted-foreground);
   }
   /* Money and counts: tabular figures so columns of amounts line up. */
   .amount {

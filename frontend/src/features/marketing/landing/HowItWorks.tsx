@@ -1,8 +1,13 @@
 import { BriefcaseBusiness, PenLine, UserRound, type LucideIcon } from 'lucide-react'
-import { useCallback, useRef, useState } from 'react'
+import { useCallback, useLayoutEffect, useRef, useState } from 'react'
 
 import { PageContainer } from '@/components/layout/PageContainer'
-import { useScrollStory, useScrollStoryEnabled, type ScrollStoryTools } from '@/hooks/useScrollStory'
+import {
+  storyScrollTarget,
+  useScrollStory,
+  useScrollStoryEnabled,
+  type ScrollStoryTools,
+} from '@/hooks/useScrollStory'
 import { scrollToY } from '@/lib/scroll'
 import { cn } from '@/lib/utils'
 
@@ -111,10 +116,35 @@ function StoryTrack({
 }) {
   const track = TRACKS[index]
   const active = position.track === index
+  const box = useRef<HTMLDivElement>(null)
+  const rail = useRef<HTMLSpanElement>(null)
+
+  // Place the rail from the first circle's centre to the last one's, on the circles' centre line.
+  useLayoutEffect(() => {
+    const el = box.current
+    const line = rail.current
+    if (!el || !line) return
+    const place = () => {
+      const circles = el.querySelectorAll<HTMLElement>('[data-circle]')
+      if (circles.length < 2) return
+      const origin = el.getBoundingClientRect()
+      const first = circles[0].getBoundingClientRect()
+      const lastCircle = circles[circles.length - 1].getBoundingClientRect()
+      const firstMid = first.top + first.height / 2 - origin.top
+      line.style.left = `${first.left + first.width / 2 - origin.left - 0.5}px`
+      line.style.top = `${firstMid}px`
+      line.style.height = `${lastCircle.top + lastCircle.height / 2 - origin.top - firstMid}px`
+    }
+    place()
+    const ro = new ResizeObserver(place)
+    ro.observe(el)
+    return () => ro.disconnect()
+  }, [])
+
   return (
     <div data-story-track={index} className="col-start-1 row-start-1">
-      <div className="relative px-5 py-3">
-        <span aria-hidden className="absolute top-8 bottom-8 left-8.75 w-px bg-border">
+      <div ref={box} className="relative px-5 py-3">
+        <span ref={rail} aria-hidden className="absolute w-px bg-border">
           <span data-rail-fill className="absolute inset-0 origin-top scale-y-0 bg-primary" />
         </span>
         <ol>
@@ -138,6 +168,7 @@ function StoryTrack({
                 )}
               >
                 <span
+                  data-circle
                   className={cn(
                     'amount relative z-10 flex size-7 items-center justify-center rounded-full border text-xs transition-colors duration-300',
                     state === 'active' && 'border-primary bg-primary text-primary-foreground',
@@ -210,21 +241,13 @@ function StoryMode() {
 
   const scrollToProgress = (p: number) => {
     const el = wrapper.current
-    if (!el) return
-    const top = el.getBoundingClientRect().top + window.scrollY - 64
-    const distance = el.offsetHeight - (window.innerHeight - 64)
-    scrollToY(top + distance * Math.min(0.999, Math.max(0, p)))
+    if (el) scrollToY(storyScrollTarget(el, p))
   }
 
   const track = TRACKS[position.track]
   return (
-    <div
-      ref={wrapper}
-      data-how-story
-      className="relative"
-      style={{ height: `calc(100svh - 4rem + ${Math.round(UNITS * 34)}svh)` }}
-    >
-      <div className="sticky top-16 flex h-[calc(100svh-4rem)] items-center">
+    <div ref={wrapper} data-how-story className="relative">
+      <div className="sticky top-20">
         <PageContainer className="grid w-full grid-cols-[minmax(0,0.9fr)_minmax(0,1.1fr)] items-center gap-14">
           <div>
             <SectionHeading id="how-title" {...HEADING} />
@@ -305,6 +328,7 @@ function StoryMode() {
           </div>
         </PageContainer>
       </div>
+      <div aria-hidden style={{ height: `${Math.round(UNITS * 32)}svh` }} />
     </div>
   )
 }
@@ -316,7 +340,7 @@ export function HowItWorks({ className }: { className?: string }) {
     <section
       id="how-it-works"
       aria-labelledby="how-title"
-      className={cn(story ? 'py-4' : SECTION, className)}
+      className={cn(story ? 'pt-12 pb-4' : SECTION, className)}
     >
       {story ? (
         <StoryMode />

@@ -31,6 +31,13 @@ test('landing: Lenis scrolling and the rotating bounty preview', async ({ page }
     await second.click()
     await expect(second).toHaveAttribute('aria-pressed', 'true')
   }
+
+  // Scrolling walks the card through the lifecycle: the next stage is Funded.
+  const current = page.locator('[data-hero-story] li[aria-current="step"]')
+  await expect(current).toHaveText('Published')
+  await wheelUntil(page, async () => (await current.textContent()) !== 'Published', 200, 20)
+  await expect(current).toHaveText('Funded')
+  await expect(page.locator('[data-hero-story] article')).toContainText('When funded')
 })
 
 test('landing: "How a bounty moves" plays with the scroll and hands off to the contributor', async ({

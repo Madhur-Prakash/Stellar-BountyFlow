@@ -1,36 +1,42 @@
 # Design system
 
-BountyFlow should read as a calm, professional product: a marketplace where people trust it with money. It
-should not look like a showcase site. Information comes first, every screen shows real data, and motion is small
-and functional.
+BountyFlow reads as a calm, premium product: a marketplace people trust with money. The visual language takes
+its cues from product sites like orchestrator.inc: large, light Geist headlines; warm neutrals; the product shown
+in framed app windows over atmospheric backdrops; hairline grids; and small monospace labels. Every screen shows
+real data, and motion explains what happens to a bounty rather than decorating the page.
 
 ## Foundations
 
-| Token | Light | Dark | Use |
+| Token | Light (default) | Dark | Use |
 | --- | --- | --- | --- |
-| `background` | `#fafafa` | `#09090b` | Page canvas |
-| `card` | `#ffffff` | `#131316` | Cards, panels, tables |
-| `surface` | `#f4f4f5` | `#111113` | Table headers, inset areas, bands |
-| `foreground` | `#18181b` | `#fafafa` | Text |
-| `muted-foreground` | `#6b6b75` | `#a1a1aa` | Secondary text, labels |
-| `border` / `input` | `#e4e4e7` | `#27272a` / `#2e2e33` | Hairlines, field borders |
-| `primary` | `#3563e9` | `#3a62e4` | The one accent: primary actions, links, focus, active navigation |
+| `background` | `#fbfaf8` | `#0d0c0a` | Page canvas: warm paper / warm near-black |
+| `card` | `#ffffff` | `#161511` | Cards, panels, tables |
+| `surface` | `#f3f1ec` | `#12110e` | Table headers, inset areas, bands, footer |
+| `foreground` | `#1b1a17` | `#f5f4ef` | Text |
+| `muted-foreground` | `#69655c` | `#a8a396` | Secondary text, labels |
+| `border` / `input` | `#e8e5de` / `#e1ddd4` | `#2b2924` / `#34312b` | Hairlines, field borders |
+| `primary` | `#3563e9` | `#3a62e4` | Accent: app primary actions, links, focus, active navigation, progress |
 | `success` | `#12733a` | `#4ade80` | Funded in escrow, paid, confirmed. Reserved for money that is really there |
 | `warning` / `destructive` | amber / red | | Attention and errors only |
 
-- **Type:** Inter Variable for the whole interface. IBM Plex Mono only for machine data (hashes, addresses,
-  contract ids), through `MonoValue`. Use `.amount` for money and counts (tabular figures).
+- **Type:** Geist Variable for the interface and headlines. IBM Plex Mono for small section labels (`.label-mono`)
+  and machine data (hashes, addresses, contract ids, through `MonoValue`). Use `.amount` for money and counts
+  (tabular figures).
 - **Scale:**
-  - Page titles: `PageHeader`, 24–26px semibold.
+  - Marketing hero H1: about 64–76px, weight 400, tight tracking.
+  - Marketing section H2s: 36–48px, weight 500.
+  - Page titles in the app: `PageHeader`, 24–28px, weight 500.
   - Card and section titles: 15–16px semibold.
-  - Body text in the app: 14px (`text-sm`).
-  - Labels and meta: 12–13px (`text-xs`, `text-[0.8125rem]`) in muted-foreground.
-  - Marketing headlines stay restrained: the landing H1 is at most about 52px, section headings about 30–36px.
-- **Radius:** controls use `rounded-md` (8px), cards and panels `rounded-xl` (14px), badges 4px.
-- **Elevation:** cards are `border bg-card shadow-soft`. Popovers and dialogs use `shadow-lift`. No coloured
-  glows, no gradients on cards.
-- **Density:** controls are 36px (`Button` default, `Input`, `Select`); small ones are 32px. Table rows are
-  about 44px.
+  - Body text: 14px in the app (`text-sm`), 18–20px for marketing lead paragraphs.
+  - Labels and meta: 12–13px in muted-foreground.
+- **Buttons:**
+  - The app uses `rounded-md` buttons with the blue primary.
+  - Marketing calls to action are pills (`size="pill"`), with `variant="inverse"` (black on paper, white on
+    night) for the main action and `variant="outline"` next to it.
+- **Radius:** controls `rounded-md` (8px); cards and panels `rounded-xl` (14px); large framed panels
+  `rounded-2xl`; badges 4px.
+- **Elevation:** cards are `border bg-card shadow-soft`; popovers and dialogs use `shadow-lift`. No coloured glows.
+- **Density:** controls are 36px on desktop and 40px on touch screens; table rows are about 44px.
 
 ## Layout
 

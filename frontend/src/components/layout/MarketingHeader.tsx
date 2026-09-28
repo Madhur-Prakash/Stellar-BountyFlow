@@ -60,7 +60,7 @@ function AccountLinks({ stacked = false, onNavigate }: { stacked?: boolean; onNa
     )
   }
   return (
-    <Button asChild variant="ghost">
+    <Button asChild variant="ghost" className="rounded-full">
       <Link to="/login" onClick={onNavigate}>
         Sign in
       </Link>
@@ -100,23 +100,34 @@ function MobileNavList({ onNavigate }: { onNavigate: () => void }) {
 /** Sticky site header: logo, primary navigation, theme, account and the main action. */
 export function MarketingHeader() {
   const [open, setOpen] = useState(false)
+  // Transparent over the top of the page; a surface and a hairline once the page has scrolled.
+  const [scrolled, setScrolled] = useState(false)
+  useEffect(() => {
+    const update = () => setScrolled(window.scrollY > 8)
+    update()
+    window.addEventListener('scroll', update, { passive: true })
+    return () => window.removeEventListener('scroll', update)
+  }, [])
 
   return (
-    <header className="sticky top-0 z-40 border-b bg-background/80 backdrop-blur-lg supports-backdrop-filter:bg-background/70">
+    <header
+      data-scrolled={scrolled || undefined}
+      className="sticky top-0 z-40 border-b border-transparent transition-[background-color,border-color] duration-300 data-scrolled:border-border data-scrolled:bg-background/80 data-scrolled:backdrop-blur-lg"
+    >
       <div className="mx-auto flex h-16 max-w-384 items-center gap-3 px-4 sm:px-6 lg:px-8 2xl:px-12">
         <Link to="/" className="shrink-0 rounded-md" aria-label="BountyFlow home">
           <Logo />
         </Link>
 
-        <nav aria-label="Primary" className="ml-8 hidden items-center gap-0.5 lg:flex">
+        <nav aria-label="Primary" className="ml-auto hidden items-center gap-1 lg:flex">
           {MARKETING_NAV.map((item) => (
             <NavLink
               key={item.to}
               to={item.to}
               className={({ isActive }) =>
                 cn(
-                  'rounded-md px-3 py-1.5 text-sm font-medium whitespace-nowrap transition-colors hover:bg-muted hover:text-foreground',
-                  isActive ? 'bg-muted text-foreground' : 'text-muted-foreground',
+                  'rounded-full px-3 py-1.5 text-sm whitespace-nowrap transition-colors hover:text-foreground',
+                  isActive ? 'text-foreground' : 'text-muted-foreground',
                   item.wideOnly && 'hidden xl:inline-flex',
                 )
               }
@@ -126,11 +137,11 @@ export function MarketingHeader() {
           ))}
         </nav>
 
-        <div className="ml-auto flex items-center gap-1.5">
-          <ThemeToggle className="hidden sm:inline-flex" />
+        <div className="ml-auto flex items-center gap-1.5 lg:ml-3">
+          <ThemeToggle className="hidden rounded-full sm:inline-flex" />
           <div className="hidden items-center gap-1.5 lg:flex">
             <AccountLinks />
-            <Button asChild>
+            <Button asChild variant="inverse" className="rounded-full px-4">
               <Link to="/app/bounties/create">Post a bounty</Link>
             </Button>
           </div>

@@ -437,10 +437,11 @@ export function EscrowExplainer() {
     <section id="escrow" aria-labelledby="escrow-title" className={SECTION}>
       {story ? (
         // A tall wrapper with a sticky stage: the diagram stays on screen while the wrapper scrolls past.
-        <div ref={wrapper} data-escrow-story className="relative h-[calc(100svh-4rem+180svh)]">
-          <div className="sticky top-16 flex h-[calc(100svh-4rem)] items-center">
+        <div ref={wrapper} data-escrow-story className="relative">
+          <div className="sticky top-20">
             <PageContainer className="w-full">{diagram}</PageContainer>
           </div>
+          <div aria-hidden style={{ height: '150svh' }} />
         </div>
       ) : (
         <PageContainer>{diagram}</PageContainer>

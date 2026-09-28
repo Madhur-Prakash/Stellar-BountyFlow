@@ -52,12 +52,24 @@ function FooterNetwork() {
 
 export function MarketingFooter() {
   return (
-    <footer className="border-t bg-card">
-      <div className="mx-auto max-w-384 px-4 py-12 sm:px-6 lg:px-8 2xl:px-12">
-        <div className="grid gap-10 lg:grid-cols-[1.2fr_2fr]">
-          <div className="space-y-4">
+    <footer className="border-t bg-surface">
+      <div className="mx-auto max-w-384 px-4 py-14 sm:px-6 lg:px-8 2xl:px-12">
+        <div className="grid gap-12 lg:grid-cols-[1.2fr_2fr]">
+          <div className="space-y-6">
             <Logo />
-            <p className="max-w-sm text-sm text-muted-foreground">{SITE.tagline}</p>
+            {/* The tagline as a large halftone wordmark: dots of ink that read as type from a distance. */}
+            <p className="sr-only">{SITE.tagline}</p>
+            <div
+              aria-hidden
+              className="font-display max-w-md bg-[radial-gradient(circle,currentColor_1.25px,transparent_1.5px)] bg-size-[3.5px_3.5px] bg-clip-text text-[clamp(2.5rem,4.4vw,3.75rem)] leading-[1.02] font-bold text-foreground/40 select-none"
+              style={{ WebkitTextFillColor: 'transparent' }}
+            >
+              Work gets done.
+              <br />
+              Rewards move
+              <br />
+              transparently.
+            </div>
             <div className="flex flex-wrap items-center gap-3">
               {SITE.githubUrl && (
                 <a

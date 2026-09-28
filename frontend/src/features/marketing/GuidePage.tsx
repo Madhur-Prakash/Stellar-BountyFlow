@@ -1,3 +1,4 @@
+import { ArrowRight, ArrowUpRight } from 'lucide-react'
 import { Link } from 'react-router'
 
 import { SITE } from '@/lib/site'
@@ -166,11 +167,11 @@ const SECTIONS: ProseSection[] = [
     id: 'glossary',
     title: 'Glossary',
     body: (
-      <dl className="grid gap-4 sm:grid-cols-2">
+      <dl className="grid gap-px border bg-border sm:grid-cols-2">
         {GLOSSARY.map(([term, def]) => (
-          <div key={term} className="rounded-lg border bg-card p-4">
+          <div key={term} className="bg-card p-5">
             <dt className="font-medium text-foreground">{term}</dt>
-            <dd className="mt-1 text-sm text-muted-foreground">{def}</dd>
+            <dd className="mt-1.5 text-sm leading-relaxed text-muted-foreground">{def}</dd>
           </div>
         ))}
       </dl>
@@ -201,29 +202,37 @@ const ACTIONS: { title: string; text: string; href: string; external?: boolean }
 
 /** The next steps a reader of the guide usually wants, kept beside the text on wide screens. */
 function QuickActions() {
+  const row = 'group flex items-start gap-3 py-4'
+  const content = (a: (typeof ACTIONS)[number]) => {
+    const Arrow = a.external ? ArrowUpRight : ArrowRight
+    return (
+      <>
+        <span className="min-w-0 flex-1">
+          <span className="block text-sm font-medium group-hover:underline group-hover:underline-offset-4">
+            {a.title}
+          </span>
+          <span className="mt-1 block text-[0.8125rem] leading-relaxed text-muted-foreground">{a.text}</span>
+        </span>
+        <Arrow
+          className="mt-0.5 size-4 shrink-0 text-muted-foreground transition-colors group-hover:text-foreground"
+          aria-hidden
+        />
+      </>
+    )
+  }
   return (
     <div>
-      <h2 className="text-sm font-medium text-muted-foreground">Next steps</h2>
-      <ul className="mt-3 divide-y rounded-xl border bg-card">
+      <h2 className="label-mono">Next steps</h2>
+      <ul className="mt-4 divide-y border-y">
         {ACTIONS.map((a) => (
           <li key={a.title}>
             {a.external ? (
-              <a
-                href={a.href}
-                {...ext}
-                className="group block px-4 py-3.5 transition-colors hover:bg-muted/60"
-              >
-                <span className="text-sm font-medium group-hover:underline group-hover:underline-offset-4">
-                  {a.title}
-                </span>
-                <span className="mt-0.5 block text-xs leading-relaxed text-muted-foreground">{a.text}</span>
+              <a href={a.href} {...ext} className={row}>
+                {content(a)}
               </a>
             ) : (
-              <Link to={a.href} className="group block px-4 py-3.5 transition-colors hover:bg-muted/60">
-                <span className="text-sm font-medium group-hover:underline group-hover:underline-offset-4">
-                  {a.title}
-                </span>
-                <span className="mt-0.5 block text-xs leading-relaxed text-muted-foreground">{a.text}</span>
+              <Link to={a.href} className={row}>
+                {content(a)}
               </Link>
             )}
           </li>
@@ -236,6 +245,7 @@ function QuickActions() {
 export default function GuidePage() {
   return (
     <ProsePage
+      eyebrow="Guide"
       title="Using BountyFlow"
       intro="How to post, fund, deliver, and get paid, and how the escrow works underneath."
       sections={SECTIONS}

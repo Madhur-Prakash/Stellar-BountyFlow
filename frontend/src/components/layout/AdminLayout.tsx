@@ -15,7 +15,7 @@ import { useMe } from '@/lib/api/queries/auth'
 import type { Permission } from '@/lib/api/types'
 import { hasPermission } from '@/lib/permissions'
 
-import { AppShell, type ShellNavGroup, type ShellNavItem } from './AppShell'
+import { AppShell, SHELL_ROW, type ShellNavGroup, type ShellNavItem } from './AppShell'
 
 /** Each section is listed only for staff who hold the permission its API needs. */
 const ADMIN_NAV: (ShellNavItem & { permission?: Permission })[] = [
@@ -50,11 +50,7 @@ export function AdminLayout() {
       footer={
         <SidebarMenu>
           <SidebarMenuItem>
-            <SidebarMenuButton
-              asChild
-              tooltip="Back to workspace"
-              className="h-8 font-medium text-sidebar-foreground [&>svg]:text-muted-foreground"
-            >
+            <SidebarMenuButton asChild tooltip="Back to workspace" className={SHELL_ROW}>
               <Link to="/app">
                 <ArrowLeft aria-hidden />
                 <span>Back to workspace</span>

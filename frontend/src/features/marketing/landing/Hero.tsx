@@ -1,18 +1,20 @@
 import { ArrowRight, ExternalLink, LockKeyhole, PenLine, SearchCheck, type LucideIcon } from 'lucide-react'
-import { useEffect, useState } from 'react'
+import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react'
 import { Link } from 'react-router'
 
+import { BountyStatusBadge } from '@/components/bounty/BountyStatusBadge'
 import { DeadlineCountdown } from '@/components/bounty/DeadlineCountdown'
 import { FundingStatusBadge } from '@/components/bounty/FundingStatusBadge'
 import { UserAvatar } from '@/components/common/UserAvatar'
 import { Bones } from '@/components/layout/Bones'
-import { Scene } from '@/components/three/Scene'
 import { PageContainer } from '@/components/layout/PageContainer'
+import { Scene } from '@/components/three/Scene'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Skeleton } from '@/components/ui/skeleton'
 import { useMediaQuery } from '@/hooks/useMediaQuery'
 import { motionAllowed, useReducedMotion } from '@/hooks/useReducedMotion'
+import { useScrollStory, useScrollStoryEnabled, type ScrollStoryTools } from '@/hooks/useScrollStory'
 import { useBounties } from '@/lib/api/queries/bounties'
 import { usePublicConfig } from '@/lib/api/queries/config'
 import type { BountyStatus, BountySummary } from '@/lib/api/types'
@@ -34,6 +36,7 @@ const FACTS: { icon: LucideIcon; title: string; text: string }[] = [
 
 /** The lifecycle a bounty moves through, and where each status sits on it. */
 const STAGES = ['Published', 'Funded', 'In progress', 'In review', 'Paid out'] as const
+const LAST_STAGE = STAGES.length - 1
 const STAGE_OF: Partial<Record<BountyStatus, number>> = {
   OPEN: 0,
   FUNDING_PENDING: 0,
@@ -53,7 +56,7 @@ function useAfterMount(): boolean {
   return ready
 }
 
-/** Counts from zero to `value` when the card appears, then shows the exact figure. */
+/** Counts from zero to `value` when it first appears, then shows the exact figure. */
 function useCountUp(value: number, duration = 900): number | null {
   const [shown, setShown] = useState<number | null>(() => (motionAllowed() ? 0 : null))
   useEffect(() => {
@@ -72,17 +75,12 @@ function useCountUp(value: number, duration = 900): number | null {
   return shown
 }
 
-function Amount({ value, className }: { value: string; className?: string }) {
+function Amount({ value }: { value: string }) {
   const counting = useCountUp(Number(value))
-  return (
-    <span className={cn('amount', className)}>
-      {counting === null ? formatAmount(value) : Math.round(counting).toLocaleString('en-US')}
-    </span>
-  )
+  return <>{counting === null ? formatAmount(value) : Math.round(counting).toLocaleString('en-US')}</>
 }
 
-function Lifecycle({ status }: { status: BountyStatus }) {
-  const current = STAGE_OF[status] ?? 0
+function Lifecycle({ current }: { current: number }) {
   const ready = useAfterMount()
   return (
     <ol className="grid grid-cols-5 gap-1.5" aria-label="Lifecycle">
@@ -94,13 +92,13 @@ function Lifecycle({ status }: { status: BountyStatus }) {
                 'absolute inset-0 origin-left rounded-full bg-primary transition-transform duration-500 ease-out',
                 ready && i <= current ? 'scale-x-100' : 'scale-x-0',
               )}
-              style={{ transitionDelay: `${150 + i * 120}ms` }}
+              style={{ transitionDelay: ready ? `${i * 80}ms` : `${150 + i * 120}ms` }}
             />
             {i === current && <span className="bf-flow absolute inset-0 rounded-full" />}
           </span>
           <span
             className={cn(
-              'mt-1.5 block truncate text-[0.6875rem]',
+              'mt-1.5 block truncate text-[0.6875rem] transition-colors duration-300',
               i === current ? 'font-medium text-foreground' : 'text-muted-foreground',
             )}
           >
@@ -138,10 +136,112 @@ function ContractRow() {
   )
 }
 
-/** A live bounty (the largest open reward) as it appears in the product: reward, escrow and where it stands. */
-function BountyPreview({ bounty }: { bounty: BountySummary }) {
+type Cell = { label: string; figure?: ReactNode; unit?: string; text?: string; fill?: number }
+type StageView = { badge: ReactNode; cells: [Cell, Cell]; caption: string }
+
+/**
+ * What the card shows at each stage of the lifecycle. Stage 0 is this bounty as it is now; later stages describe
+ * what will happen to it ("When funded, …"), using its own reward, so the card never claims a state it isn't in.
+ */
+function stageView(b: BountySummary, stage: number, realStage: number): StageView {
+  const code = b.reward_asset.code
+  const total = formatAmount(b.total_reward)
+  const per = formatAmount(b.reward_amount)
+  const positions = b.positions_available
+  const real = stage <= realStage
+  switch (stage) {
+    case 1:
+      return {
+        badge: <FundingStatusBadge status="FUNDED" bountyStatus="FUNDED" />,
+        cells: [
+          { label: 'In escrow', figure: total, unit: code, fill: 100 },
+          { label: 'Held by', text: 'Soroban escrow contract' },
+        ],
+        caption: real
+          ? `The full ${total} ${code} is locked in the escrow contract.`
+          : `When funded, the full ${total} ${code} is locked in the escrow contract.`,
+      }
+    case 2:
+      return {
+        badge: <BountyStatusBadge status="IN_PROGRESS" />,
+        cells: [
+          { label: 'Reward locked', figure: total, unit: code },
+          { label: 'Positions', text: `${positions} of ${positions} filled` },
+        ],
+        caption: 'Once a contributor is accepted, they do the work while the reward stays locked.',
+      }
+    case 3:
+      return {
+        badge: <BountyStatusBadge status="UNDER_REVIEW" />,
+        cells: [
+          { label: 'Submission', text: 'Awaiting review' },
+          { label: 'Decision', text: 'Approve, revise or reject' },
+        ],
+        caption: 'The requester checks the submission against the acceptance criteria.',
+      }
+    case 4:
+      return {
+        badge: <BountyStatusBadge status="COMPLETED" />,
+        cells: [
+          { label: positions > 1 ? 'Paid per position' : 'Paid to contributor', figure: per, unit: code },
+          { label: 'Proof', text: 'Public transaction hash' },
+        ],
+        caption: `On approval, the contract pays ${per} ${code} straight to the contributor's verified wallet.`,
+      }
+    default:
+      return {
+        badge: <FundingStatusBadge status={b.funding_status} bountyStatus={b.status} />,
+        cells: [
+          {
+            label: positions > 1 ? 'Reward per position' : 'Reward',
+            figure: <Amount value={b.reward_amount} />,
+            unit: code,
+          },
+          positions > 1
+            ? {
+                label: `Escrow for ${positions} positions`,
+                figure: <Amount value={b.total_reward} />,
+                unit: code,
+              }
+            : { label: 'Applicants', figure: String(b.applications_count), unit: 'so far' },
+        ],
+        caption: 'Published and taking applications.',
+      }
+  }
+}
+
+function StageCell({ cell }: { cell: Cell }) {
+  return (
+    <div className="bg-surface/60 px-4 py-3">
+      <dt className="text-xs text-muted-foreground">{cell.label}</dt>
+      <dd className="mt-1 flex min-h-8 items-baseline gap-1.5">
+        {cell.figure !== undefined ? (
+          <>
+            <span className="amount text-[1.375rem]">{cell.figure}</span>
+            {cell.unit && <span className="text-sm text-muted-foreground">{cell.unit}</span>}
+          </>
+        ) : (
+          <span className="self-center text-sm font-medium">{cell.text}</span>
+        )}
+      </dd>
+      {cell.fill !== undefined && (
+        <span aria-hidden className="mt-2 block h-1 overflow-hidden rounded-full bg-muted">
+          <span className="block h-full animate-in rounded-full bg-success duration-700 slide-in-from-left" />
+        </span>
+      )}
+    </div>
+  )
+}
+
+/**
+ * A live bounty (one of the largest open rewards) as it appears in the product: reward, escrow and where it
+ * stands. In the scroll story, `stage` walks it through the lifecycle.
+ */
+function BountyPreview({ bounty, stage }: { bounty: BountySummary; stage: number | null }) {
   const href = `/bounties/${bounty.slug || bounty.id}`
-  const positions = bounty.positions_available
+  const realStage = STAGE_OF[bounty.status] ?? 0
+  const shown = stage === null ? realStage : Math.max(realStage, stage)
+  const view = stageView(bounty, shown, realStage)
   return (
     <article
       aria-labelledby="hero-bounty-title"
@@ -150,9 +250,17 @@ function BountyPreview({ bounty }: { bounty: BountySummary }) {
       <div className="flex items-center justify-between gap-3">
         <div className="flex flex-wrap items-center gap-1.5">
           <Badge variant="outline">{CATEGORY_LABELS[bounty.category]}</Badge>
-          <FundingStatusBadge status={bounty.funding_status} bountyStatus={bounty.status} />
+          <span key={shown} className="animate-in duration-300 fade-in-0">
+            {view.badge}
+          </span>
         </div>
-        <DeadlineCountdown deadline={bounty.application_deadline} className="text-xs" />
+        {shown > realStage ? (
+          <span className="text-xs text-muted-foreground tabular-nums">
+            Stage {shown + 1} of {STAGES.length}
+          </span>
+        ) : (
+          <DeadlineCountdown deadline={bounty.application_deadline} className="text-xs" />
+        )}
       </div>
 
       <h2 id="hero-bounty-title" className="mt-4 text-base leading-snug font-semibold">
@@ -165,40 +273,25 @@ function BountyPreview({ bounty }: { bounty: BountySummary }) {
         <span className="truncate">{bounty.requester.display_name}</span>
       </div>
 
-      <dl className="mt-5 grid grid-cols-2 gap-px overflow-hidden rounded-xl border bg-border">
-        <div className="bg-surface/60 px-4 py-3">
-          <dt className="text-xs text-muted-foreground">
-            {positions > 1 ? 'Reward per position' : 'Reward'}
-          </dt>
-          <dd className="mt-1">
-            <Amount value={bounty.reward_amount} className="text-[1.375rem]" />{' '}
-            <span className="text-sm text-muted-foreground">{bounty.reward_asset.code}</span>
-          </dd>
-        </div>
-        {positions > 1 ? (
-          <div className="bg-surface/60 px-4 py-3">
-            <dt className="text-xs text-muted-foreground">Escrow for {positions} positions</dt>
-            <dd className="mt-1">
-              <Amount value={bounty.total_reward} className="text-[1.375rem]" />{' '}
-              <span className="text-sm text-muted-foreground">{bounty.reward_asset.code}</span>
-            </dd>
-          </div>
-        ) : (
-          <div className="bg-surface/60 px-4 py-3">
-            <dt className="text-xs text-muted-foreground">Applicants</dt>
-            <dd className="mt-1">
-              <span className="amount text-[1.375rem]">{bounty.applications_count}</span>{' '}
-              <span className="text-sm text-muted-foreground">so far</span>
-            </dd>
-          </div>
-        )}
+      <dl
+        key={shown}
+        className="mt-5 grid animate-in grid-cols-2 gap-px overflow-hidden rounded-xl border bg-border duration-300 fade-in-0 slide-in-from-bottom-1"
+      >
+        <StageCell cell={view.cells[0]} />
+        <StageCell cell={view.cells[1]} />
       </dl>
 
       <div className="mt-5">
-        <Lifecycle status={bounty.status} />
+        <Lifecycle current={shown} />
+        <p
+          key={shown}
+          className="mt-3 min-h-10 animate-in text-xs leading-relaxed text-muted-foreground duration-300 fade-in-0"
+        >
+          {view.caption}
+        </p>
       </div>
 
-      <div className="mt-5 space-y-3 border-t pt-4">
+      <div className="mt-3 space-y-3 border-t pt-4">
         <ContractRow />
         <Button asChild variant="outline" className="w-full">
           <Link to={href}>
@@ -239,7 +332,7 @@ function Stack() {
   )
 }
 
-function Preview() {
+function Preview({ stage }: { stage: number | null }) {
   const { data, isPending, isError } = useBounties(TOP_REWARDS)
   const items = data?.items ?? []
   const [index, setIndex] = useState(0)
@@ -247,13 +340,15 @@ function Preview() {
   const reduced = useReducedMotion()
   const count = items.length
   const current = count > 0 ? items[index % count] : undefined
+  // Once the scroll story is walking a bounty through its lifecycle, keep that bounty on the card.
+  const holding = paused || (stage ?? 0) > 0
 
   // Move to the next bounty every few seconds, unless the visitor is reading or pointing at this one.
   useEffect(() => {
-    if (count < 2 || paused || reduced) return
+    if (count < 2 || holding || reduced) return
     const timer = window.setTimeout(() => setIndex((i) => (i + 1) % count), ROTATE_MS)
     return () => window.clearTimeout(timer)
-  }, [index, count, paused, reduced])
+  }, [index, count, holding, reduced])
 
   if (isError) return null
   if (!isPending && !current) {
@@ -280,7 +375,9 @@ function Preview() {
         {current && (
           <div className="relative">
             {count > 1 && <Stack />}
-            <BountyPreview key={current.id} bounty={current} />
+            <div className="relative">
+              <BountyPreview key={current.id} bounty={current} stage={stage} />
+            </div>
           </div>
         )}
       </Bones>
@@ -304,7 +401,7 @@ function Preview() {
                       className={cn('absolute inset-0 rounded-full bg-primary', !reduced && 'bf-progress')}
                       style={{
                         ['--bf-progress-duration' as string]: `${ROTATE_MS}ms`,
-                        animationPlayState: paused ? 'paused' : 'running',
+                        animationPlayState: holding ? 'paused' : 'running',
                       }}
                     />
                   )}
@@ -318,57 +415,96 @@ function Preview() {
   )
 }
 
-export function Hero() {
+function HeroContent({ stage }: { stage: number | null }) {
   const wide = useMediaQuery('(min-width: 1024px)')
   return (
-    <section aria-labelledby="hero-title" className="relative isolate overflow-hidden border-b">
+    <PageContainer className="grid items-center gap-12 py-16 sm:py-20 lg:grid-cols-[minmax(0,1.15fr)_minmax(0,1fr)] lg:gap-16 lg:py-20">
+      <div className="max-w-2xl">
+        <h1
+          id="hero-title"
+          className="font-display text-[2.25rem] leading-[1.08] sm:text-[2.75rem] lg:text-[3.25rem]"
+        >
+          Bounties with the reward held in escrow
+        </h1>
+        <p className="mt-5 max-w-xl text-[1.0625rem] leading-relaxed text-muted-foreground">
+          Post a task with a reward in XLM. The reward is locked in a Soroban escrow contract on Stellar
+          before anyone starts, and it is released to the contributor when you approve the work.
+        </p>
+        <div className="mt-8 flex flex-col gap-3 sm:flex-row">
+          <Button asChild size="lg">
+            <Link to="/bounties">Browse bounties</Link>
+          </Button>
+          <Button asChild size="lg" variant="outline">
+            <Link to="/app/bounties/create">Post a bounty</Link>
+          </Button>
+        </div>
+        <dl className="mt-10 grid gap-5 border-t pt-6 sm:grid-cols-3 sm:gap-6">
+          {FACTS.map(({ icon: Icon, title, text }) => (
+            <div key={title}>
+              <dt className="flex items-center gap-2 text-sm font-medium">
+                <Icon className="size-4 shrink-0 text-primary" aria-hidden />
+                {title}
+              </dt>
+              <dd className="mt-1 text-[0.8125rem] leading-snug text-muted-foreground">{text}</dd>
+            </div>
+          ))}
+        </dl>
+      </div>
+      <div className="relative w-full max-w-lg lg:justify-self-end">
+        {wide && (
+          <Scene
+            name="globe"
+            className="pointer-events-none absolute top-1/2 left-1/2 -z-10 size-[46rem] -translate-x-1/2 -translate-y-1/2 animate-in mask-[radial-gradient(closest-side,black_60%,transparent)] duration-1000 fade-in-0"
+          />
+        )}
+        <Preview stage={stage} />
+      </div>
+    </PageContainer>
+  )
+}
+
+/** The hero story has no scrubbed tweens of its own; the card follows the reported progress. */
+function buildHeroTimeline({ gsap }: ScrollStoryTools) {
+  return gsap.timeline().to({}, { duration: 1 })
+}
+
+/**
+ * The first screen. On large screens with motion, the hero stays in place for a short scroll while the card
+ * walks its bounty through the lifecycle (published → funded → in progress → in review → paid out), then the page
+ * moves on. Elsewhere it is a normal hero showing the bounty as it is.
+ */
+export function Hero() {
+  const story = useScrollStoryEnabled('1024px')
+  const wrapper = useRef<HTMLDivElement>(null)
+  const [stage, setStage] = useState(0)
+  const last = useRef(0)
+  const onProgress = useCallback((p: number) => {
+    const next = Math.min(LAST_STAGE, Math.floor(p * STAGES.length))
+    if (next === last.current) return
+    last.current = next
+    setStage(next)
+  }, [])
+  // The hero sticks where it starts: right under the 64px header.
+  useScrollStory(wrapper, story, buildHeroTimeline, onProgress, 64)
+
+  return (
+    <section aria-labelledby="hero-title" className="relative isolate overflow-clip border-b">
       {/* A faint wash of the brand colour behind the top of the page. */}
       <div
         aria-hidden
         className="pointer-events-none absolute inset-x-0 top-0 -z-10 h-[34rem] bg-[radial-gradient(60%_60%_at_50%_0%,color-mix(in_oklab,var(--primary)_9%,transparent),transparent)]"
       />
-      <PageContainer className="grid items-center gap-12 py-16 sm:py-20 lg:grid-cols-[minmax(0,1.15fr)_minmax(0,1fr)] lg:gap-16 lg:py-24">
-        <div className="max-w-2xl">
-          <h1
-            id="hero-title"
-            className="font-display text-[2.25rem] leading-[1.08] sm:text-[2.75rem] lg:text-[3.25rem]"
-          >
-            Bounties with the reward held in escrow
-          </h1>
-          <p className="mt-5 max-w-xl text-[1.0625rem] leading-relaxed text-muted-foreground">
-            Post a task with a reward in XLM. The reward is locked in a Soroban escrow contract on Stellar
-            before anyone starts, and it is released to the contributor when you approve the work.
-          </p>
-          <div className="mt-8 flex flex-col gap-3 sm:flex-row">
-            <Button asChild size="lg">
-              <Link to="/bounties">Browse bounties</Link>
-            </Button>
-            <Button asChild size="lg" variant="outline">
-              <Link to="/app/bounties/create">Post a bounty</Link>
-            </Button>
+      {story ? (
+        <div ref={wrapper} data-hero-story>
+          <div className="sticky top-16">
+            <HeroContent stage={stage} />
           </div>
-          <dl className="mt-10 grid gap-5 border-t pt-6 sm:grid-cols-3 sm:gap-6">
-            {FACTS.map(({ icon: Icon, title, text }) => (
-              <div key={title}>
-                <dt className="flex items-center gap-2 text-sm font-medium">
-                  <Icon className="size-4 shrink-0 text-primary" aria-hidden />
-                  {title}
-                </dt>
-                <dd className="mt-1 text-[0.8125rem] leading-snug text-muted-foreground">{text}</dd>
-              </div>
-            ))}
-          </dl>
+          {/* Scroll room for the story (a sticky element can only travel through its parent's content). */}
+          <div aria-hidden style={{ height: '200svh' }} />
         </div>
-        <div className="relative w-full max-w-lg lg:justify-self-end">
-          {wide && (
-            <Scene
-              name="globe"
-              className="pointer-events-none absolute top-1/2 left-1/2 -z-10 size-[46rem] -translate-x-1/2 -translate-y-1/2 animate-in mask-[radial-gradient(closest-side,black_60%,transparent)] duration-1000 fade-in-0"
-            />
-          )}
-          <Preview />
-        </div>
-      </PageContainer>
+      ) : (
+        <HeroContent stage={null} />
+      )}
     </section>
   )
 }

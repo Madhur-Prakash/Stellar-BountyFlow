@@ -100,7 +100,7 @@ work through an explicit, auditable state machine. Only verified on-chain events
   moderation, reports, a dispute queue, transaction monitoring, and an immutable audit log.
 - **Security:** Argon2id, HttpOnly cookie sessions with refresh rotation and reuse detection, CSRF double-submit,
   rate limits, strict validation, safe markdown, security headers, and redacted structured logs (Logifyx).
-- **Interface:** a calm, light-first design system with a dark theme (shadcn/ui + Tailwind v4 tokens, Inter),
+- **Interface:** a premium, light-first design system with a warm dark theme (shadcn/ui + Tailwind v4 tokens, Geist),
   documented in [docs/design.md](docs/design.md). Every screen shows live data. Records are shown in tables, and
   the escrow state machine is a diagram whose states explain themselves on hover. On the landing page, "How a
   bounty moves" and the escrow diagram play as scroll stories (GSAP ScrollTrigger on sticky sections). A dotted
@@ -143,7 +143,7 @@ Details, sequence diagrams and design decisions: [docs/architecture.md](docs/arc
 
 | Layer | Technologies |
 |---|---|
-| Frontend | React 19, TypeScript (strict), Vite, React Router 7, Tailwind CSS v4, shadcn/ui (Radix), lucide-react, Inter, GSAP (ScrollTrigger, DrawSVG), Three.js + React Three Fiber, Lenis, boneyard-js, TanStack Query, Zustand, React Hook Form + Zod, Recharts, Vitest, Testing Library, Playwright |
+| Frontend | React 19, TypeScript (strict), Vite, React Router 7, Tailwind CSS v4, shadcn/ui (Radix), lucide-react, Geist + IBM Plex Mono, GSAP (ScrollTrigger, DrawSVG), Three.js + React Three Fiber, Lenis, boneyard-js, TanStack Query, Zustand, React Hook Form + Zod, Recharts, Vitest, Testing Library, Playwright |
 | Backend | Python 3.12, FastAPI, Uvicorn, Pydantic v2, pydantic-settings, SQLAlchemy 2.1 (async), Alembic, psycopg 3, redis-py, aiokafka, stellar-sdk (Soroban RPC), httpx, **Logifyx** logging, argon2-cffi, PyJWT, Jinja2, pytest, Ruff, mypy, **uv** |
 | Data | PostgreSQL 17, Redis 7.4, Apache Kafka 3.9 (KRaft) |
 | Blockchain | Stellar Testnet, Soroban (Rust, soroban-sdk 28), Stellar CLI 27, Stellar Asset Contract (native XLM), Freighter |
