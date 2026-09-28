@@ -1,0 +1,71 @@
+{
+  "network": "testnet",
+  "contract_id": "CDX6FN2MIGLHCMUJOU6C7FYP3QTNDL6BVIPEG4B5HAUEPU7NI4SFY4CY",
+  "native_asset_contract_id": "CDLZFC3SYJYDZT7K67VZ75HPJVIEUVNIXF47ZG2FB2RMQQVU2HHGCYSC",
+  "arbiter_address": "GDKMJJGPM7ZFTDG6Y74O6JA2QCMQBEJJE7Q7I5FGKI77Z67XXY2C3LU2",
+  "wasm_hash": "a8ed0b13d5902f2bb17327337e7476c5ce484fd6d434434fbb82349ad9a12966",
+  "upload_tx": "ab6fe69398915d35c6c20296622260f507b2b82690f5b68131ae5f5bf8de2239",
+  "deploy_tx": "59e1a6d870153887af3ce751b98ed06cde1e85e02ecba0424925e17e8b7e977e",
+  "deployed_at": "2026-09-25T19:44:29Z",
+  "deployer_address": "GD646RGJJOHCMJDICTLPTPZXYQSS2Y4IZBOWEAYU2AU7PAT7ESKZKPE5",
+  "contract_version": 1,
+  "explorer_url": "https://stellar.expert/explorer/testnet/contract/CDX6FN2MIGLHCMUJOU6C7FYP3QTNDL6BVIPEG4B5HAUEPU7NI4SFY4CY",
+  "smoke_test": {
+    "requester_address": "GAWFBBDZOKXYCGJ5VQDX3CPXRUNMLLNUDFUZT3OB5YASYFMLLMG5PV55",
+    "contributor_address": "GD646RGJJOHCMJDICTLPTPZXYQSS2Y4IZBOWEAYU2AU7PAT7ESKZKPE5",
+    "bounty_id": "ca9e4014c8aa7e8fee7127f8dc22ebb6ed4f88d85a823fec6da2b8a0f4e700e8",
+    "reward_per_position": 10000000,
+    "positions": 1,
+    "deadline": 1790970271,
+    "create_escrow_tx": "5a38e54170982e23f10315a411d98a5e09e98b431e27d24f79c476936109761c",
+    "escrow_after_create": {
+      "arbiter": "GDKMJJGPM7ZFTDG6Y74O6JA2QCMQBEJJE7Q7I5FGKI77Z67XXY2C3LU2",
+      "assigned_unpaid": 0,
+      "created_at": 1790365477,
+      "deadline": 1790970271,
+      "funded_amount": "10000000",
+      "paid_out_amount": "0",
+      "payouts_made": 0,
+      "positions": 1,
+      "pre_dispute_status": 1,
+      "refunded_amount": "0",
+      "requester": "GAWFBBDZOKXYCGJ5VQDX3CPXRUNMLLNUDFUZT3OB5YASYFMLLMG5PV55",
+      "required_amount": "10000000",
+      "reward_per_position": "10000000",
+      "status": 1,
+      "token": "CDLZFC3SYJYDZT7K67VZ75HPJVIEUVNIXF47ZG2FB2RMQQVU2HHGCYSC"
+    },
+    "release_tx": "2d758e99455848993d0e71e6f08ce2c75f3082a0582f4e42fbde67df48b8d273",
+    "escrow_after_release": {
+      "arbiter": "GDKMJJGPM7ZFTDG6Y74O6JA2QCMQBEJJE7Q7I5FGKI77Z67XXY2C3LU2",
+      "assigned_unpaid": 0,
+      "created_at": 1790365477,
+      "deadline": 1790970271,
+      "funded_amount": "10000000",
+      "paid_out_amount": "10000000",
+      "payouts_made": 1,
+      "positions": 1,
+      "pre_dispute_status": 1,
+      "refunded_amount": "0",
+      "requester": "GAWFBBDZOKXYCGJ5VQDX3CPXRUNMLLNUDFUZT3OB5YASYFMLLMG5PV55",
+      "required_amount": "10000000",
+      "reward_per_position": "10000000",
+      "status": 4,
+      "token": "CDLZFC3SYJYDZT7K67VZ75HPJVIEUVNIXF47ZG2FB2RMQQVU2HHGCYSC"
+    }
+  },
+  "superseded_deployments": [
+    {
+      "contract_id": "CCJ52FHVMCQUPTOKFKT56DJ6BR5H2552ZAETND3P4Z5S5DGSBCQRLMXK",
+      "wasm_hash": "60dc91063268a99c3a13354bb698c2ea99604b29f1c552e20ddef4a9d90cd2a5",
+      "deploy_tx": "5916f4b74cdd51990415816b514dac60b616e36dbaa0e6b908b90a9dff7691b4",
+      "deployed_at": "2026-09-25T18:02:45Z",
+      "reason": "Superseded by the security-hardened build (SEC-05 dispute requires on-chain assignment, SEC-06 no assignment after deadline, SEC-12 state before transfers)."
+    },
+    {
+      "contract_id": "CC6QBS45TPUH53FKGULWKVFRD4MAVMLDBUGFPZJDIR46EA7HMRIC7D2R",
+      "deploy_tx": "926f2d95a516ecc3f86de20812fbf7da2b1a420688f0831e00b57be4226f7d42",
+      "note": "First run of the deploy script (same wasm hash); superseded by contract_id above. Do not use."
+    }
+  ]
+}
