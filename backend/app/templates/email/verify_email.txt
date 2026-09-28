@@ -1,0 +1,10 @@
+{% if recipient_name %}Hi {{ recipient_name }},
+
+{% endif %}Thanks for joining {{ app_name }}. Please confirm your email address by opening this link:
+
+{{ action_url }}
+
+This link expires in {{ expires_in }}. If you did not create a {{ app_name }} account, you can safely ignore this email.
+
+--
+{{ app_name }}

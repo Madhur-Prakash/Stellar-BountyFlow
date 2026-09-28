@@ -1,0 +1,13 @@
+{% if recipient_name %}Hi {{ recipient_name }},
+
+{% endif %}{{ title }}
+
+{{ message }}
+{% if details %}
+{% for label, value in details %}{{ label }}: {{ value }}
+{% endfor %}{% endif %}{% if action_url %}
+{{ action_label }}: {{ action_url }}
+{% endif %}
+--
+{{ app_name }}
+{% if preferences_url %}Manage email notifications: {{ preferences_url }}{% endif %}

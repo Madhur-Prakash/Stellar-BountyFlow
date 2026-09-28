@@ -1,0 +1,17 @@
+{% extends "base.html" %}
+{% block preheader %}Confirm your email address to finish setting up your {{ app_name }} account.{% endblock %}
+{% block eyebrow %}Account{% endblock %}
+{% block heading %}Confirm your email address{% endblock %}
+{% block content %}
+<p style="margin:0 0 16px 0; font-size:16px; line-height:24px; color:#1B2437;">
+  Thanks for joining {{ app_name }}. Please confirm that this is your email address so we can keep you
+  updated on your bounties, applications, and payouts.
+</p>
+{% endblock %}
+{% block after_action %}
+<p style="margin:0; font-size:14px; line-height:22px; color:#5B6784;">
+  This link expires in {{ expires_in }}. If you did not create a {{ app_name }} account, you can safely
+  ignore this email.
+</p>
+{% endblock %}
+{% block footer %}You are receiving this email because this address was used to sign up for {{ app_name }}.{% endblock %}
