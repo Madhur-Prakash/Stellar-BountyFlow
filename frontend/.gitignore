@@ -1,0 +1,17 @@
+node_modules
+dist
+dist-ssr
+coverage
+playwright-report
+test-results
+blob-report
+*.local
+.env
+.env.*
+!.env.example
+*.log
+.DS_Store
+*.tsbuildinfo
+
+# Playwright design screenshots
+e2e/screenshots
