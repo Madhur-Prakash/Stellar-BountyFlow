@@ -27,6 +27,7 @@ import {
   SidebarGroupLabel,
   SidebarHeader,
   SidebarMenu,
+  SidebarMenuBadge,
   SidebarMenuButton,
   SidebarMenuItem,
   SidebarProvider,
@@ -44,7 +45,14 @@ import { useUiPrefs } from '@/stores/ui-prefs'
 
 import { AnimatedOutlet } from './AnimatedOutlet'
 
-export type ShellNavItem = { label: string; to: string; icon: LucideIcon; end?: boolean }
+export type ShellNavItem = {
+  label: string
+  to: string
+  icon: LucideIcon
+  end?: boolean
+  /** A small count shown at the end of the row (e.g. unread notifications); hidden when 0. */
+  count?: number
+}
 export type ShellNavGroup = { label: string; items: ShellNavItem[] }
 
 const isActive = (item: ShellNavItem, pathname: string) =>
@@ -93,6 +101,15 @@ function NavItems({ groups }: { groups: ShellNavGroup[] }) {
                       <span>{item.label}</span>
                     </NavLink>
                   </SidebarMenuButton>
+                  {!!item.count && (
+                    // The same figure is announced by the bell's label, so this copy is visual only.
+                    <SidebarMenuBadge
+                      aria-hidden
+                      className="right-1.5 font-mono text-[0.6875rem] font-normal text-muted-foreground"
+                    >
+                      {item.count > 99 ? '99+' : item.count}
+                    </SidebarMenuBadge>
+                  )}
                 </SidebarMenuItem>
               ))}
             </SidebarMenu>
@@ -110,7 +127,12 @@ function NotificationsBell() {
   return (
     <Tooltip>
       <TooltipTrigger asChild>
-        <Button asChild variant="ghost" size="icon" className="relative text-muted-foreground hover:text-foreground">
+        <Button
+          asChild
+          variant="ghost"
+          size="icon"
+          className="relative text-muted-foreground hover:text-foreground"
+        >
           <Link to="/app/notifications" aria-label={label}>
             <Bell />
             {count > 0 && (
@@ -232,7 +254,9 @@ export function AppShell({
           </Link>
         </SidebarHeader>
         <SidebarContent className="pb-2">
-          {search && <div className="px-3 pt-1 pb-2 group-data-[collapsible=icon]:hidden">{search}</div>}
+          {search && (
+            <div className="px-3 pt-1 pb-2 group-data-[collapsible=icon]:hidden empty:hidden">{search}</div>
+          )}
           <NavItems groups={groups} />
         </SidebarContent>
         {footer && (

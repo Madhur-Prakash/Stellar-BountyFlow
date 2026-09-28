@@ -34,7 +34,7 @@ export default function ResetPasswordPage() {
         title="Reset link missing"
         description="Open the link from your password reset email, or request a new one."
       >
-        <Button asChild className="w-full">
+        <Button asChild variant="inverse" size="pill" className="w-full">
           <Link to="/forgot-password">Request a new link</Link>
         </Button>
       </AuthCard>
@@ -95,7 +95,13 @@ export default function ResetPasswordPage() {
             )}
           />
           <FormErrorAlert message={formError} />
-          <Button type="submit" size="lg" className="mt-1 w-full" disabled={reset.isPending}>
+          <Button
+            type="submit"
+            variant="inverse"
+            size="pill"
+            className="mt-2 w-full"
+            disabled={reset.isPending}
+          >
             {reset.isPending && <LoaderCircle className="animate-spin" aria-hidden />}
             Update password
           </Button>

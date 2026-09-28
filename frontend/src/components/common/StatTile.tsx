@@ -5,9 +5,9 @@ import { Skeleton } from '@/components/ui/skeleton'
 import { cn } from '@/lib/utils'
 
 /**
- * One figure: a quiet label above a tabular number, with an optional hint. Tiles are usually laid out in a
- * `StatGrid`, which draws them as one bordered strip. The `icon` prop is accepted for call-site compatibility
- * but not drawn.
+ * One figure: a quiet label above a tabular number (Geist 500, tight), with an optional hint. Tiles are usually
+ * laid out in a `StatGrid`, which draws them as one bordered strip. The `icon` prop is accepted for call-site
+ * compatibility but not drawn.
  */
 export function StatTile({
   label,
@@ -25,11 +25,11 @@ export function StatTile({
 }) {
   return (
     <div data-stat-tile className={cn('min-w-0 bg-card px-5 py-4', className)}>
-      <div className="text-[0.8125rem] leading-snug font-medium text-muted-foreground">{label}</div>
-      <div className="amount mt-1.5 text-[1.625rem] leading-tight">
+      <div className="text-[0.8125rem] leading-snug text-muted-foreground">{label}</div>
+      <div className="mt-2 text-[1.75rem] leading-none font-medium tracking-[-0.035em] tabular-nums">
         {loading ? <Skeleton className="h-7 w-20" /> : value}
       </div>
-      {hint && <div className="mt-1 text-xs text-muted-foreground">{hint}</div>}
+      {hint && <div className="mt-2 text-xs leading-snug text-muted-foreground">{hint}</div>}
     </div>
   )
 }

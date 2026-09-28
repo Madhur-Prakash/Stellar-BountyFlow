@@ -10,7 +10,6 @@ import { Bones } from '@/components/layout/Bones'
 import { EmptyState } from '@/components/layout/EmptyState'
 import { ErrorState } from '@/components/layout/ErrorState'
 import { PageContainer } from '@/components/layout/PageContainer'
-import { PageHeader } from '@/components/layout/PageHeader'
 import { PaginationBar } from '@/components/layout/PaginationBar'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -54,6 +53,10 @@ const SORT_LABELS: Record<BountySort, string> = {
   popular: 'Most popular',
 }
 
+/** One segment of the grid/list switch: a pill inside the pill, filled when selected. */
+const VIEW_ITEM =
+  'h-9 w-9 min-w-9 rounded-full px-0 text-muted-foreground data-[state=on]:bg-foreground data-[state=on]:text-background data-[state=on]:hover:bg-foreground data-[state=on]:hover:text-background'
+
 export default function MarketplacePage() {
   const [searchParams, setSearchParams] = useSearchParams()
   const filters = parseFilters(searchParams)
@@ -91,13 +94,20 @@ export default function MarketplacePage() {
   }
 
   return (
-    <PageContainer className="py-8 sm:py-10">
-      <PageHeader title="Bounty marketplace" description="Paid tasks from requesters on BountyFlow." />
+    <PageContainer className="pt-10 pb-16 sm:pt-16 sm:pb-20">
+      <header className="pb-8 sm:pb-10">
+        <h1 className="text-[2.25rem] leading-[1.05] font-normal tracking-[-0.02em] sm:text-[3rem]">
+          Bounty marketplace
+        </h1>
+        <p className="mt-3 max-w-2xl text-base text-muted-foreground sm:text-lg">
+          Paid tasks from requesters on BountyFlow.
+        </p>
+      </header>
 
       <div className="grid gap-6 lg:grid-cols-[16rem_minmax(0,1fr)] lg:items-start">
         <aside className="hidden lg:sticky lg:top-20 lg:block" aria-label="Bounty filters">
           <div
-            className="max-h-[calc(100dvh-6rem)] scrollbar-thin overflow-y-auto rounded-xl border bg-card shadow-soft"
+            className="max-h-[calc(100dvh-6rem)] scrollbar-thin overflow-y-auto rounded-xl border bg-card"
             data-lenis-prevent
           >
             <BountyFilters filters={filters} onChange={update} />
@@ -105,10 +115,10 @@ export default function MarketplacePage() {
         </aside>
 
         <section aria-labelledby="results-heading" aria-busy={isFetching} className="min-w-0">
-          <div className="flex flex-col gap-2 rounded-xl border bg-card p-2 shadow-soft sm:flex-row sm:items-center">
+          <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
             <div className="relative min-w-0 flex-1">
               <Search
-                className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-muted-foreground"
+                className="pointer-events-none absolute top-1/2 left-4 size-4 -translate-y-1/2 text-muted-foreground"
                 aria-hidden
               />
               <Input
@@ -124,14 +134,14 @@ export default function MarketplacePage() {
                 onKeyDown={(e) => {
                   if (e.key === 'Enter') update({ q: draft, page: 1 })
                 }}
-                className="h-10 border-transparent bg-transparent pr-10 pl-9 shadow-none focus-visible:border-ring dark:bg-transparent [&::-webkit-search-cancel-button]:hidden"
+                className="h-11 rounded-full bg-card pr-11 pl-10.5 shadow-none max-lg:h-11 dark:bg-card [&::-webkit-search-cancel-button]:hidden"
                 maxLength={200}
               />
               {draft && (
                 <Button
                   variant="ghost"
                   size="icon-sm"
-                  className="absolute top-1/2 right-1 -translate-y-1/2 text-muted-foreground"
+                  className="absolute top-1/2 right-1.5 -translate-y-1/2 rounded-full text-muted-foreground"
                   aria-label="Clear search"
                   onClick={() => {
                     setDraft('')
@@ -146,7 +156,10 @@ export default function MarketplacePage() {
             <div className="flex items-center gap-2">
               <Sheet open={sheetOpen} onOpenChange={setSheetOpen}>
                 <SheetTrigger asChild>
-                  <Button variant="outline" className="h-10 lg:hidden">
+                  <Button
+                    variant="outline"
+                    className="h-11 rounded-full bg-card px-4 max-lg:h-11 lg:hidden dark:bg-card"
+                  >
                     <SlidersHorizontal /> Filters
                     {count > 0 && (
                       <span className="inline-flex h-5 min-w-5 items-center justify-center rounded-[4px] bg-primary/10 px-1 text-xs text-primary-emphasis tabular-nums">
@@ -184,7 +197,10 @@ export default function MarketplacePage() {
                 Sort bounties
               </Label>
               <Select value={sort} onValueChange={(v) => update({ sort: v as BountySort, page: 1 })}>
-                <SelectTrigger id="marketplace-sort" className="h-10! min-w-0 flex-1 sm:w-48 sm:flex-none">
+                <SelectTrigger
+                  id="marketplace-sort"
+                  className="h-11! min-w-0 flex-1 rounded-full pr-3 pl-4 sm:w-52 sm:flex-none dark:bg-card"
+                >
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent align="end">
@@ -200,17 +216,16 @@ export default function MarketplacePage() {
 
               <ToggleGroup
                 type="single"
-                variant="outline"
-                spacing={0}
+                spacing={0.5}
                 value={view}
                 onValueChange={(v) => v && setView(v as 'grid' | 'list')}
                 aria-label="Layout"
-                className="shrink-0"
+                className="h-11 shrink-0 rounded-full border border-input bg-card p-0.75"
               >
-                <ToggleGroupItem value="grid" aria-label="Grid view" className="h-10 w-10 px-0">
+                <ToggleGroupItem value="grid" aria-label="Grid view" className={VIEW_ITEM}>
                   <LayoutGrid />
                 </ToggleGroupItem>
-                <ToggleGroupItem value="list" aria-label="List view" className="h-10 w-10 px-0">
+                <ToggleGroupItem value="list" aria-label="List view" className={VIEW_ITEM}>
                   <List />
                 </ToggleGroupItem>
               </ToggleGroup>
@@ -218,7 +233,7 @@ export default function MarketplacePage() {
           </div>
 
           <div className="mt-5 mb-3 flex min-h-8 items-center justify-between gap-2">
-            <h2 id="results-heading" className="text-sm font-medium text-muted-foreground" aria-live="polite">
+            <h2 id="results-heading" className="label-mono" aria-live="polite">
               {isPending
                 ? 'Loading bounties…'
                 : data
@@ -226,7 +241,12 @@ export default function MarketplacePage() {
                   : ''}
             </h2>
             {(narrowed || filters.sort) && (
-              <Button variant="ghost" size="sm" className="-mr-2 text-muted-foreground" onClick={clearAll}>
+              <Button
+                variant="ghost"
+                size="sm"
+                className="-mr-2 rounded-full text-muted-foreground"
+                onClick={clearAll}
+              >
                 Clear all
               </Button>
             )}

@@ -25,7 +25,8 @@ real data, and motion explains what happens to a bounty rather than decorating t
 - **Scale:**
   - Marketing hero H1: about 64–76px, weight 400, tight tracking.
   - Marketing section H2s: 36–48px, weight 500.
-  - Page titles in the app: `PageHeader`, 24–28px, weight 500.
+  - Page titles in the app: `PageHeader`, 28–32px, weight 500 (`size="display"`: 34–48px, weight 400, for
+    document pages such as a bounty).
   - Card and section titles: 15–16px semibold.
   - Body text: 14px in the app (`text-sm`), 18–20px for marketing lead paragraphs.
   - Labels and meta: 12–13px in muted-foreground.
@@ -38,6 +39,16 @@ real data, and motion explains what happens to a bounty rather than decorating t
 - **Elevation:** cards are `border bg-card shadow-soft`; popovers and dialogs use `shadow-lift`. No coloured glows.
 - **Density:** controls are 36px on desktop and 40px on touch screens; table rows are about 44px.
 
+## Marketing building blocks
+
+`src/components/marketing` holds the pieces the public pages share:
+
+- `AppWindow`: a framed window with the three title-bar dots, for showing the product itself.
+- `Atmosphere`: a large backdrop panel (`tone="dusk" | "dune" | "ember" | "night"`) made of layered gradients,
+  soft mottling, film grain and a vignette, with light and dark versions. It takes a `backdrop` slot for a
+  Three.js scene. No photos: every backdrop is generated.
+- `MonoLabel`: the small IBM Plex Mono label above a section heading. Use it sparingly.
+
 ## Layout
 
 - **Width:** `PageContainer` (96rem) on the public site. The workspace content area uses the same maximum width.
@@ -49,7 +60,8 @@ real data, and motion explains what happens to a bounty rather than decorating t
   cards only where the item is the content (a bounty card in a grid of results).
 - **Empty, loading and error states:** `EmptyState`, boneyard skeletons (`Bones` / `QueryView skeleton`),
   `ErrorState`. Every data view has all three.
-- **Status:** square tinted `Badge` tags (no pills, no coloured dots). Money states use the funding badge.
+- **Status:** square tinted `Badge` tags; money states use the funding badge. Board-style group headers (e.g.
+  My bounties grouped by status) use a small status dot, the label and a mono count, like a board column.
 
 ## Motion
 
@@ -66,10 +78,13 @@ Motion explains something or answers an action. It stays calm and never gets in 
   - The two scroll stories on the landing and How it works pages. "How a bounty moves" walks through both
     tracks and hands off between them; the escrow diagram draws itself state by state. Each is a tall section
     with a sticky stage (`useScrollStory`), scrubbed by GSAP.
-  - The hero preview: it cycles through the top open rewards (pauses on hover or focus), counts its reward up
-    and fills its lifecycle bar.
-  - Two decorative Three.js scenes (`components/three`): the dotted payments globe behind the hero card and the
-    ledger field behind the closing call to action. They are lazy-loaded on large screens only, paused off
+  - The hero board: a framed "Bounty board" with one column per lifecycle stage. As you scroll, the live
+    bounty card moves from column to column (published, funded, in progress, in review, paid out) and its
+    content updates. Later stages are worded as what will happen ("When funded, …"). The other columns only
+    show real bounties. The card cycles through the top three open rewards and pauses on hover, on focus, or
+    once the story has started.
+  - Two decorative Three.js scenes (`components/three`): the dotted payments globe rising behind the "Built on
+    the Stellar stack" strip, and the ledger field behind the closing call to action. They are lazy-loaded on large screens only, paused off
     screen, and hidden from assistive technology.
 - **Not used:** parallax, split-text headline reveals, drag-and-throw objects, fade-ups on every section,
   confetti or coin bursts, hover lifts on cards, glossy "ball" markers.

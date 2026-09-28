@@ -283,7 +283,9 @@ function ManageView({ bounty }: { bounty: BountyDetail }) {
           <DisputePanel bounty={bounty} />
           <Card className="gap-3">
             <CardHeader>
-              <CardTitle>Details</CardTitle>
+              <CardTitle className="font-mono text-[0.8125rem] font-normal tracking-[0.01em] text-muted-foreground">
+                Details
+              </CardTitle>
             </CardHeader>
             <CardContent>
               <dl className="divide-y text-sm">

@@ -301,7 +301,10 @@ export function DisputePanel({ bounty }: { bounty: BountyDetail }) {
   return (
     <Card className="gap-3" role="region" aria-labelledby="dispute-h">
       <CardHeader>
-        <CardTitle id="dispute-h" className="flex items-center gap-2">
+        <CardTitle
+          id="dispute-h"
+          className="flex items-center gap-2 font-mono text-[0.8125rem] font-normal tracking-[0.01em] text-muted-foreground"
+        >
           <Gavel className="size-4 text-muted-foreground" aria-hidden /> Dispute
         </CardTitle>
       </CardHeader>

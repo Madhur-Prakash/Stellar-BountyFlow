@@ -11,7 +11,7 @@ import {
 import { useState } from 'react'
 import { Link } from 'react-router'
 
-import { BountyStatusBadge } from '@/components/bounty/BountyStatusBadge'
+import { BountyStatusBadge, BountyStatusDot } from '@/components/bounty/BountyStatusBadge'
 import { FundingStatusBadge } from '@/components/bounty/FundingStatusBadge'
 import { MetaList } from '@/components/bounty/MetaList'
 import { bountyHref } from '@/components/bounty/bounty-display'
@@ -126,7 +126,28 @@ function RowActions({ b, role }: { b: BountySummary; role: Role }) {
   )
 }
 
+/** The rows on this page, in lifecycle order: one group per status, like the columns of a board. */
+function byStatus(rows: BountySummary[]) {
+  return BOUNTY_STATUSES.map((status) => ({ status, items: rows.filter((b) => b.status === status) })).filter(
+    (g) => g.items.length > 0,
+  )
+}
+
+/** A group's header: the status dot, its name and how many of this page's rows it holds. */
+function GroupLabel({ status, count }: { status: BountyStatus; count: number }) {
+  return (
+    <span className="flex items-center gap-2">
+      <BountyStatusDot status={status} />
+      <span className="text-[0.8125rem] font-medium text-foreground">{BOUNTY_STATUS_LABELS[status]}</span>
+      <span className="font-mono text-xs text-muted-foreground tabular-nums">{formatNumber(count)}</span>
+    </span>
+  )
+}
+
+const COLUMNS = 7
+
 function BountiesTable({ rows, role }: { rows: BountySummary[]; role: Role }) {
+  const groups = byStatus(rows)
   return (
     <>
       <div className="hidden lg:block">
@@ -145,63 +166,96 @@ function BountiesTable({ rows, role }: { rows: BountySummary[]; role: Role }) {
               </TableHead>
             </TableRow>
           </TableHeader>
-          <TableBody>
-            {rows.map((b) => (
-              <TableRow key={b.id}>
-                <TableCell className="max-w-md min-w-60 pl-5 whitespace-normal">
-                  <Link to={primaryHref(b, role)} className="line-clamp-1 font-medium hover:underline">
-                    {b.title}
-                  </Link>
-                  <div className="text-xs text-muted-foreground">Created {formatRelative(b.created_at)}</div>
-                </TableCell>
-                <TableCell>
-                  <BountyStatusBadge status={b.status} />
-                </TableCell>
-                <TableCell>
-                  <FundingStatusBadge status={b.funding_status} bountyStatus={b.status} />
-                </TableCell>
-                <TableCell className="text-right">
-                  <Reward b={b} />
-                </TableCell>
-                <TableCell className="hidden text-right tabular-nums xl:table-cell">
-                  {formatNumber(b.applications_count)}
-                </TableCell>
-                <TableCell>
-                  <Deadline iso={b.application_deadline} />
-                </TableCell>
-                <TableCell className="pr-5 text-right">
-                  <RowActions b={b} role={role} />
-                </TableCell>
+          {groups.map((g) => (
+            <TableBody key={g.status} className="[&_tr:last-child]:border-b last:[&_tr:last-child]:border-0">
+              <TableRow className="bg-surface/50 hover:bg-surface/50">
+                <TableHead colSpan={COLUMNS} scope="colgroup" className="h-9 pl-5">
+                  <GroupLabel status={g.status} count={g.items.length} />
+                </TableHead>
               </TableRow>
-            ))}
-          </TableBody>
+              {g.items.map((b) => (
+                <TableRow key={b.id}>
+                  <TableCell className="max-w-md min-w-60 pl-5 whitespace-normal">
+                    <Link to={primaryHref(b, role)} className="line-clamp-1 font-medium hover:underline">
+                      {b.title}
+                    </Link>
+                    <div className="text-xs text-muted-foreground">
+                      Created {formatRelative(b.created_at)}
+                    </div>
+                  </TableCell>
+                  <TableCell>
+                    <BountyStatusBadge status={b.status} />
+                  </TableCell>
+                  <TableCell>
+                    <FundingStatusBadge status={b.funding_status} bountyStatus={b.status} />
+                  </TableCell>
+                  <TableCell className="text-right">
+                    <Reward b={b} />
+                  </TableCell>
+                  <TableCell className="hidden text-right tabular-nums xl:table-cell">
+                    {formatNumber(b.applications_count)}
+                  </TableCell>
+                  <TableCell>
+                    <Deadline iso={b.application_deadline} />
+                  </TableCell>
+                  <TableCell className="pr-5 text-right">
+                    <RowActions b={b} role={role} />
+                  </TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          ))}
         </Table>
       </div>
 
-      <ul className="divide-y lg:hidden" aria-label="My bounties">
-        {rows.map((b) => (
-          <li key={b.id} className="space-y-2 px-4 py-3.5">
-            <div className="flex items-start justify-between gap-2">
-              <Link to={primaryHref(b, role)} className="min-w-0 pt-1 text-sm font-medium hover:underline">
-                {b.title}
-              </Link>
-              <RowActions b={b} role={role} />
+      {/* Below lg: the same groups as compact cards, one column of the board after another. */}
+      <ul className="space-y-5 p-4 lg:hidden" aria-label="My bounties">
+        {groups.map((g) => (
+          <li key={g.status}>
+            <div className="mb-2.5 px-0.5">
+              <GroupLabel status={g.status} count={g.items.length} />
             </div>
-            <div className="flex flex-wrap gap-1.5">
-              <BountyStatusBadge status={b.status} />
-              <FundingStatusBadge status={b.funding_status} bountyStatus={b.status} />
-            </div>
-            <MetaList>
-              <span className="text-foreground">
-                <Reward b={b} />
-              </span>
-              <span className="tabular-nums">
-                {b.applications_count} applicant{b.applications_count === 1 ? '' : 's'}
-              </span>
-              <span>
-                {b.application_deadline ? `Closes ${formatDate(b.application_deadline)}` : 'No deadline'}
-              </span>
-            </MetaList>
+            <ul className="grid gap-2.5 sm:grid-cols-2">
+              {g.items.map((b) => (
+                <li key={b.id} className="min-w-0 overflow-hidden rounded-lg border bg-card shadow-soft">
+                  <div className="flex items-start justify-between gap-2 px-4 pt-3">
+                    <Link
+                      to={primaryHref(b, role)}
+                      className="min-w-0 pt-1.5 text-sm leading-snug font-medium hover:underline"
+                    >
+                      {b.title}
+                    </Link>
+                    <div className="-mr-2 shrink-0">
+                      <RowActions b={b} role={role} />
+                    </div>
+                  </div>
+                  <MetaList className="px-4 pt-1.5 pb-3">
+                    <span className="text-foreground">
+                      <Reward b={b} />
+                    </span>
+                    <span className="tabular-nums">
+                      {b.applications_count} applicant{b.applications_count === 1 ? '' : 's'}
+                    </span>
+                    <span>
+                      {b.application_deadline
+                        ? `Closes ${formatDate(b.application_deadline)}`
+                        : 'No deadline'}
+                    </span>
+                  </MetaList>
+                  <div className="flex flex-wrap items-center gap-1.5 border-t bg-surface/40 px-4 py-2">
+                    <BountyStatusBadge status={b.status} />
+                    <FundingStatusBadge status={b.funding_status} bountyStatus={b.status} />
+                    <time
+                      dateTime={b.created_at}
+                      title={`Created ${formatDate(b.created_at)}`}
+                      className="ml-auto text-xs text-muted-foreground"
+                    >
+                      {formatRelative(b.created_at)}
+                    </time>
+                  </div>
+                </li>
+              ))}
+            </ul>
           </li>
         ))}
       </ul>

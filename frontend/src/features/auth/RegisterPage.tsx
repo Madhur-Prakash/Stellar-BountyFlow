@@ -200,7 +200,13 @@ export default function RegisterPage() {
             )}
           />
           <FormErrorAlert message={formError} />
-          <Button type="submit" size="lg" className="mt-1 w-full" disabled={register.isPending}>
+          <Button
+            type="submit"
+            variant="inverse"
+            size="pill"
+            className="mt-2 w-full"
+            disabled={register.isPending}
+          >
             {register.isPending && <LoaderCircle className="animate-spin" aria-hidden />}
             Create account
           </Button>

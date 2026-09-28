@@ -7,6 +7,9 @@ import { cn } from '@/lib/utils'
 
 import { PASSWORD_MIN, passwordStrength } from './schemas'
 
+/** Auth fields are a touch taller than app fields (40px), to sit with the 44px pill button. */
+const FIELD = 'peer h-10 rounded-lg bg-card dark:bg-input/25'
+
 const LEAD_ICON =
   'pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-muted-foreground transition-colors peer-focus-visible:text-foreground peer-aria-invalid:text-destructive'
 
@@ -20,7 +23,7 @@ export function IconInput({
 }: ComponentProps<typeof Input> & { icon: LucideIcon }) {
   return (
     <div className="relative">
-      <Input {...props} className={cn('peer bg-card pl-9', className)} />
+      <Input {...props} className={cn(FIELD, 'pl-9', className)} />
       <Icon className={LEAD_ICON} aria-hidden />
     </div>
   )
@@ -30,17 +33,13 @@ export function PasswordInput({ className, ...props }: ComponentProps<typeof Inp
   const [visible, setVisible] = useState(false)
   return (
     <div className="relative">
-      <Input
-        {...props}
-        type={visible ? 'text' : 'password'}
-        className={cn('peer bg-card pr-10 pl-9', className)}
-      />
+      <Input {...props} type={visible ? 'text' : 'password'} className={cn(FIELD, 'pr-11 pl-9', className)} />
       <LockKeyhole className={LEAD_ICON} aria-hidden />
       <Button
         type="button"
         variant="ghost"
-        size="icon-xs"
-        className="absolute top-1/2 right-1 -translate-y-1/2 text-muted-foreground"
+        size="icon-sm"
+        className="absolute top-1/2 right-1 -translate-y-1/2 rounded-md text-muted-foreground hover:text-foreground"
         onClick={() => setVisible((v) => !v)}
         aria-label={visible ? 'Hide password' : 'Show password'}
         aria-pressed={visible}

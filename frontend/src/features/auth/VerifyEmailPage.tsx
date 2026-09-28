@@ -14,7 +14,7 @@ function ResendButton() {
   const resend = useResendVerification()
   if (!me) {
     return (
-      <Button asChild variant="outline" className="w-full">
+      <Button asChild variant="outline" size="pill" className="w-full">
         <Link to="/login?next=%2Fverify-email">Sign in to resend the email</Link>
       </Button>
     )
@@ -23,6 +23,7 @@ function ResendButton() {
   return (
     <Button
       variant="outline"
+      size="pill"
       className="w-full"
       disabled={resend.isPending || resend.isSuccess}
       onClick={() =>
@@ -61,7 +62,7 @@ export default function VerifyEmailPage() {
           title="Email verified"
           description="Your email is already confirmed."
         >
-          <Button asChild className="w-full">
+          <Button asChild variant="inverse" size="pill" className="w-full">
             <Link to="/app">Go to dashboard</Link>
           </Button>
         </AuthCard>
@@ -101,7 +102,7 @@ export default function VerifyEmailPage() {
         title="Email verified"
         description="You can now publish bounties."
       >
-        <Button asChild className="w-full">
+        <Button asChild variant="inverse" size="pill" className="w-full">
           <Link to={me ? '/app' : '/login'}>{me ? 'Continue to dashboard' : 'Sign in'}</Link>
         </Button>
       </AuthCard>

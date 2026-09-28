@@ -111,7 +111,13 @@ export default function LoginPage() {
             )}
           />
           <FormErrorAlert message={formError} />
-          <Button type="submit" size="lg" className="mt-1 w-full" disabled={login.isPending}>
+          <Button
+            type="submit"
+            variant="inverse"
+            size="pill"
+            className="mt-2 w-full"
+            disabled={login.isPending}
+          >
             {login.isPending && <LoaderCircle className="animate-spin" aria-hidden />}
             Sign in
           </Button>

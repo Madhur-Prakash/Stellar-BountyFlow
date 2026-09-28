@@ -1,9 +1,6 @@
-import { CircleAlert } from 'lucide-react'
 import { Link } from 'react-router'
 
-import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
-
-import { ProsePage, type ProseSection } from './ProsePage'
+import { ProseNote, ProsePage, type ProseSection } from './ProsePage'
 
 const SECTIONS: ProseSection[] = [
   {
@@ -115,14 +112,10 @@ export default function TermsPage() {
       intro="Plain-language terms for using BountyFlow."
       updated="September 2026"
       notice={
-        <Alert variant="warning">
-          <CircleAlert />
-          <AlertTitle>Not legal advice</AlertTitle>
-          <AlertDescription>
-            These terms are written in plain language to explain how BountyFlow works. They are not legal
-            advice.
-          </AlertDescription>
-        </Alert>
+        <ProseNote title="Not legal advice">
+          These terms are written in plain language to explain how BountyFlow works. They are not legal
+          advice.
+        </ProseNote>
       }
       sections={SECTIONS}
     />

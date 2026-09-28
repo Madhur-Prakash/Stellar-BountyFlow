@@ -16,6 +16,7 @@ import {
 import { Badge } from '@/components/ui/badge'
 import type { BountyStatus } from '@/lib/api/types'
 import { BOUNTY_STATUS_LABELS } from '@/lib/format'
+import { cn } from '@/lib/utils'
 
 type Variant = 'success' | 'warning' | 'danger' | 'info' | 'muted' | 'cyan'
 
@@ -31,6 +32,25 @@ const MAP: Record<BountyStatus, { variant: Variant; icon: LucideIcon }> = {
   CANCELLED: { variant: 'muted', icon: CircleSlash },
   DISPUTED: { variant: 'danger', icon: CircleAlert },
   EXPIRED: { variant: 'muted', icon: TimerOff },
+}
+
+const DOT: Record<Variant, string> = {
+  success: 'bg-success',
+  warning: 'bg-warning',
+  danger: 'bg-destructive',
+  info: 'bg-primary',
+  muted: 'bg-muted-foreground/70',
+  cyan: 'bg-cyan',
+}
+
+/** The status colour as a small dot, for group and column headers (never as a chip). */
+export function BountyStatusDot({ status, className }: { status: BountyStatus; className?: string }) {
+  return (
+    <span
+      aria-hidden
+      className={cn('inline-block size-2 shrink-0 rounded-full', DOT[MAP[status].variant], className)}
+    />
+  )
 }
 
 export function BountyStatusBadge({ status, className }: { status: BountyStatus; className?: string }) {

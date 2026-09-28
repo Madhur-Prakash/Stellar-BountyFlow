@@ -29,11 +29,11 @@ const vertex = /* glsl */ `
   varying float vDepth;
   void main() {
     vec3 p = position;
-    p.y = sin(p.x * 1.1 + uTime * 0.6) * 0.12 + sin(p.z * 1.7 + uTime * 0.45) * 0.08;
+    p.y = sin(p.x * 1.1 + uTime * 0.6) * 0.15 + sin(p.z * 1.7 + uTime * 0.45) * 0.09;
     vec4 mv = modelViewMatrix * vec4(p, 1.0);
     vDepth = clamp((-mv.z - 1.0) / 4.5, 0.0, 1.0);
     gl_Position = projectionMatrix * mv;
-    gl_PointSize = 3.2 * uPixelRatio / -mv.z * 2.0;
+    gl_PointSize = 4.2 * uPixelRatio / -mv.z * 2.0;
   }
 `
 const fragment = /* glsl */ `
@@ -66,7 +66,7 @@ function Field({ theme }: { theme: ThreeTheme }) {
     const m = material.current
     if (!m) return
     m.uniforms.uColor.value.set(theme.primary)
-    m.uniforms.uOpacity.value = theme.dark ? 0.55 : 0.45
+    m.uniforms.uOpacity.value = theme.dark ? 0.75 : 0.4
     m.uniforms.uPixelRatio.value = pixelRatio
     invalidate()
   }, [theme, pixelRatio, invalidate])

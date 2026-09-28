@@ -1,7 +1,7 @@
 import { Info } from 'lucide-react'
+import type { ReactNode } from 'react'
 import { Link } from 'react-router'
 
-import { StatGrid, StatTile } from '@/components/common/StatTile'
 import { Bones } from '@/components/layout/Bones'
 import { ErrorState } from '@/components/layout/ErrorState'
 import { PageContainer } from '@/components/layout/PageContainer'
@@ -12,6 +12,7 @@ import type { PublicStats } from '@/lib/api/types'
 import { formatDateTime, formatNumber, humanize } from '@/lib/format'
 import { formatAmount, isZeroAmount } from '@/lib/money'
 import { networkDisplayName } from '@/lib/stellar/explorer'
+import { cn } from '@/lib/utils'
 
 import { SectionHeading } from './SectionHeading'
 
@@ -48,7 +49,7 @@ function Methodology({ methodology }: { methodology: Record<string, string> }) {
   return (
     <Popover>
       <PopoverTrigger asChild>
-        <Button variant="ghost" size="sm" className="text-muted-foreground">
+        <Button variant="outline" size="pill" className="text-muted-foreground hover:text-foreground">
           <Info /> How we count
         </Button>
       </PopoverTrigger>
@@ -73,17 +74,34 @@ function Methodology({ methodology }: { methodology: Record<string, string> }) {
   )
 }
 
-function Tiles({ data }: { data?: PublicStats }) {
+/** One figure in the grid: a label on top and the number set large and light below it. */
+function Figure({ label, value, className }: { label: string; value: ReactNode; className?: string }) {
   return (
-    <StatGrid className="grid-cols-2 lg:grid-cols-5">
-      <StatTile
+    <div
+      className={cn(
+        'flex min-h-40 flex-col justify-between gap-8 bg-card px-5 py-6 sm:px-7 sm:py-7',
+        className,
+      )}
+    >
+      <dt className="text-[0.9375rem] text-muted-foreground">{label}</dt>
+      <dd className="text-[2.25rem] leading-none font-normal tracking-[-0.03em] tabular-nums sm:text-[2.75rem]">
+        {value}
+      </dd>
+    </div>
+  )
+}
+
+function Figures({ data }: { data?: PublicStats }) {
+  return (
+    <dl className="grid grid-cols-2 gap-px overflow-hidden rounded-2xl border bg-border lg:grid-cols-5">
+      <Figure
         className="col-span-2 lg:col-span-1"
         label="Verified payout volume"
         value={
           data ? (
             <>
-              {formatAmount(data.verified_payout_volume, { maxDecimals: 2 })}{' '}
-              <span className="text-sm font-normal text-muted-foreground">XLM</span>
+              {formatAmount(data.verified_payout_volume, { maxDecimals: 2 })}
+              <span className="ml-2 text-base tracking-normal text-muted-foreground">XLM</span>
             </>
           ) : (
             '—'
@@ -91,47 +109,48 @@ function Tiles({ data }: { data?: PublicStats }) {
         }
       />
       {SHOWN.map(({ key, label }) => (
-        <StatTile key={key} label={label} value={data ? formatNumber(data[key]) : '—'} />
+        <Figure key={key} label={label} value={data ? formatNumber(data[key]) : '—'} />
       ))}
-    </StatGrid>
+    </dl>
   )
 }
 
-/** Real platform numbers from GET /analytics/public. Zeros are shown as zeros. */
+/** Real platform numbers from GET /analytics/public, in a hairline grid. Zeros are shown as zeros. */
 export function PlatformStats() {
   const { data, isPending, isError, error, refetch } = usePublicStats()
   const allZero =
     !!data && COUNTS.every((key) => data[key] === 0) && isZeroAmount(data.verified_payout_volume || '0')
 
   return (
-    <section aria-labelledby="stats-title" className="py-12 sm:py-14">
+    <section aria-labelledby="stats-title" className="py-16 sm:py-20">
       <PageContainer>
         <SectionHeading
           id="stats-title"
+          label="Live figures"
           title="Activity on BountyFlow"
           description="Payouts are counted once they are confirmed on Stellar."
           actions={data && <Methodology methodology={data.methodology} />}
         />
-        <div className="mt-6" aria-live="polite">
+        <div className="mt-10" aria-live="polite">
           {isError ? (
             <ErrorState error={error} title="Statistics are unavailable" onRetry={() => refetch()} />
           ) : (
-            <Bones name="platform-stats" loading={isPending} fallback={<Tiles />}>
+            <Bones name="platform-stats" loading={isPending} fallback={<Figures />}>
               {data && (
                 <>
-                  <Tiles data={data} />
-                  <p className="mt-3 text-xs text-muted-foreground">
+                  <Figures data={data} />
+                  <p className="mt-4 text-sm text-muted-foreground">
                     Stellar {networkDisplayName(data.network)}. {formatNumber(data.successful_transactions)}{' '}
                     confirmed transactions from {formatNumber(data.unique_transacting_wallets)} wallets.
                     Updated <time dateTime={data.generated_at}>{formatDateTime(data.generated_at)}</time>.
                   </p>
                   {allZero && (
-                    <div className="mt-6 flex flex-col items-start gap-3 rounded-xl border bg-card p-5 sm:flex-row sm:items-center sm:justify-between">
-                      <p className="text-sm">
+                    <div className="mt-6 flex flex-col items-start gap-3 rounded-2xl border bg-card p-6 sm:flex-row sm:items-center sm:justify-between">
+                      <p className="text-[0.9375rem]">
                         Nothing has settled on this network yet. The first funded bounty starts every number
                         above.
                       </p>
-                      <Button asChild size="sm">
+                      <Button asChild variant="inverse" size="pill">
                         <Link to="/app/bounties/create">Post the first bounty</Link>
                       </Button>
                     </div>

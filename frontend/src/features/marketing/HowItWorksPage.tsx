@@ -2,6 +2,7 @@ import { BookOpen, Search } from 'lucide-react'
 import { Link } from 'react-router'
 
 import { PageContainer } from '@/components/layout/PageContainer'
+import { MonoLabel } from '@/components/marketing'
 import { Button } from '@/components/ui/button'
 
 import { CallToAction } from './landing/CallToAction'
@@ -11,27 +12,26 @@ import { HowItWorks } from './landing/HowItWorks'
 export default function HowItWorksPage() {
   return (
     <>
-      <section className="relative isolate overflow-hidden border-b">
-        <div
-          aria-hidden
-          className="pointer-events-none absolute inset-x-0 top-0 -z-10 h-80 bg-[radial-gradient(60%_70%_at_50%_0%,color-mix(in_oklab,var(--primary)_8%,transparent),transparent)]"
-        />
-        <PageContainer className="py-14 sm:py-20">
-          <h1 className="font-display max-w-3xl text-[2.125rem] leading-[1.1] sm:text-[2.625rem]">
+      <section aria-labelledby="how-page-title">
+        <PageContainer className="flex flex-col items-center pt-16 pb-12 text-center sm:pt-28 sm:pb-16">
+          <MonoLabel>How it works</MonoLabel>
+          <h1
+            id="how-page-title"
+            className="mt-5 max-w-4xl text-[2.5rem] leading-[1.02] font-normal tracking-[-0.02em] sm:text-[3.75rem] lg:text-[4.5rem]"
+          >
             From posted task to verified payout
           </h1>
-          <p className="mt-4 max-w-2xl text-[1.0625rem] leading-relaxed text-muted-foreground">
-            Every bounty follows the same lifecycle. The difference from a regular job board is that the
-            reward is locked in a smart contract before work begins, and every movement of money leaves a
-            public record.
+          <p className="mt-6 max-w-2xl text-lg leading-[1.6] text-muted-foreground sm:text-xl">
+            Every bounty follows the same lifecycle. The reward is locked in a smart contract before work
+            begins, and every movement of money leaves a public record.
           </p>
-          <div className="mt-8 flex flex-wrap gap-3">
-            <Button asChild>
+          <div className="mt-10 flex flex-wrap justify-center gap-3">
+            <Button asChild variant="inverse" size="pill">
               <Link to="/bounties">
                 <Search /> Browse bounties
               </Link>
             </Button>
-            <Button asChild variant="outline">
+            <Button asChild variant="outline" size="pill">
               <Link to="/guide">
                 <BookOpen /> Read the guide
               </Link>

@@ -252,7 +252,7 @@ function AdminAreas({ me }: { me: Me | null | undefined }) {
 function CountGroup({ group, data }: { group: (typeof COUNT_GROUPS)[number]; data: AdminOverview }) {
   return (
     <section aria-labelledby={`overview-${group.id}`} className="min-w-0">
-      <h2 id={`overview-${group.id}`} className="mb-2.5 text-[0.9375rem] font-semibold">
+      <h2 id={`overview-${group.id}`} className="label-mono mb-2.5">
         {group.title}
       </h2>
       <StatGrid className={group.grid}>

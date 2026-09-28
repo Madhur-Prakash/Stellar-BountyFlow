@@ -6,6 +6,7 @@ import { useFrameloop } from './useFrameloop'
 import { useThreeTheme, type ThreeTheme } from './useThreeTheme'
 
 const RADIUS = 1
+/** Dots on the sphere by default; a larger canvas wants more so the lattice stays fine. */
 const DOT_COUNT = 2400
 
 /** Points spread evenly over a sphere (Fibonacci lattice). */
@@ -87,22 +88,32 @@ const dotFragment = /* glsl */ `
   }
 `
 
-function Globe({ theme }: { theme: ThreeTheme }) {
+function Globe({
+  theme,
+  density,
+  dotSize,
+  markerScale,
+}: {
+  theme: ThreeTheme
+  density: number
+  dotSize: number
+  markerScale: number
+}) {
   const group = useRef<THREE.Group>(null)
   const dotMaterial = useRef<THREE.ShaderMaterial>(null)
   const pulses = useRef<(THREE.Mesh | null)[]>([])
   const pixelRatio = useThree((s) => s.viewport.dpr)
   const invalidate = useThree((s) => s.invalidate)
 
-  const positions = useMemo(() => spherePoints(DOT_COUNT, RADIUS), [])
+  const positions = useMemo(() => spherePoints(density, RADIUS), [density])
   const uniforms = useMemo(
     () => ({
       uColor: { value: new THREE.Color('#6b6b75') },
       uOpacity: { value: 0.5 },
-      uSize: { value: 5 },
+      uSize: { value: dotSize },
       uPixelRatio: { value: 1 },
     }),
-    [],
+    [dotSize],
   )
   const arcs = useMemo(
     () =>
@@ -143,7 +154,7 @@ function Globe({ theme }: { theme: ThreeTheme }) {
   return (
     <group ref={group} rotation={[0.3, -1.1, 0.08]}>
       <points>
-        <bufferGeometry>
+        <bufferGeometry key={density}>
           <bufferAttribute attach="attributes-position" args={[positions, 3]} />
         </bufferGeometry>
         <shaderMaterial
@@ -157,13 +168,18 @@ function Globe({ theme }: { theme: ThreeTheme }) {
       </points>
       {arcs.map((curve, i) => (
         <mesh key={i}>
-          <tubeGeometry args={[curve, 64, 0.0022, 6, false]} />
-          <meshBasicMaterial color={theme.primary} transparent opacity={0.35} depthWrite={false} />
+          <tubeGeometry args={[curve, 64, 0.0022 * markerScale, 6, false]} />
+          <meshBasicMaterial
+            color={theme.primary}
+            transparent
+            opacity={markerScale < 1 ? 0.28 : 0.35}
+            depthWrite={false}
+          />
         </mesh>
       ))}
       {hubs.map((position, i) => (
         <mesh key={i} position={position}>
-          <sphereGeometry args={[0.012, 12, 12]} />
+          <sphereGeometry args={[0.012 * markerScale, 12, 12]} />
           <meshBasicMaterial color={theme.primary} />
         </mesh>
       ))}
@@ -174,7 +190,7 @@ function Globe({ theme }: { theme: ThreeTheme }) {
             pulses.current[i] = m
           }}
         >
-          <sphereGeometry args={[0.014, 12, 12]} />
+          <sphereGeometry args={[0.014 * markerScale, 12, 12]} />
           <meshBasicMaterial color={theme.primary} transparent opacity={0} depthWrite={false} />
         </mesh>
       ))}
@@ -184,10 +200,23 @@ function Globe({ theme }: { theme: ThreeTheme }) {
 
 /**
  * A slowly turning dotted globe with arcs and travelling pulses: a quiet picture of payments moving across a
- * global network. Decorative only (hidden from assistive technology). It stops drawing while off screen and is
+ * global network, rising behind the landing page's Stellar stack. Decorative only (hidden from assistive technology). It stops drawing while off screen and is
  * a still frame under reduced motion.
  */
-export default function PaymentsGlobe({ className }: { className?: string }) {
+export default function PaymentsGlobe({
+  className,
+  density = DOT_COUNT,
+  dotSize = 5,
+  markerScale = 1,
+}: {
+  className?: string
+  /** How many dots make up the sphere. */
+  density?: number
+  /** Dot size before perspective. */
+  dotSize?: number
+  /** Size of the hubs, pulses and arcs relative to the default; below 1 for a globe drawn very large. */
+  markerScale?: number
+}) {
   const host = useRef<HTMLDivElement>(null)
   const frameloop = useFrameloop(host)
   const theme = useThreeTheme()
@@ -199,7 +228,7 @@ export default function PaymentsGlobe({ className }: { className?: string }) {
         camera={{ position: [0, 0, 3.05], fov: 40 }}
         gl={{ antialias: true, alpha: true, powerPreference: 'low-power' }}
       >
-        <Globe theme={theme} />
+        <Globe theme={theme} density={density} dotSize={dotSize} markerScale={markerScale} />
       </Canvas>
     </div>
   )

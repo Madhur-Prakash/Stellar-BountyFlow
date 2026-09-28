@@ -75,8 +75,8 @@ export function PaginationBar({
                   aria-label={`Page ${p}`}
                   aria-current={p === page ? 'page' : undefined}
                   className={cn(
-                    'text-[0.8125rem] tabular-nums',
-                    p === page ? 'bg-card font-semibold text-foreground' : 'text-muted-foreground',
+                    'font-mono text-[0.75rem] tabular-nums',
+                    p === page ? 'bg-card font-medium text-foreground' : 'text-muted-foreground',
                   )}
                 >
                   {p}

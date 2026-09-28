@@ -80,7 +80,7 @@ function StatLink({
 
 function SectionLabel({ id, children }: { id: string; children: string }) {
   return (
-    <h2 id={id} className="mb-2.5 text-[0.8125rem] font-medium text-muted-foreground">
+    <h2 id={id} className="label-mono mb-2.5">
       {children}
     </h2>
   )

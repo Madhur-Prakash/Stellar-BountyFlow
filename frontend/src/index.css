@@ -269,7 +269,8 @@
   }
 }
 
-@layer utilities {
+/* Type roles live below the utilities layer, so utilities such as font-light or tracking-tight can adjust them. */
+@layer components {
   /* Headlines: Geist, medium weight, tight tracking. Large marketing headlines drop to regular weight at the
      call site; sizes come from the call site. */
   .font-display {
@@ -291,6 +292,9 @@
     font-variant-numeric: tabular-nums;
     letter-spacing: -0.012em;
   }
+}
+
+@layer utilities {
   .text-balance {
     text-wrap: balance;
   }

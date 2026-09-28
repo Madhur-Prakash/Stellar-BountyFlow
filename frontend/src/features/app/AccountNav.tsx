@@ -87,18 +87,18 @@ export function AccountLayout({ children }: { children: ReactNode }) {
         <div className="space-y-5">
           {GROUPS.map((g) => (
             <div key={g.path}>
-              <p className="px-2.5 text-xs font-medium text-muted-foreground">{g.label}</p>
-              <ul className="mt-1.5 space-y-0.5">
+              <p className="label-mono px-2.5 text-[0.75rem]">{g.label}</p>
+              <ul className="mt-1.5 space-y-px">
                 {g.sections.map((s) => (
                   <li key={s.id}>
                     <Link
                       to={`${g.path}#${s.id}`}
                       aria-current={isActive(g, s) ? 'location' : undefined}
                       className={cn(
-                        'flex h-8 items-center gap-2 rounded-md px-2.5 text-sm transition-colors',
+                        'flex h-8 items-center gap-2.5 rounded-md px-2.5 text-[0.84375rem] transition-colors [&>svg]:text-muted-foreground',
                         isActive(g, s)
-                          ? 'bg-muted font-medium text-foreground [&>svg]:text-primary'
-                          : 'text-muted-foreground hover:bg-muted/60 hover:text-foreground',
+                          ? 'bg-muted font-medium text-foreground shadow-[inset_0_0_0_1px_var(--border)] dark:shadow-none [&>svg]:text-primary-emphasis'
+                          : 'text-foreground/80 hover:bg-muted/60 hover:text-foreground',
                       )}
                     >
                       <s.icon className="size-4 shrink-0" aria-hidden />

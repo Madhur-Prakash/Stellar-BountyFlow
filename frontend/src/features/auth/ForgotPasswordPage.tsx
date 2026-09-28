@@ -43,7 +43,7 @@ export default function ForgotPasswordPage() {
   if (sent) {
     return (
       <AuthCard icon={MailCheck} title="Check your email" description={GENERIC_MESSAGE}>
-        <Button asChild variant="outline" className="w-full">
+        <Button asChild variant="outline" size="pill" className="w-full">
           <Link to="/login">Back to sign in</Link>
         </Button>
       </AuthCard>
@@ -86,7 +86,13 @@ export default function ForgotPasswordPage() {
             )}
           />
           <FormErrorAlert message={formError} />
-          <Button type="submit" size="lg" className="mt-1 w-full" disabled={forgot.isPending}>
+          <Button
+            type="submit"
+            variant="inverse"
+            size="pill"
+            className="mt-2 w-full"
+            disabled={forgot.isPending}
+          >
             {forgot.isPending && <LoaderCircle className="animate-spin" aria-hidden />}
             Send reset link
           </Button>

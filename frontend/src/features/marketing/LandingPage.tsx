@@ -6,14 +6,16 @@ import { Hero } from './landing/Hero'
 import { HowItWorks } from './landing/HowItWorks'
 import { OpenBounties } from './landing/OpenBounties'
 import { PlatformStats } from './landing/PlatformStats'
+import { StackStrip } from './landing/StackStrip'
 
 export default function LandingPage() {
   return (
     <>
       <Hero />
+      <StackStrip />
       <PlatformStats />
       <OpenBounties />
-      <HowItWorks className="border-t" />
+      <HowItWorks />
       <EscrowExplainer />
       <Benefits />
       <Faq />

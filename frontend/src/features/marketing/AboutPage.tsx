@@ -4,6 +4,7 @@ import { Link } from 'react-router'
 
 import { GithubMark } from '@/components/brand/GithubMark'
 import { PageContainer } from '@/components/layout/PageContainer'
+import { AppWindow, Atmosphere, MonoLabel } from '@/components/marketing'
 import { Button } from '@/components/ui/button'
 import { Skeleton } from '@/components/ui/skeleton'
 import { usePublicStats } from '@/lib/api/queries/analytics'
@@ -14,7 +15,6 @@ import { SITE } from '@/lib/site'
 import { contractExplorerUrl, networkDisplayName } from '@/lib/stellar/explorer'
 
 import { CallToAction } from './landing/CallToAction'
-import { SECTION, SectionHeading } from './landing/SectionHeading'
 
 const PRINCIPLES = [
   {
@@ -52,11 +52,12 @@ function short(value: string) {
   return `${value.slice(0, 6)}…${value.slice(-6)}`
 }
 
+/** One cell of the facts grid: a label above its value. */
 function Fact({ label, children }: { label: string; children: ReactNode }) {
   return (
-    <div className="flex items-center justify-between gap-4 py-3">
-      <dt className="text-sm text-muted-foreground">{label}</dt>
-      <dd className="text-right text-sm font-medium">{children}</dd>
+    <div className="flex min-w-0 flex-col gap-1.5 bg-card px-4 py-4 sm:px-5 sm:py-5">
+      <dt className="text-[0.8125rem] text-muted-foreground">{label}</dt>
+      <dd className="min-w-0 truncate text-[1.0625rem] font-medium">{children}</dd>
     </div>
   )
 }
@@ -68,50 +69,83 @@ function AtAGlance() {
   const contractHref = config?.contract_id
     ? (config.contract_explorer_url ?? contractExplorerUrl(config, config.contract_id))
     : null
-  const figure = (value: ReactNode) => (isPending ? <Skeleton className="ml-auto h-4 w-14" /> : value)
+  const figure = (value: ReactNode) => (isPending ? <Skeleton className="h-6 w-16" /> : value)
 
   return (
-    <aside aria-labelledby="glance-title" className="rounded-xl border bg-card shadow-soft">
-      <h2 id="glance-title" className="border-b px-5 py-4 text-[0.9375rem] font-semibold">
-        At a glance
-      </h2>
-      <dl className="divide-y px-5">
-        <Fact label="Network">
-          {config ? `Stellar ${networkDisplayName(config.network, config.blockchain_mode)}` : '—'}
-        </Fact>
-        <Fact label="Escrow contract">
-          {config?.contract_id ? (
-            contractHref ? (
-              <a
-                href={contractHref}
-                target="_blank"
-                rel="noopener noreferrer"
-                aria-label={`Escrow contract ${config.contract_id} on the Stellar explorer`}
-                className="inline-flex items-center gap-1 font-mono text-[0.8125rem] hover:underline"
-              >
-                {short(config.contract_id)} <ExternalLink className="size-3" aria-hidden />
-              </a>
+    <aside aria-labelledby="glance-title">
+      <AppWindow
+        className="rounded-b-none border-b-0"
+        title={
+          <h2 id="glance-title" className="text-[0.8125rem] font-medium">
+            At a glance
+          </h2>
+        }
+      >
+        <dl className="grid grid-cols-1 gap-px bg-border min-[420px]:grid-cols-2">
+          <Fact label="Network">
+            {config ? `Stellar ${networkDisplayName(config.network, config.blockchain_mode)}` : '—'}
+          </Fact>
+          <Fact label="Escrow contract">
+            {config?.contract_id ? (
+              contractHref ? (
+                <a
+                  href={contractHref}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  aria-label={`Escrow contract ${config.contract_id} on the Stellar explorer`}
+                  className="inline-flex items-center gap-1.5 font-mono text-[0.875rem] font-normal hover:underline"
+                >
+                  {short(config.contract_id)} <ExternalLink className="size-3.5" aria-hidden />
+                </a>
+              ) : (
+                <span className="font-mono text-[0.875rem] font-normal">{short(config.contract_id)}</span>
+              )
             ) : (
-              <span className="font-mono text-[0.8125rem]">{short(config.contract_id)}</span>
-            )
-          ) : (
-            '—'
-          )}
-        </Fact>
-        <Fact label="Dispute arbiter">
-          {config?.arbiter_address ? (
-            <span className="font-mono text-[0.8125rem]">{short(config.arbiter_address)}</span>
-          ) : (
-            '—'
-          )}
-        </Fact>
-        <Fact label="Bounties published">{figure(stats ? formatNumber(stats.published_bounties) : '—')}</Fact>
-        <Fact label="Members">{figure(stats ? formatNumber(stats.registered_users) : '—')}</Fact>
-        <Fact label="Verified payouts">
-          {figure(stats ? `${formatAmount(stats.verified_payout_volume, { maxDecimals: 2 })} XLM` : '—')}
-        </Fact>
-      </dl>
+              '—'
+            )}
+          </Fact>
+          <Fact label="Dispute arbiter">
+            {config?.arbiter_address ? (
+              <span className="font-mono text-[0.875rem] font-normal">{short(config.arbiter_address)}</span>
+            ) : (
+              '—'
+            )}
+          </Fact>
+          <Fact label="Bounties published">
+            {figure(<span className="amount">{stats ? formatNumber(stats.published_bounties) : '—'}</span>)}
+          </Fact>
+          <Fact label="Members">
+            {figure(<span className="amount">{stats ? formatNumber(stats.registered_users) : '—'}</span>)}
+          </Fact>
+          <Fact label="Verified payouts">
+            {figure(
+              stats ? (
+                <>
+                  <span className="amount">
+                    {formatAmount(stats.verified_payout_volume, { maxDecimals: 2 })}
+                  </span>{' '}
+                  <span className="text-sm font-normal text-muted-foreground">XLM</span>
+                </>
+              ) : (
+                '—'
+              ),
+            )}
+          </Fact>
+        </dl>
+      </AppWindow>
     </aside>
+  )
+}
+
+/** A mono label and a section heading, as on the landing page. */
+function Heading({ id, label, title }: { id: string; label: string; title: string }) {
+  return (
+    <div className="max-w-3xl">
+      <MonoLabel>{label}</MonoLabel>
+      <h2 id={id} className="font-display mt-3 text-[2rem] leading-[1.1] tracking-tight sm:text-[2.5rem]">
+        {title}
+      </h2>
+    </div>
   )
 }
 
@@ -128,18 +162,16 @@ function List({
 }) {
   const Icon = tone === 'yes' ? Check : X
   return (
-    <div className="rounded-xl border bg-card shadow-soft">
-      <h3 id={id} className="border-b px-5 py-4 text-[0.9375rem] font-semibold">
+    <div className="bg-card">
+      <h3 id={id} className="border-b px-6 py-5 text-[1.0625rem] font-medium sm:px-8">
         {title}
       </h3>
-      <ul aria-labelledby={id} className="divide-y px-5">
+      <ul aria-labelledby={id} className="divide-y px-6 sm:px-8">
         {items.map((item) => (
-          <li key={item} className="flex items-start gap-3 py-3.5 text-sm">
+          <li key={item} className="flex items-start gap-3 py-4 text-[0.9375rem] leading-relaxed">
             <Icon
               className={
-                tone === 'yes'
-                  ? 'mt-0.5 size-4 shrink-0 text-success'
-                  : 'mt-0.5 size-4 shrink-0 text-destructive'
+                tone === 'yes' ? 'mt-1 size-4 shrink-0 text-success' : 'mt-1 size-4 shrink-0 text-destructive'
               }
               aria-hidden
             />
@@ -154,22 +186,22 @@ function List({
 export default function AboutPage() {
   return (
     <>
-      <section className="relative isolate overflow-hidden border-b">
-        <div
-          aria-hidden
-          className="pointer-events-none absolute inset-x-0 top-0 -z-10 h-80 bg-[radial-gradient(60%_70%_at_30%_0%,color-mix(in_oklab,var(--primary)_8%,transparent),transparent)]"
-        />
-        <PageContainer className="grid gap-10 py-14 sm:py-20 lg:grid-cols-[minmax(0,1.3fr)_minmax(0,1fr)] lg:gap-16">
+      <section aria-labelledby="about-title">
+        <PageContainer className="grid gap-12 pt-14 pb-16 sm:pt-24 sm:pb-24 lg:grid-cols-[minmax(0,1fr)_minmax(0,1.1fr)] lg:items-center lg:gap-16">
           <div className="max-w-2xl">
-            <h1 className="font-display text-[2.125rem] leading-[1.1] sm:text-[2.625rem]">
+            <MonoLabel>About</MonoLabel>
+            <h1
+              id="about-title"
+              className="mt-4 text-[2.5rem] leading-[1.02] font-normal tracking-[-0.02em] sm:text-[3.5rem] xl:text-[4.25rem]"
+            >
               Why we built BountyFlow
             </h1>
-            <div className="mt-6 space-y-4 text-[1.0625rem] leading-relaxed text-muted-foreground">
-              <p>
-                Paid open work, like bug fixes, audits, docs and design, usually runs on trust. A requester
-                promises a reward and the contributor hopes it arrives. When it doesn’t, there’s little
-                recourse.
-              </p>
+            <p className="mt-6 text-lg leading-[1.6] text-muted-foreground sm:text-xl">
+              Paid open work, like bug fixes, audits, docs and design, usually runs on trust. A requester
+              promises a reward and the contributor hopes it arrives. When it doesn’t, there’s little
+              recourse.
+            </p>
+            <div className="mt-5 space-y-4 text-base leading-7 text-muted-foreground">
               <p>
                 BountyFlow moves that promise into a Soroban smart contract on Stellar. Low fees and fast
                 finality make it practical to escrow even small rewards and pay them out as soon as work is
@@ -180,12 +212,12 @@ export default function AboutPage() {
                 call you can inspect on the explorer, using test XLM that has no monetary value.
               </p>
             </div>
-            <div className="mt-8 flex flex-wrap gap-3">
-              <Button asChild>
+            <div className="mt-9 flex flex-wrap gap-3">
+              <Button asChild variant="inverse" size="pill">
                 <Link to="/how-it-works">See how it works</Link>
               </Button>
               {SITE.githubUrl && (
-                <Button asChild variant="outline">
+                <Button asChild variant="outline" size="pill">
                   <a href={SITE.githubUrl} target="_blank" rel="noopener noreferrer nofollow">
                     <GithubMark /> View the source
                   </a>
@@ -193,33 +225,35 @@ export default function AboutPage() {
               )}
             </div>
           </div>
-          <div className="lg:pt-2">
+
+          <Atmosphere
+            tone="dusk"
+            className="px-4 pt-10 sm:px-12 sm:pt-14 lg:px-14 lg:pt-20 xl:px-16 xl:pt-24"
+          >
             <AtAGlance />
-          </div>
+          </Atmosphere>
         </PageContainer>
       </section>
 
-      <section aria-labelledby="principles-title" className={SECTION}>
+      <section aria-labelledby="principles-title" className="py-16 sm:py-24">
         <PageContainer>
-          <SectionHeading id="principles-title" title="What we hold ourselves to" />
-          <ul className="mt-8 grid gap-6 md:grid-cols-3">
+          <Heading id="principles-title" label="Principles" title="What we hold ourselves to" />
+          <ul className="mt-10 grid gap-px border bg-border sm:mt-12 md:grid-cols-3">
             {PRINCIPLES.map(({ icon: Icon, title, text }) => (
-              <li key={title} className="rounded-xl border bg-card p-6 shadow-soft">
-                <span className="flex size-9 items-center justify-center rounded-lg bg-primary/10 text-primary">
-                  <Icon className="size-4" aria-hidden />
-                </span>
-                <h3 className="mt-4 text-[0.9375rem] font-semibold">{title}</h3>
-                <p className="mt-1.5 text-sm leading-relaxed text-muted-foreground">{text}</p>
+              <li key={title} className="flex flex-col bg-card p-6 sm:p-8 md:min-h-60">
+                <Icon className="size-5 text-primary-emphasis" aria-hidden />
+                <h3 className="mt-8 text-[1.0625rem] font-medium md:mt-auto md:pt-12">{title}</h3>
+                <p className="mt-2 text-[0.9375rem] leading-relaxed text-muted-foreground">{text}</p>
               </li>
             ))}
           </ul>
         </PageContainer>
       </section>
 
-      <section aria-labelledby="scope-title" className="pb-16 sm:pb-20">
+      <section aria-labelledby="scope-title" className="pb-20 sm:pb-28">
         <PageContainer>
-          <SectionHeading id="scope-title" title="What BountyFlow does, and never does" />
-          <div className="mt-8 grid gap-6 lg:grid-cols-2">
+          <Heading id="scope-title" label="Scope" title="What BountyFlow does, and never does" />
+          <div className="mt-10 grid gap-px border bg-border sm:mt-12 lg:grid-cols-2">
             <List id="does-title" title="BountyFlow does" items={DOES} tone="yes" />
             <List id="never-title" title="BountyFlow never" items={NEVER} tone="no" />
           </div>

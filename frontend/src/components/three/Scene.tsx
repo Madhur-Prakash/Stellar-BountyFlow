@@ -1,9 +1,14 @@
-import { lazy, Suspense, useEffect, useState } from 'react'
+import { lazy, Suspense, useEffect, useState, type ComponentType, type LazyExoticComponent } from 'react'
 
 import { webglAvailable } from './useThreeTheme'
 
+/** Options a scene may use; each scene ignores the ones it has no use for. */
+export type SceneOptions = { density?: number; dotSize?: number; markerScale?: number }
+
+type SceneComponent = LazyExoticComponent<ComponentType<SceneOptions & { className?: string }>>
+
 // Three.js and React Three Fiber live in these chunks; nothing 3D is in a page's own bundle.
-const scenes = {
+const scenes: Record<'globe' | 'ledger', SceneComponent> = {
   globe: lazy(() => import('./PaymentsGlobe')),
   ledger: lazy(() => import('./LedgerField')),
 }
@@ -18,7 +23,11 @@ declare global {
  * A decorative WebGL scene, loaded after the page has settled and only where WebGL exists (and never while
  * skeletons are being captured). Until then, and wherever it can't run, nothing is drawn.
  */
-export function Scene({ name, className }: { name: keyof typeof scenes; className?: string }) {
+export function Scene({
+  name,
+  className,
+  ...options
+}: { name: keyof typeof scenes; className?: string } & SceneOptions) {
   const [ready, setReady] = useState(false)
   useEffect(() => {
     if (window.__BONEYARD_BUILD || !webglAvailable()) return
@@ -29,7 +38,7 @@ export function Scene({ name, className }: { name: keyof typeof scenes; classNam
   const Component = scenes[name]
   return (
     <Suspense fallback={null}>
-      <Component className={className} />
+      <Component className={className} {...options} />
     </Suspense>
   )
 }

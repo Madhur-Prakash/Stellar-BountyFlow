@@ -182,6 +182,10 @@ function Xlm({ amount }: { amount: string }) {
   )
 }
 
+/** Tabs as pills: the selected one filled, like the marketplace's layout switch. */
+const TAB =
+  'rounded-full px-4 data-active:bg-foreground data-active:text-background data-active:shadow-none dark:data-active:border-transparent dark:data-active:bg-foreground dark:data-active:text-background'
+
 function ProfileView({ profile }: { profile: PublicProfile }) {
   const s = profile.stats
   const github = safeUrl(profile.github_url)
@@ -190,49 +194,44 @@ function ProfileView({ profile }: { profile: PublicProfile }) {
     'inline-flex min-h-9 items-center gap-1.5 text-muted-foreground transition-colors hover:text-foreground'
 
   return (
-    <PageContainer className="py-8 sm:py-10">
-      <Card>
-        <CardContent className="flex flex-col gap-5 sm:flex-row sm:items-start">
-          <UserAvatar user={profile} className="size-16 text-base" />
-          <div className="min-w-0 flex-1">
-            <h1 className="font-display text-[1.5rem] leading-tight md:text-[1.625rem]">
-              {profile.display_name}
-            </h1>
-            <p className="text-sm text-muted-foreground">@{profile.username}</p>
-            {profile.bio && (
-              <p className="mt-3 max-w-2xl text-sm whitespace-pre-line text-foreground/90">{profile.bio}</p>
+    <PageContainer className="pt-10 pb-16 sm:pt-16 sm:pb-20">
+      <header className="flex flex-col gap-6 sm:flex-row sm:items-start sm:gap-8">
+        <UserAvatar user={profile} className="size-16 text-base sm:size-20 sm:text-lg" />
+        <div className="min-w-0 flex-1">
+          <h1 className="text-[2.25rem] leading-[1.05] font-normal tracking-[-0.02em] wrap-break-word sm:text-[3rem]">
+            {profile.display_name}
+          </h1>
+          <p className="mt-2 font-mono text-sm text-muted-foreground">@{profile.username}</p>
+          {profile.bio && (
+            <p className="mt-5 max-w-2xl text-base leading-relaxed whitespace-pre-line text-foreground/85 sm:text-[1.0625rem]">
+              {profile.bio}
+            </p>
+          )}
+          <SkillTags skills={profile.skills} className="mt-4" label="Skills" />
+          {profile.interests.length > 0 && (
+            <p className="mt-3 text-[0.8125rem] text-muted-foreground">
+              Interested in {profile.interests.join(', ')}
+            </p>
+          )}
+          <div className="mt-3 flex flex-wrap items-center gap-x-5 gap-y-0 text-[0.8125rem]">
+            <span className="inline-flex min-h-9 items-center gap-1.5 text-muted-foreground">
+              <CalendarDays className="size-4" aria-hidden /> Joined {formatDate(profile.joined_at)}
+            </span>
+            {github && (
+              <a href={github} target="_blank" rel="noopener noreferrer nofollow me" className={linkClass}>
+                <GithubMark /> GitHub
+              </a>
             )}
-            <SkillTags skills={profile.skills} className="mt-3" label="Skills" />
-            {profile.interests.length > 0 && (
-              <p className="mt-2 text-[0.8125rem] text-muted-foreground">
-                Interested in {profile.interests.join(', ')}
-              </p>
+            {portfolio && (
+              <a href={portfolio} target="_blank" rel="noopener noreferrer nofollow me" className={linkClass}>
+                <Globe className="size-4" aria-hidden /> Portfolio
+              </a>
             )}
-            <div className="mt-3 flex flex-wrap items-center gap-x-5 gap-y-0 text-[0.8125rem]">
-              <span className="inline-flex min-h-9 items-center gap-1.5 text-muted-foreground">
-                <CalendarDays className="size-4" aria-hidden /> Joined {formatDate(profile.joined_at)}
-              </span>
-              {github && (
-                <a href={github} target="_blank" rel="noopener noreferrer nofollow me" className={linkClass}>
-                  <GithubMark /> GitHub
-                </a>
-              )}
-              {portfolio && (
-                <a
-                  href={portfolio}
-                  target="_blank"
-                  rel="noopener noreferrer nofollow me"
-                  className={linkClass}
-                >
-                  <Globe className="size-4" aria-hidden /> Portfolio
-                </a>
-              )}
-            </div>
           </div>
-        </CardContent>
-      </Card>
+        </div>
+      </header>
 
-      <section aria-labelledby="stats-h" className="mt-6">
+      <section aria-labelledby="stats-h" className="mt-10 sm:mt-12">
         <h2 id="stats-h" className="sr-only">
           Marketplace stats
         </h2>
@@ -248,13 +247,13 @@ function ProfileView({ profile }: { profile: PublicProfile }) {
         </StatGrid>
       </section>
 
-      <div className="mt-8 grid gap-8 lg:grid-cols-[minmax(0,1fr)_20rem]">
+      <div className="mt-10 grid gap-8 lg:grid-cols-[minmax(0,1fr)_20rem] lg:gap-10">
         <Tabs defaultValue="bounties" className="min-w-0 gap-4">
-          <TabsList>
-            <TabsTrigger value="bounties" className="px-3">
+          <TabsList className="rounded-full border bg-card p-1">
+            <TabsTrigger value="bounties" className={TAB}>
               Created bounties
             </TabsTrigger>
-            <TabsTrigger value="contributions" className="px-3">
+            <TabsTrigger value="contributions" className={TAB}>
               Contribution history
             </TabsTrigger>
           </TabsList>
@@ -269,7 +268,7 @@ function ProfileView({ profile }: { profile: PublicProfile }) {
         <aside aria-label="Profile details" className="lg:pt-14">
           <Card className="gap-4">
             <CardHeader>
-              <CardTitle>
+              <CardTitle className="font-mono text-[0.8125rem] font-normal tracking-[0.01em] text-muted-foreground">
                 <h2 id="wallets-h">Wallets</h2>
               </CardTitle>
             </CardHeader>

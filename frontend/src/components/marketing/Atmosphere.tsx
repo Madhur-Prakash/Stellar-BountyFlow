@@ -67,8 +67,13 @@ const DARK: Record<AtmosphereTone, string> = {
 const GRAIN =
   "url(\"data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='220' height='220'><filter id='g'><feTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' stitchTiles='stitch'/><feColorMatrix type='saturate' values='0'/></filter><rect width='100%' height='100%' filter='url(%23g)'/></svg>\")"
 
+/** Soft, cloud-like variation at a large scale, so the gradients read as light on terrain rather than a flat fill. */
+const MOTTLE =
+  "url(\"data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='900' height='900'><filter id='m'><feTurbulence type='fractalNoise' baseFrequency='0.0045 0.0065' numOctaves='5' seed='11' stitchTiles='stitch'/><feColorMatrix type='saturate' values='0'/></filter><rect width='100%' height='100%' filter='url(%23m)'/></svg>\")"
+
 /**
- * An atmospheric backdrop panel: layered gradients, a soft vignette and film grain, in light and dark versions.
+ * An atmospheric backdrop panel: layered gradients, large soft mottling, film grain and a vignette, in light and
+ * dark versions.
  * Put an `AppWindow` (or any framed content) inside. `backdrop` renders between the gradient and the grain,
  * for a decorative scene such as a WebGL canvas. Everything it draws is hidden from assistive technology.
  */
@@ -87,7 +92,11 @@ export function Atmosphere({
 }) {
   return (
     <div data-atmosphere={tone} className={cn('relative isolate overflow-hidden rounded-2xl', className)}>
-      <div aria-hidden className="absolute inset-0 -z-30 dark:hidden" style={{ backgroundImage: LIGHT[tone] }} />
+      <div
+        aria-hidden
+        className="absolute inset-0 -z-30 dark:hidden"
+        style={{ backgroundImage: LIGHT[tone] }}
+      />
       <div
         aria-hidden
         className="absolute inset-0 -z-30 hidden dark:block"
@@ -99,11 +108,18 @@ export function Atmosphere({
         </div>
       )}
       {grain && (
-        <div
-          aria-hidden
-          className="pointer-events-none absolute inset-0 -z-10 opacity-[0.22] mix-blend-multiply dark:opacity-[0.3] dark:mix-blend-soft-light"
-          style={{ backgroundImage: GRAIN, backgroundSize: '220px 220px' }}
-        />
+        <>
+          <div
+            aria-hidden
+            className="pointer-events-none absolute inset-0 -z-10 opacity-40 mix-blend-soft-light dark:opacity-55"
+            style={{ backgroundImage: MOTTLE, backgroundSize: 'cover', backgroundPosition: 'center' }}
+          />
+          <div
+            aria-hidden
+            className="pointer-events-none absolute inset-0 -z-10 opacity-[0.22] mix-blend-multiply dark:opacity-[0.3] dark:mix-blend-soft-light"
+            style={{ backgroundImage: GRAIN, backgroundSize: '220px 220px' }}
+          />
+        </>
       )}
       {/* A soft vignette so the edges settle into the page. */}
       <div

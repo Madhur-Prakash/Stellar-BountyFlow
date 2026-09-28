@@ -4,16 +4,19 @@ import type { ReactNode } from 'react'
 import { Alert, AlertDescription } from '@/components/ui/alert'
 import { cn } from '@/lib/utils'
 
+import { AuthBackdrop } from './AuthBackdrop'
+
 const TONES = {
-  primary: 'bg-primary/10 text-primary-emphasis',
-  success: 'bg-success/10 text-success',
-  warning: 'bg-warning/12 text-warning',
-  destructive: 'bg-destructive/10 text-destructive',
+  primary: 'border-primary/20 bg-primary/10 text-primary-emphasis',
+  success: 'border-success/20 bg-success/10 text-success',
+  warning: 'border-warning/25 bg-warning/12 text-warning',
+  destructive: 'border-destructive/20 bg-destructive/10 text-destructive',
 } as const
 
 /**
- * One auth screen: a centred title and subtitle, the form (or the screen's actions) in a card, and the link to the
- * other auth screen below it. Status screens (email sent, link expired…) add an icon above the title.
+ * One auth screen: a centred title and subtitle on the canvas, the form (or the screen's actions) in a card that
+ * sits on an atmospheric panel, and the link to the other auth screen below it. Status screens (email sent,
+ * link expired…) add an icon above the title.
  */
 export function AuthCard({
   title,
@@ -38,30 +41,45 @@ export function AuthCard({
   return (
     <div>
       <div
-        className="mb-7 text-center"
+        className="mx-auto mb-8 max-w-md text-center"
         role={live}
         aria-live={live === 'alert' ? 'assertive' : live === 'status' ? 'polite' : undefined}
       >
         {Icon && (
           <div
-            className={cn('mx-auto mb-4 flex size-10 items-center justify-center rounded-lg', TONES[tone])}
+            className={cn(
+              'mx-auto mb-5 flex size-11 items-center justify-center rounded-xl border',
+              TONES[tone],
+            )}
           >
             <Icon className={cn('size-5', iconClassName)} aria-hidden />
           </div>
         )}
-        <h1 className="font-display text-[1.625rem] leading-tight">{title}</h1>
+        <h1 className="font-display text-[2rem] leading-[1.08] tracking-[-0.04em] sm:text-[2.375rem]">
+          {title}
+        </h1>
         {description && (
-          <p className="mx-auto mt-2 max-w-sm text-sm leading-relaxed text-muted-foreground">{description}</p>
+          <p className="mx-auto mt-3 max-w-sm text-[0.9375rem] leading-relaxed text-muted-foreground">
+            {description}
+          </p>
         )}
       </div>
-      {children && <div className="rounded-2xl border bg-card p-5 shadow-lift sm:p-6">{children}</div>}
-      {footer && <p className="mt-6 text-center text-sm text-muted-foreground">{footer}</p>}
+      {children && (
+        <div className="relative isolate -mx-4 overflow-hidden px-4 py-8 sm:mx-0 sm:rounded-[1.75rem] sm:px-14 sm:py-12">
+          <AuthBackdrop />
+          <div className="relative mx-auto max-w-104 rounded-2xl border bg-card p-5 shadow-lift sm:p-7">
+            {children}
+          </div>
+        </div>
+      )}
+      {footer && <p className="mt-7 text-center text-sm text-muted-foreground">{footer}</p>}
     </div>
   )
 }
 
 /** Link styling for the "New to BountyFlow? Create an account" line under the card. */
-export const AUTH_LINK = 'font-medium text-primary-emphasis underline-offset-4 hover:underline'
+export const AUTH_LINK =
+  'font-medium text-foreground underline decoration-border underline-offset-4 transition-colors hover:decoration-foreground'
 
 export function FormErrorAlert({ message }: { message: string | null }) {
   if (!message) return null

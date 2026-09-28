@@ -48,7 +48,9 @@ export function EscrowPanel({ bounty }: { bounty: BountyDetail }) {
   return (
     <Card className="gap-4">
       <CardHeader>
-        <CardTitle>Escrow</CardTitle>
+        <CardTitle className="font-mono text-[0.8125rem] font-normal tracking-[0.01em] text-muted-foreground">
+          Escrow
+        </CardTitle>
         <CardAction>
           <FundingStatusBadge status={bounty.funding_status} bountyStatus={bounty.status} />
         </CardAction>

@@ -7,6 +7,16 @@ import { cn } from '@/lib/utils'
 
 export type ProseSection = { id: string; title: string; body: ReactNode }
 
+/** A short caveat under the page title, set off by a rule in the warning colour. */
+export function ProseNote({ title, children }: { title: string; children: ReactNode }) {
+  return (
+    <div role="note" className="border-l-2 border-warning py-0.5 pl-4">
+      <p className="text-[0.9375rem] font-medium">{title}</p>
+      <p className="mt-1 text-sm leading-relaxed text-muted-foreground">{children}</p>
+    </div>
+  )
+}
+
 /**
  * Long-form page (guide, legal) laid out like documentation: a large light title with a small mono label above it,
  * a table of contents that follows your position on desktop, the reading column, and an optional rail on wide
@@ -78,7 +88,7 @@ export function ProsePage({
         {eyebrow && <p className="label-mono">{eyebrow}</p>}
         <h1
           className={cn(
-            'font-display text-[2.5rem] leading-[1.04] font-normal tracking-[-0.03em] sm:text-[3.5rem] lg:text-[4rem]',
+            'text-[2.5rem] leading-[1.04] font-normal tracking-[-0.02em] sm:text-[3.5rem] lg:text-[4rem]',
             eyebrow && 'mt-4',
           )}
         >
@@ -145,7 +155,7 @@ export function ProsePage({
               >
                 {s.title}
               </h2>
-              <div className="mt-4 space-y-4 text-base leading-7 text-foreground/80 sm:leading-[1.8] [&_a]:text-primary-emphasis [&_a]:underline [&_a]:decoration-primary-emphasis/40 [&_a]:underline-offset-4 [&_a:hover]:decoration-primary-emphasis [&_code]:rounded-[4px] [&_code]:border [&_code]:bg-surface [&_code]:px-1.5 [&_code]:py-0.5 [&_code]:font-mono [&_code]:text-[0.85em] [&_code]:text-foreground [&_li]:my-1.5 [&_li]:pl-1 [&_ol]:list-decimal [&_ol]:pl-6 [&_strong]:font-medium [&_strong]:text-foreground [&_ul]:list-disc [&_ul]:pl-6 [&_li::marker]:text-muted-foreground">
+              <div className="mt-4 space-y-4 text-base leading-7 text-foreground/80 sm:leading-[1.8] [&_a]:text-primary-emphasis [&_a]:underline [&_a]:decoration-primary-emphasis/40 [&_a]:underline-offset-4 [&_a:hover]:decoration-primary-emphasis [&_code]:rounded-[4px] [&_code]:border [&_code]:bg-surface [&_code]:px-1.5 [&_code]:py-0.5 [&_code]:font-mono [&_code]:text-[0.85em] [&_code]:text-foreground [&_li]:my-1.5 [&_li]:pl-1 [&_li::marker]:text-muted-foreground [&_ol]:list-decimal [&_ol]:pl-6 [&_strong]:font-medium [&_strong]:text-foreground [&_ul]:list-disc [&_ul]:pl-6">
                 {s.body}
               </div>
             </section>

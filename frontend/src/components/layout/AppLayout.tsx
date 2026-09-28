@@ -20,6 +20,7 @@ import { Link, useNavigate } from 'react-router'
 import { UserAvatar } from '@/components/common/UserAvatar'
 import { SidebarMenu, SidebarMenuButton, SidebarMenuItem, useSidebar } from '@/components/ui/sidebar'
 import { useMe } from '@/lib/api/queries/auth'
+import { useUnreadNotificationCount } from '@/lib/api/queries/notifications'
 import { hasPermission, STAFF_PERMISSION } from '@/lib/permissions'
 
 import { AppShell, type ShellNavGroup } from './AppShell'
@@ -65,11 +66,16 @@ const APP_NAV: ShellNavGroup[] = [
   },
 ]
 
-/** Search the marketplace from anywhere in the workspace: opens /bounties with the query. */
+/**
+ * Search the marketplace from anywhere in the workspace: opens /bounties with the query. Left out of the mobile
+ * navigation sheet, where it would take the sheet's initial focus and open the on-screen keyboard (the
+ * marketplace has its own search).
+ */
 function MarketplaceSearch() {
   const navigate = useNavigate()
-  const { isMobile, setOpenMobile } = useSidebar()
+  const { isMobile } = useSidebar()
   const [q, setQ] = useState('')
+  if (isMobile) return null
   return (
     <form
       role="search"
@@ -80,7 +86,6 @@ function MarketplaceSearch() {
         const term = q.trim()
         navigate(term ? `/bounties?q=${encodeURIComponent(term)}` : '/bounties')
         setQ('')
-        if (isMobile) setOpenMobile(false)
       }}
     >
       <Search
@@ -94,7 +99,7 @@ function MarketplaceSearch() {
         aria-label="Search the marketplace"
         placeholder="Search bounties"
         enterKeyHint="search"
-        className="h-8 w-full min-w-0 rounded-md border border-sidebar-border bg-sidebar-accent/60 pr-2 pl-8 text-[0.8125rem] text-foreground transition-colors outline-none placeholder:text-muted-foreground hover:bg-sidebar-accent focus-visible:border-ring focus-visible:bg-background focus-visible:ring-3 focus-visible:ring-ring/25 max-md:h-10 max-md:text-base [&::-webkit-search-cancel-button]:hidden"
+        className="h-8 w-full min-w-0 rounded-md border border-sidebar-border bg-sidebar-accent/60 pr-2 pl-8 text-[0.8125rem] text-foreground transition-colors outline-none placeholder:text-muted-foreground hover:bg-sidebar-accent focus-visible:border-ring focus-visible:bg-background focus-visible:ring-3 focus-visible:ring-ring/25 [&::-webkit-search-cancel-button]:hidden"
       />
     </form>
   )
@@ -123,16 +128,16 @@ function SignedInAs() {
 
 export function AppLayout() {
   const { data: me } = useMe()
+  const { count: unread } = useUnreadNotificationCount(!!me)
   const staff = hasPermission(me, STAFF_PERMISSION)
+  const nav = APP_NAV.map((g) => ({
+    ...g,
+    items: g.items.map((item) => (item.to === '/app/notifications' ? { ...item, count: unread } : item)),
+  }))
   const groups: ShellNavGroup[] = staff
-    ? [...APP_NAV, { label: 'Staff', items: [{ label: 'Admin console', to: '/admin', icon: ShieldCheck }] }]
-    : APP_NAV
+    ? [...nav, { label: 'Staff', items: [{ label: 'Admin console', to: '/admin', icon: ShieldCheck }] }]
+    : nav
   return (
-    <AppShell
-      areaLabel="Workspace"
-      groups={groups}
-      search={<MarketplaceSearch />}
-      footer={<SignedInAs />}
-    />
+    <AppShell areaLabel="Workspace" groups={groups} search={<MarketplaceSearch />} footer={<SignedInAs />} />
   )
 }

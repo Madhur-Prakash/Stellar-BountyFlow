@@ -66,14 +66,16 @@ export function DataTable<T>({
         </Table>
       </div>
 
-      <ul className="grid gap-3 sm:grid-cols-2 lg:hidden" aria-label={caption}>
+      <ul className="grid gap-2.5 sm:grid-cols-2 sm:gap-3 lg:hidden" aria-label={caption}>
         {rows.map((row) => (
           <li
             key={getKey(row)}
-            className="rounded-xl border bg-card p-4 shadow-soft in-data-[slot=card]:rounded-lg in-data-[slot=card]:shadow-none"
+            className="min-w-0 overflow-hidden rounded-lg border bg-card shadow-soft in-data-[slot=card]:shadow-none"
           >
-            {mobileTitle && <div className="mb-3 font-medium">{mobileTitle(row)}</div>}
-            <dl className="space-y-2">
+            {mobileTitle && (
+              <div className="border-b px-4 py-3 text-sm leading-snug font-medium">{mobileTitle(row)}</div>
+            )}
+            <dl className="space-y-2 px-4 py-3">
               {columns
                 .filter((c) => !c.mobileHidden)
                 .map((c) => (

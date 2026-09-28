@@ -1,8 +1,4 @@
-import { CircleAlert } from 'lucide-react'
-
-import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
-
-import { ProsePage, type ProseSection } from './ProsePage'
+import { ProseNote, ProsePage, type ProseSection } from './ProsePage'
 
 const SECTIONS: ProseSection[] = [
   {
@@ -91,13 +87,9 @@ export default function PrivacyPage() {
       intro="What BountyFlow stores, what is public, and what never leaves your wallet."
       updated="September 2026"
       notice={
-        <Alert variant="warning">
-          <CircleAlert />
-          <AlertTitle>Not legal advice</AlertTitle>
-          <AlertDescription>
-            This notice explains in plain language how BountyFlow handles your data. It is not legal advice.
-          </AlertDescription>
-        </Alert>
+        <ProseNote title="Not legal advice">
+          This notice explains in plain language how BountyFlow handles your data. It is not legal advice.
+        </ProseNote>
       }
       sections={SECTIONS}
     />

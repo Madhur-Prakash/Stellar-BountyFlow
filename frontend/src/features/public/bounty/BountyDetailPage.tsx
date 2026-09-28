@@ -68,11 +68,11 @@ function DocSection({ id, title, children }: { id: string; title: string; childr
   )
 }
 
-/** A titled block on the page canvas (transactions, activity). */
+/** A block on the page canvas (transactions, activity), titled with a small mono label. */
 function PageSection({ id, title, children }: { id: string; title: string; children: ReactNode }) {
   return (
-    <section aria-labelledby={id}>
-      <h2 id={id} className="mb-3 text-[0.9375rem] font-semibold">
+    <section aria-labelledby={id} className="pt-4">
+      <h2 id={id} className="label-mono mb-3">
         {title}
       </h2>
       {children}
@@ -219,6 +219,9 @@ export default function BountyDetailPage() {
   )
 }
 
+/** Summary card titles read as small mono labels above the figure. */
+const LABEL_TITLE = 'font-mono text-[0.8125rem] font-normal tracking-[0.01em] text-muted-foreground'
+
 function SummaryRow({ label, children }: { label: string; children: ReactNode }) {
   return (
     <div className="flex min-h-9 items-center justify-between gap-3 py-1.5">
@@ -233,8 +236,8 @@ function BountyDetailView({ bounty }: { bounty: BountyDetail }) {
   const links = bounty.links.filter((l) => /^https?:\/\//i.test(l.url))
 
   return (
-    <PageContainer className="py-8 sm:py-10">
-      <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_20rem] lg:gap-x-8 xl:grid-cols-[minmax(0,1fr)_22rem]">
+    <PageContainer className="pt-8 pb-16 sm:pt-12 sm:pb-20">
+      <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_20rem] lg:gap-x-10 xl:grid-cols-[minmax(0,1fr)_22rem]">
         {/* Header: first on every screen. */}
         <div className="min-w-0 lg:col-start-1 lg:row-start-1">
           <PageHeader
@@ -247,6 +250,7 @@ function BountyDetailView({ bounty }: { bounty: BountyDetail }) {
                 <ReportButton bountyId={bounty.id} />
               </>
             }
+            size="display"
             className="pb-4"
           />
           <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
@@ -288,7 +292,7 @@ function BountyDetailView({ bounty }: { bounty: BountyDetail }) {
         >
           <Card className="gap-4">
             <CardHeader>
-              <CardTitle className="text-[0.8125rem] font-medium text-muted-foreground">Reward</CardTitle>
+              <CardTitle className={LABEL_TITLE}>Reward</CardTitle>
             </CardHeader>
             <CardContent className="space-y-4">
               <RewardDisplay
@@ -320,7 +324,7 @@ function BountyDetailView({ bounty }: { bounty: BountyDetail }) {
 
           <Card className="gap-3">
             <CardHeader>
-              <CardTitle className="text-[0.8125rem] font-medium text-muted-foreground">Requester</CardTitle>
+              <CardTitle className={LABEL_TITLE}>Requester</CardTitle>
             </CardHeader>
             <CardContent>
               <Link

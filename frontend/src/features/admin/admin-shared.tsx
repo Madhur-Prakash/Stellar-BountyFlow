@@ -297,7 +297,7 @@ export function PagedResults<T>({
         )}
         <p
           aria-live="polite"
-          className="flex items-center gap-1.5 text-[0.8125rem] text-muted-foreground tabular-nums sm:ml-auto"
+          className="flex items-center gap-1.5 font-mono text-xs text-muted-foreground tabular-nums sm:ml-auto"
         >
           {query.isFetching && !query.isPending && (
             <LoaderCircle className="size-3.5 animate-spin" aria-hidden />
@@ -453,14 +453,18 @@ export function AdminTable<T>({
         </Table>
       </div>
 
-      <ul className="divide-y lg:hidden" aria-label={caption}>
+      {/* Below lg: one compact card per record (title, fields, then actions on a hairline footer). */}
+      <ul className="grid gap-2.5 p-3 sm:grid-cols-2 sm:gap-3 sm:p-4 lg:hidden" aria-label={caption}>
         {rows.map((row) => {
           const key = getKey(row)
           const open = expanded.has(key)
           const panelId = `admin-detail-m-${key}`
           return (
-            <li key={key} className="px-4 py-3.5">
-              <div className="flex items-start justify-between gap-3">
+            <li
+              key={key}
+              className="min-w-0 self-start overflow-hidden rounded-lg border bg-card shadow-soft"
+            >
+              <div className="flex items-start justify-between gap-3 px-4 pt-3.5 pb-3">
                 <div className="min-w-0 flex-1 space-y-1">
                   {titleCols.map((c) => (
                     <div key={c.key} className="min-w-0">
@@ -477,7 +481,7 @@ export function AdminTable<T>({
                 )}
               </div>
               {fieldCols.length > 0 && (
-                <dl className="mt-3 grid grid-cols-2 gap-x-4 gap-y-2.5 text-sm">
+                <dl className="grid grid-cols-2 gap-x-4 gap-y-2.5 border-t px-4 py-3 text-sm">
                   {fieldCols.map((c) => (
                     <div key={c.key} className={cn('min-w-0', c.wide && 'col-span-2')}>
                       <dt className="text-xs text-muted-foreground">{c.header}</dt>
@@ -487,27 +491,32 @@ export function AdminTable<T>({
                 </dl>
               )}
               {actionCols.map((c) => (
-                <div key={c.key} className="mt-3 flex flex-wrap items-center gap-2">
+                <div
+                  key={c.key}
+                  className="flex flex-wrap items-center gap-2 border-t bg-surface/40 px-4 py-2.5"
+                >
                   {c.cell(row)}
                 </div>
               ))}
               {detail && (
                 <>
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    size="sm"
-                    className="mt-2 -ml-2 text-muted-foreground"
-                    aria-label={detailLabel?.(row) ?? 'Show details'}
-                    aria-expanded={open}
-                    aria-controls={open ? panelId : undefined}
-                    onClick={() => toggle(key)}
-                  >
-                    <ChevronRight className={cn('transition-transform', open && 'rotate-90')} aria-hidden />
-                    Details
-                  </Button>
+                  <div className="border-t px-2 py-1">
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      className="text-muted-foreground"
+                      aria-label={detailLabel?.(row) ?? 'Show details'}
+                      aria-expanded={open}
+                      aria-controls={open ? panelId : undefined}
+                      onClick={() => toggle(key)}
+                    >
+                      <ChevronRight className={cn('transition-transform', open && 'rotate-90')} aria-hidden />
+                      Details
+                    </Button>
+                  </div>
                   {open && (
-                    <div id={panelId} className="-mx-4 mt-2 border-t bg-muted/40">
+                    <div id={panelId} className="border-t bg-muted/40">
                       {detail(row)}
                     </div>
                   )}
@@ -543,7 +552,7 @@ export function UserCell({
         <span className="block truncate leading-5 font-medium">{user.display_name || user.username}</span>
         <Link
           to={`/u/${encodeURIComponent(user.username)}`}
-          className="block truncate text-xs leading-4 text-muted-foreground hover:text-foreground hover:underline"
+          className="block truncate font-mono text-[0.71875rem] leading-4 text-muted-foreground hover:text-foreground hover:underline"
         >
           @{user.username}
         </Link>

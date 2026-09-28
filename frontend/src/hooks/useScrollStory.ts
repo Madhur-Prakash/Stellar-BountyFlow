@@ -1,6 +1,6 @@
 import type { gsap as Gsap } from 'gsap'
 import type { ScrollTrigger as ScrollTriggerStatic } from 'gsap/ScrollTrigger'
-import { useEffect, type RefObject } from 'react'
+import { useEffect, useLayoutEffect, useState, type RefObject } from 'react'
 
 import { useMediaQuery } from './useMediaQuery'
 import { motionAllowed, useReducedMotion } from './useReducedMotion'
@@ -34,9 +34,45 @@ export function useScrollStoryEnabled(minWidth: string): boolean {
  */
 export const STORY_STAGE_TOP = 80
 
+/** The site header's height; a stage only goes under it when it is taller than the space below. */
+const SITE_HEADER = 64
+
+/**
+ * The sticky offset for a story's stage: centred in the space under the site header (never higher than `min`),
+ * or, when the stage is taller than that space, with its bottom edge just inside the window. Pass the result to
+ * the stage's `top` style and to `useScrollStory` / `storyScrollTarget` so the layout and the timeline agree.
+ */
+export function useStageTop(
+  stage: RefObject<HTMLElement | null>,
+  enabled: boolean,
+  min = STORY_STAGE_TOP,
+): number {
+  const [top, setTop] = useState(min)
+  useLayoutEffect(() => {
+    const el = stage.current
+    if (!enabled || !el) return
+    const update = () => {
+      const height = el.offsetHeight
+      const view = window.innerHeight
+      const centred = Math.round(SITE_HEADER + (view - SITE_HEADER - height) / 2)
+      const next = height + min + 16 <= view ? Math.max(min, centred) : Math.round(view - height - 16)
+      setTop((t) => (t === next ? t : next))
+    }
+    update()
+    const ro = new ResizeObserver(update)
+    ro.observe(el)
+    window.addEventListener('resize', update)
+    return () => {
+      ro.disconnect()
+      window.removeEventListener('resize', update)
+    }
+  }, [stage, enabled, min])
+  return top
+}
+
 /**
  * Scrubs a GSAP timeline across a wrapper whose first child is a `position: sticky` stage (top: `top` px) and
- * whose bottom padding is the scroll distance. CSS keeps the stage in view (no pin spacers). The story runs from
+ * whose next child is a spacer as tall as the scroll distance. CSS keeps the stage in view (no pin spacers). The story runs from
  * the moment the stage sticks to the moment it lets go, so it ends exactly where the stage's content ends and
  * scrolling back plays it in reverse. `build` creates the tweens and returns the timeline; `onProgress` receives
  * 0–1 for anything React renders (step counters, active states). Positions are re-measured whenever the page
