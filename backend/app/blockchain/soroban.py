@@ -1,6 +1,9 @@
 """Encoding of BountyEscrow contract invocations and decoding of contract state and errors.
 
-The contract interface is defined in contracts/bounty_escrow (see contracts/README.md).
+The contract interface is defined in contracts/bounty_escrow (see contracts/README.md). Interface version 2 adds
+milestones, the review window (``submit_work`` / ``claim``), M-of-N arbiters, ``batch_release`` and ``upgrade``;
+every v1 function keeps its name and arguments. A call carries the contract id of the bounty's own escrow
+(``ContractCall.contract_id``), so escrows created on the v1 deployment keep being served by it.
 """
 
 from __future__ import annotations
@@ -10,13 +13,21 @@ import re
 import secrets
 import uuid
 from collections.abc import Callable
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from typing import Any
 
 from stellar_sdk import Address, scval
 from stellar_sdk import xdr as stellar_xdr
 
 ESCROW_STATUSES = ["AwaitingFunding", "Funded", "CancelRequested", "Disputed", "Completed", "Cancelled"]
+REVIEW_STATES = ["Pending", "ChangesRequested", "Rejected"]
+
+# contracts/bounty_escrow/src/lib.rs (v2)
+DEFAULT_REVIEW_WINDOW = 7 * 86_400  # what `create_escrow` (v1 arguments) uses
+MAX_REVIEW_WINDOW = 30 * 86_400
+MAX_ARBITERS = 10
+MAX_MILESTONES = 20
+MAX_BATCH = 10
 
 # contracts/bounty_escrow/src/errors.rs
 CONTRACT_ERRORS: dict[int, tuple[str, str]] = {
@@ -39,6 +50,18 @@ CONTRACT_ERRORS: dict[int, tuple[str, str]] = {
     ),
     15: ("Overflow", "Arithmetic overflow."),
     16: ("InvalidArbiter", "The arbiter must be different from the requester."),
+    17: ("InvalidThreshold", "The arbiter threshold must be between 1 and the number of arbiters."),
+    18: ("InvalidReviewWindow", "The review window is outside what this contract allows."),
+    19: ("InvalidMilestones", "Milestones need a single position and must add up to the reward."),
+    20: ("InvalidMilestone", "This milestone does not exist on the escrow."),
+    21: ("MilestoneAlreadyPaid", "This milestone has already been paid."),
+    22: ("ReviewPending", "Submitted work is waiting for an answer from the requester."),
+    23: ("NoPendingReview", "There is no submission waiting for review on-chain."),
+    24: ("ReviewWindowOpen", "The review window has not passed yet."),
+    25: ("ReviewWindowElapsed", "The review window has passed, so the contributor can claim the payment."),
+    26: ("WorkRejected", "The requester rejected this work on-chain. Raise a dispute to continue."),
+    27: ("InvalidResolution", "The resolution amount is more than the contributor's open reward."),
+    28: ("InvalidBatch", "A batch release needs between 1 and 10 payments."),
 }
 
 _CONTRACT_ERROR_RE = re.compile(r"Error\(Contract, #(\d+)\)")
@@ -67,10 +90,17 @@ class ContractCall:
     encode: Callable[[], list[stellar_xdr.SCVal]]
     native: dict[str, Any] = field(default_factory=dict)
     auth_address: str | None = None  # the address whose require_auth() the call triggers
+    # The escrow contract to call. None means the configured SOROBAN_CONTRACT_ID.
+    contract_id: str | None = None
 
     @property
     def args(self) -> list[stellar_xdr.SCVal]:
         return self.encode()
+
+
+def on_contract(call: ContractCall, contract_id: str | None) -> ContractCall:
+    """The same call, addressed to ``contract_id`` (a bounty's own escrow contract)."""
+    return replace(call, contract_id=contract_id) if contract_id else call
 
 
 def _bid(bid: bytes) -> stellar_xdr.SCVal:
@@ -194,6 +224,165 @@ def assignment(bid: bytes, contributor: str) -> ContractCall:
     )
 
 
+# --- v2 -------------------------------------------------------------------------------------------
+
+
+@dataclass(frozen=True)
+class EscrowTerms:
+    """Arguments of ``create_escrow_v2`` beyond the requester, escrow id and token."""
+
+    reward_per_position: int
+    positions: int
+    deadline: int
+    initial_deposit: int
+    arbiters: tuple[str, ...]
+    threshold: int
+    review_window: int
+    milestones: tuple[int, ...] = ()
+
+    def native(self) -> dict[str, Any]:
+        return {
+            "reward_per_position": self.reward_per_position,
+            "positions": self.positions,
+            "deadline": self.deadline,
+            "initial_deposit": self.initial_deposit,
+            "arbiters": list(self.arbiters),
+            "threshold": self.threshold,
+            "review_window": self.review_window,
+            "milestones": list(self.milestones),
+        }
+
+    def to_scval(self) -> stellar_xdr.SCVal:
+        return scval.to_struct(
+            {
+                "reward_per_position": scval.to_int128(self.reward_per_position),
+                "positions": scval.to_uint32(self.positions),
+                "deadline": scval.to_uint64(self.deadline),
+                "initial_deposit": scval.to_int128(self.initial_deposit),
+                "arbiters": scval.to_vec([scval.to_address(a) for a in self.arbiters]),
+                "threshold": scval.to_uint32(self.threshold),
+                "review_window": scval.to_uint64(self.review_window),
+                "milestones": scval.to_vec([scval.to_int128(m) for m in self.milestones]),
+            }
+        )
+
+
+def create_escrow_v2(requester: str, bid: bytes, token: str, terms: EscrowTerms) -> ContractCall:
+    return ContractCall(
+        "create_escrow_v2",
+        lambda: [scval.to_address(requester), _bid(bid), scval.to_address(token), terms.to_scval()],
+        {
+            "requester": requester,
+            "bounty_id": bid.hex(),
+            "token": token,
+            # Flattened like the v1 arguments, so authenticity checks read both creation calls the same way.
+            "arbiter": terms.arbiters[0] if terms.arbiters else "",
+            **terms.native(),
+        },
+        auth_address=requester,
+    )
+
+
+def release_milestone(requester: str, bid: bytes, contributor: str, milestone: int) -> ContractCall:
+    return ContractCall(
+        "release_milestone",
+        lambda: [
+            scval.to_address(requester),
+            _bid(bid),
+            scval.to_address(contributor),
+            scval.to_uint32(milestone),
+        ],
+        {"requester": requester, "bounty_id": bid.hex(), "contributor": contributor, "milestone": milestone},
+        auth_address=requester,
+    )
+
+
+@dataclass(frozen=True)
+class PayoutLeg:
+    """One leg of ``batch_release``: a whole position, or one milestone (``milestone`` set)."""
+
+    contributor: str
+    milestone: int | None = None
+
+    def to_scval(self) -> stellar_xdr.SCVal:
+        if self.milestone is None:
+            return scval.to_enum("Position", scval.to_address(self.contributor))
+        return scval.to_enum(
+            "Milestone", [scval.to_address(self.contributor), scval.to_uint32(self.milestone)]
+        )
+
+    def native(self) -> dict[str, Any]:
+        return {"contributor": self.contributor, "milestone": self.milestone}
+
+
+def batch_release(requester: str, bid: bytes, legs: list[PayoutLeg]) -> ContractCall:
+    return ContractCall(
+        "batch_release",
+        lambda: [scval.to_address(requester), _bid(bid), scval.to_vec([leg.to_scval() for leg in legs])],
+        {"requester": requester, "bounty_id": bid.hex(), "items": [leg.native() for leg in legs]},
+        auth_address=requester,
+    )
+
+
+def submit_work(contributor: str, bid: bytes, milestone: int) -> ContractCall:
+    return ContractCall(
+        "submit_work",
+        lambda: [scval.to_address(contributor), _bid(bid), scval.to_uint32(milestone)],
+        {"contributor": contributor, "bounty_id": bid.hex(), "milestone": milestone},
+        auth_address=contributor,
+    )
+
+
+def request_changes(requester: str, bid: bytes, contributor: str) -> ContractCall:
+    return _party_call("request_changes", "requester", requester, bid, contributor)
+
+
+def reject_submission(requester: str, bid: bytes, contributor: str) -> ContractCall:
+    return _party_call("reject_submission", "requester", requester, bid, contributor)
+
+
+def claim(contributor: str, bid: bytes) -> ContractCall:
+    return _party_call("claim", "contributor", contributor, bid)
+
+
+def vote_resolution(arbiter: str, bid: bytes, contributor: str, contributor_amount: int) -> ContractCall:
+    return ContractCall(
+        "vote_resolution",
+        lambda: [
+            scval.to_address(arbiter),
+            _bid(bid),
+            scval.to_address(contributor),
+            scval.to_int128(contributor_amount),
+        ],
+        {
+            "arbiter": arbiter,
+            "bounty_id": bid.hex(),
+            "contributor": contributor,
+            "contributor_amount": contributor_amount,
+        },
+        auth_address=arbiter,
+    )
+
+
+def review(bid: bytes, contributor: str) -> ContractCall:
+    return ContractCall(
+        "review",
+        lambda: [_bid(bid), scval.to_address(contributor)],
+        {"bounty_id": bid.hex(), "contributor": contributor},
+    )
+
+
+def resolution_votes(bid: bytes) -> ContractCall:
+    return ContractCall("resolution_votes", lambda: [_bid(bid)], {"bounty_id": bid.hex()})
+
+
+def version() -> ContractCall:
+    return ContractCall("version", lambda: [], {})
+
+
+# --- Decoding -------------------------------------------------------------------------------------
+
+
 @dataclass(frozen=True)
 class EscrowSnapshot:
     """Decoded on-chain `Escrow` struct. Amounts are integer stroops."""
@@ -212,9 +401,52 @@ class EscrowSnapshot:
     deadline: int
     status: str
     created_at: int = 0
+    # v2 fields. A v1 escrow reads as one arbiter with threshold 1, no review window and no milestones.
+    arbiters: tuple[str, ...] = ()
+    threshold: int = 1
+    review_window: int = 0
+    pending_reviews: int = 0
+    dispute_round: int = 0
+    clock_reset_at: int = 0
+    milestones: tuple[tuple[int, bool], ...] = ()  # (amount, paid) per milestone
 
     def to_dict(self) -> dict[str, Any]:
         return self.__dict__.copy()
+
+    @property
+    def arbiter_set(self) -> tuple[str, ...]:
+        return self.arbiters or (self.arbiter,)
+
+    def position_value(self) -> int:
+        """Open value of one position: the reward, or the unpaid milestones of a milestone escrow."""
+        if not self.milestones:
+            return self.reward_per_position
+        return sum(amount for amount, paid in self.milestones if not paid)
+
+    def claimable_at(self, review_claimable_at: int) -> int:
+        """When a review's claim opens: a dispute resolved later gives the requester a full window again."""
+        if not self.clock_reset_at:
+            return review_claimable_at
+        return max(review_claimable_at, self.clock_reset_at + self.review_window)
+
+
+@dataclass(frozen=True)
+class ReviewSnapshot:
+    """Decoded on-chain ``Review`` (a recorded submission and its clock)."""
+
+    milestone: int
+    submitted_at: int
+    claimable_at: int
+    state: str  # Pending | ChangesRequested | Rejected
+
+
+@dataclass(frozen=True)
+class VoteSnapshot:
+    """A current-round arbiter approval (``resolution_votes``)."""
+
+    arbiter: str
+    contributor: str
+    contributor_amount: int
 
 
 def _addr(value: Any) -> str:
@@ -229,6 +461,10 @@ def _status(value: Any) -> str:
     if isinstance(value, list) and value:
         return str(value[0])
     return str(value)
+
+
+def _milestones(value: Any) -> tuple[tuple[int, bool], ...]:
+    return tuple((int(m["amount"]), bool(m["paid"])) for m in value or [])
 
 
 def decode_escrow(native: dict[str, Any]) -> EscrowSnapshot:
@@ -247,6 +483,13 @@ def decode_escrow(native: dict[str, Any]) -> EscrowSnapshot:
         deadline=int(native["deadline"]),
         status=_status(native["status"]),
         created_at=int(native.get("created_at", 0)),
+        arbiters=tuple(_addr(a) for a in native.get("arbiters") or [native["arbiter"]]),
+        threshold=int(native.get("threshold", 1)),
+        review_window=int(native.get("review_window", 0)),
+        pending_reviews=int(native.get("pending_reviews", 0)),
+        dispute_round=int(native.get("dispute_round", 0)),
+        clock_reset_at=int(native.get("clock_reset_at", 0)),
+        milestones=_milestones(native.get("milestones")),
     )
 
 
@@ -261,6 +504,37 @@ def decode_assignment(native: Any) -> str | None:
     return str(native)
 
 
+def _review_state(value: Any) -> str:
+    if isinstance(value, int):
+        return REVIEW_STATES[value]
+    if isinstance(value, list) and value:
+        return str(value[0])
+    return str(value)
+
+
+def decode_review(native: Any) -> ReviewSnapshot | None:
+    """``Option<Review>``."""
+    if not isinstance(native, dict):
+        return None
+    return ReviewSnapshot(
+        milestone=int(native["milestone"]),
+        submitted_at=int(native["submitted_at"]),
+        claimable_at=int(native["claimable_at"]),
+        state=_review_state(native["state"]),
+    )
+
+
+def decode_votes(native: Any) -> list[VoteSnapshot]:
+    return [
+        VoteSnapshot(
+            arbiter=_addr(v["arbiter"]),
+            contributor=_addr(v["contributor"]),
+            contributor_amount=int(v["contributor_amount"]),
+        )
+        for v in native or []
+    ]
+
+
 class ContractError(Exception):
     def __init__(self, code: int | None, message: str, raw: str | None = None) -> None:
         super().__init__(message)
@@ -270,18 +544,25 @@ class ContractError(Exception):
         self.raw = raw
 
 
+_TRUSTLINE_MESSAGE = "The receiving wallet has no trustline for this asset, so it cannot receive it."
+_BALANCE_MESSAGE = "The wallet's balance of this asset is too low for this transaction."
+
+
 def parse_contract_error(raw: str) -> ContractError:
     match = _CONTRACT_ERROR_RE.search(raw or "")
+    lowered = (raw or "").lower()
     if match:
         code = int(match.group(1))
         _name, message = CONTRACT_ERRORS.get(code, ("Unknown", f"Contract error #{code}."))
-        # SAC (token) errors also surface as Error(Contract, #n) but from the token contract.
-        if "balance" in raw.lower() and code not in (11,):
-            return ContractError(code, "Insufficient XLM balance for this transaction.", raw)
+        # SAC (token) errors also surface as Error(Contract, #n) but from the token contract: #13 is its
+        # TrustlineMissingError (the escrow's own #13 is DeadlineInPast), #10 its BalanceError.
+        if "trustline" in lowered:
+            return ContractError(None, _TRUSTLINE_MESSAGE, raw)
+        if "balance" in lowered and code not in (11,):
+            return ContractError(code, _BALANCE_MESSAGE, raw)
         return ContractError(code, message, raw)
-    lowered = (raw or "").lower()
-    if "balance" in lowered or "underfunded" in lowered:
-        return ContractError(None, "Insufficient XLM balance for this transaction.", raw)
     if "trustline" in lowered:
-        return ContractError(None, "The account is missing a required trustline.", raw)
+        return ContractError(None, _TRUSTLINE_MESSAGE, raw)
+    if "balance" in lowered or "underfunded" in lowered:
+        return ContractError(None, _BALANCE_MESSAGE, raw)
     return ContractError(None, "The contract rejected this transaction during simulation.", raw)

@@ -71,6 +71,9 @@ def decode_tx_result_code(result_xdr: str | None) -> str | None:
         return None
     try:
         result = stellar_xdr.TransactionResult.from_xdr(result_xdr)
+        pair = result.result.inner_result_pair
+        if pair is not None:  # a sponsor fee bump: report the user's (inner) transaction result
+            return pair.result.result.code.name
         return result.result.code.name  # e.g. "txFAILED"
     except Exception:
         return None

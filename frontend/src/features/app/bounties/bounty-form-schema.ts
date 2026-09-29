@@ -9,7 +9,8 @@ import {
   type BountyLink,
   type CreateBountyRequest,
 } from '@/lib/api/types'
-import { isValidAmount, normalizeAmount } from '@/lib/money'
+import { DAY_SECONDS, splitWindow, sumMilestones, toSeconds } from '@/lib/escrow'
+import { isValidAmount, normalizeAmount, tryParseAmount } from '@/lib/money'
 
 const optionalUrl = z
   .string()
@@ -37,6 +38,17 @@ export const csvCount = (v: string) =>
       .filter(Boolean),
   ).size
 
+const milestoneSchema = z.object({
+  title: z.string().trim().min(3, 'Name the milestone.').max(140, 'Keep it under 140 characters.'),
+  description: z.string().max(2000, 'Keep it under 2,000 characters.'),
+  amount: z
+    .string()
+    .trim()
+    .refine((v) => isValidAmount(v), 'Enter a positive amount with up to 7 decimals.'),
+})
+
+export type MilestoneFormValue = z.infer<typeof milestoneSchema>
+
 export const bountyFormSchema = z
   .object({
     title: z.string().trim().min(8, 'Use at least 8 characters.').max(140, 'Keep it under 140 characters.'),
@@ -60,7 +72,9 @@ export const bountyFormSchema = z
     reward_amount: z
       .string()
       .trim()
-      .refine((v) => isValidAmount(v), 'Enter a positive XLM amount with up to 7 decimals.'),
+      .refine((v) => isValidAmount(v), 'Enter a positive amount with up to 7 decimals.'),
+    /** Reward asset identifier: "native" (XLM) or "CODE:ISSUER". */
+    reward_asset: z.string().min(1, 'Choose the asset the reward is paid in.'),
     positions_available: z
       .string()
       .trim()
@@ -82,7 +96,32 @@ export const bountyFormSchema = z
         (v) => parseLinks(v).every((l) => /^https?:\/\/[^\s]+$/i.test(l.url)),
         'Each line must be "Label | https://…".',
       ),
+    /** Escrow v2: how long the requester has to answer work recorded on-chain. */
+    review_window_value: z
+      .string()
+      .trim()
+      .refine((v) => /^\d+$/.test(v) && Number(v) >= 1, 'Enter a whole number.'),
+    review_window_unit: z.enum(['minutes', 'hours', 'days']),
+    /** Escrow v2: optional split of a single-position reward. */
+    milestones: z.array(milestoneSchema).max(20, 'Use at most 20 milestones.'),
   })
+  .refine((v) => v.milestones.length !== 1, {
+    path: ['milestones'],
+    message: 'Split the reward into at least 2 milestones, or remove the milestone.',
+  })
+  .refine((v) => v.milestones.length === 0 || v.positions_available.trim() === '1', {
+    path: ['milestones'],
+    message: 'Milestones need a single position.',
+  })
+  .refine(
+    (v) => {
+      if (v.milestones.length === 0) return true
+      const total = sumMilestones(v.milestones.map((m) => m.amount))
+      const reward = tryParseAmount(v.reward_amount)
+      return total !== null && reward !== null && total === reward
+    },
+    { path: ['milestones'], message: 'The milestones must add up to the reward.' },
+  )
   .refine((v) => !v.application_deadline || new Date(v.application_deadline).getTime() > Date.now(), {
     path: ['application_deadline'],
     message: 'Pick a time in the future.',
@@ -132,7 +171,7 @@ export function toRequest(v: BountyFormValues): CreateBountyRequest {
     tags: csv(v.tags),
     required_skills: csv(v.required_skills),
     reward_amount: normalizeAmount(v.reward_amount),
-    reward_asset: 'XLM',
+    reward_asset: v.reward_asset,
     positions_available: Number(v.positions_available),
     application_deadline: localInputToIso(v.application_deadline),
     completion_deadline: localInputToIso(v.completion_deadline),
@@ -141,6 +180,12 @@ export function toRequest(v: BountyFormValues): CreateBountyRequest {
     acceptance_criteria: v.acceptance_criteria.trim() || null,
     repository_url: v.repository_url || null,
     links: parseLinks(v.links),
+    review_window_seconds: toSeconds(Number(v.review_window_value), v.review_window_unit),
+    milestones: v.milestones.map((m) => ({
+      title: m.title.trim(),
+      description: m.description.trim() || null,
+      amount: normalizeAmount(m.amount),
+    })),
   }
 }
 
@@ -154,6 +199,7 @@ export const EMPTY_BOUNTY_FORM: BountyFormValues = {
   tags: '',
   required_skills: '',
   reward_amount: '',
+  reward_asset: 'native',
   positions_available: '1',
   application_deadline: '',
   completion_deadline: '',
@@ -162,6 +208,9 @@ export const EMPTY_BOUNTY_FORM: BountyFormValues = {
   acceptance_criteria: '',
   repository_url: '',
   links: '',
+  review_window_value: String(7),
+  review_window_unit: 'days',
+  milestones: [],
 }
 
 export function fromBounty(b: BountyDetail): BountyFormValues {
@@ -175,6 +224,7 @@ export function fromBounty(b: BountyDetail): BountyFormValues {
     tags: b.tags.join(', '),
     required_skills: b.required_skills.join(', '),
     reward_amount: b.reward_amount,
+    reward_asset: b.reward_asset.identifier ?? 'native',
     positions_available: String(b.positions_available),
     application_deadline: isoToLocalInput(b.application_deadline),
     completion_deadline: isoToLocalInput(b.completion_deadline),
@@ -183,5 +233,14 @@ export function fromBounty(b: BountyDetail): BountyFormValues {
     acceptance_criteria: b.acceptance_criteria ?? '',
     repository_url: b.repository_url ?? '',
     links: b.links.map((l) => (l.label ? `${l.label} | ${l.url}` : l.url)).join('\n'),
+    ...(() => {
+      const w = splitWindow(b.review_window_seconds ?? 7 * DAY_SECONDS)
+      return { review_window_value: String(w.value), review_window_unit: w.unit }
+    })(),
+    milestones: (b.milestones ?? []).map((m) => ({
+      title: m.title,
+      description: m.description ?? '',
+      amount: m.amount,
+    })),
   }
 }

@@ -1,8 +1,7 @@
 # Design system
 
-BountyFlow reads as a calm, premium product: a marketplace people trust with money. The visual language takes
-its cues from product sites like orchestrator.inc: large, light Geist headlines; warm neutrals; the product shown
-in framed app windows over atmospheric backdrops; hairline grids; and small monospace labels. Every screen shows
+BountyFlow reads as a calm, premium product: a marketplace people trust with money. Headlines are set large and
+bold in Bricolage Grotesque over warm neutrals, with hairline grids and small monospace labels. Every screen shows
 real data, and motion explains what happens to a bounty rather than decorating the page.
 
 ## Foundations
@@ -19,14 +18,18 @@ real data, and motion explains what happens to a bounty rather than decorating t
 | `success` | `#12733a` | `#4ade80` | Funded in escrow, paid, confirmed. Reserved for money that is really there |
 | `warning` / `destructive` | amber / red | | Attention and errors only |
 
-- **Type:** Geist Variable for the interface and headlines. IBM Plex Mono for small section labels (`.label-mono`)
-  and machine data (hashes, addresses, contract ids, through `MonoValue`). Use `.amount` for money and counts
-  (tabular figures).
+- **Type:**
+  - Headlines use Bricolage Grotesque Variable (`--font-display`, through `.font-display`): bold (700),
+    optical sizing on, tracking about -0.025em. Large headlines may tighten to about -0.03em, never further.
+  - Geist Variable is used for the interface and body text.
+  - IBM Plex Mono is used for small section labels (`.label-mono`) and machine data (hashes, addresses and
+    contract ids, through `MonoValue`).
+  - Use `.amount` for money and counts (tabular figures).
 - **Scale:**
-  - Marketing hero H1: about 64–76px, weight 400, tight tracking.
-  - Marketing section H2s: 36–48px, weight 500.
-  - Page titles in the app: `PageHeader`, 28–32px, weight 500 (`size="display"`: 34–48px, weight 400, for
-    document pages such as a bounty).
+  - Marketing hero H1: about 68–84px, bold.
+  - Marketing section H2s: 32–44px, bold.
+  - Page titles in the app: `PageHeader`, 28–32px, bold. `size="display"` (34–48px) is for document pages
+    such as a bounty.
   - Card and section titles: 15–16px semibold.
   - Body text: 14px in the app (`text-sm`), 18–20px for marketing lead paragraphs.
   - Labels and meta: 12–13px in muted-foreground.
@@ -43,10 +46,11 @@ real data, and motion explains what happens to a bounty rather than decorating t
 
 `src/components/marketing` holds the pieces the public pages share:
 
-- `AppWindow`: a framed window with the three title-bar dots, for showing the product itself.
-- `Atmosphere`: a large backdrop panel (`tone="dusk" | "dune" | "ember" | "night"`) made of layered gradients,
-  soft mottling, film grain and a vignette, with light and dark versions. It takes a `backdrop` slot for a
-  Three.js scene. No photos: every backdrop is generated.
+- `AppWindow`: a framed window with the three title-bar dots, for showing the product itself (the hero's
+  bounty board).
+- `Atmosphere`: a large generated backdrop panel (`tone="dusk" | "dune" | "ember" | "night"`), used by the
+  closing call to action and the 404 page. The landing stories sit on the plain canvas in ordinary cards; don't
+  put them on backdrops. No photos: every backdrop is generated.
 - `MonoLabel`: the small IBM Plex Mono label above a section heading. Use it sparingly.
 
 ## Layout
@@ -78,18 +82,26 @@ Motion explains something or answers an action. It stays calm and never gets in 
   - The two scroll stories on the landing and How it works pages. "How a bounty moves" walks through both
     tracks and hands off between them; the escrow diagram draws itself state by state. Each is a tall section
     with a sticky stage (`useScrollStory`), scrubbed by GSAP.
-  - The hero board: a framed "Bounty board" with one column per lifecycle stage. As you scroll, the live
-    bounty card moves from column to column (published, funded, in progress, in review, paid out) and its
-    content updates. Later stages are worded as what will happen ("When funded, …"). The other columns only
-    show real bounties. The card cycles through the top three open rewards and pauses on hover, on focus, or
-    once the story has started.
-  - Two decorative Three.js scenes (`components/three`): the dotted payments globe rising behind the "Built on
-    the Stellar stack" strip, and the ledger field behind the closing call to action. They are lazy-loaded on large screens only, paused off
-    screen, and hidden from assistive technology.
+  - The hero board: a framed "Bounty board" on the plain canvas, with one column per lifecycle stage.
+    - As you scroll, the live bounty card moves from column to column (published, funded, in progress, in
+      review, paid out) and its content updates. Later stages are worded as what will happen ("When funded, …").
+    - The other columns show real bounties. A column with none says what happens at that stage and who acts,
+      and the column holding the card shows nothing else.
+    - The card cycles through the top three open rewards, and pauses on hover, on focus, or once the story has
+      started.
+  - Three Three.js scenes (`components/three`, lazy-loaded through `Scene`, paused off screen, hidden from
+    assistive technology):
+    - **Constellation:** a network of nodes behind the hero headline, masked away from the text. Payment
+      pulses hop between nodes and light them up, and the network leans slightly towards the pointer.
+    - **Payments globe:** the dotted globe rising behind the "Built on the Stellar stack" strip, on large
+      screens. It is interactive: drag it to turn it (it keeps some spin, then eases back), and click it to send
+      a payment from that point to the nearest hubs. Vertical page scrolling still works on touch screens.
+    - **Ledger field:** behind the closing call to action.
 - **Not used:** parallax, split-text headline reveals, drag-and-throw objects, fade-ups on every section,
   confetti or coin bursts, hover lifts on cards, glossy "ball" markers.
 - **Reduced motion:** everything respects `prefers-reduced-motion`. The scroll stories become static lists and
-  a static diagram, and the 3D scenes render a single still frame.
+  a static diagram. The 3D scenes render a single still frame; the globe still turns while dragged, without
+  inertia.
 
 ## Writing
 

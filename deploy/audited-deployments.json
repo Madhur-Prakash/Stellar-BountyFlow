@@ -1,0 +1,30 @@
+{
+  "_readme": "Contract deployments that passed an independent audit. The API refuses STELLAR_NETWORK=mainnet unless every contract id it is configured with (SOROBAN_CONTRACT_ID, and WEB_AUTH_CONTRACT_ID / ATTESTATION_CONTRACT_ID when those features are on) is listed under 'mainnet' with its audit. An entry counts only when it carries an audit with a report_url, so an id alone is never evidence of a review. Add an entry after the report is final and the deployed wasm hash matches the audited build. Entry shape: {contract, contract_id, wasm_hash, deployed_at, deploy_tx, audit: {firm, report_url, report_sha256, completed_at, commit}}. The 'testnet' list is a record only; it is never consulted by the guard and its entries are not audited. See docs/runbooks/mainnet-launch-checklist.md and docs/compliance.md.",
+  "testnet": [
+    {
+      "contract": "bounty_escrow v2",
+      "contract_id": "CBCXG46FJPYBPWYZ24BWFVNJ6G2ILFAXHX2COETDNXYE6C5IJWAZ3M4C",
+      "note": "Milestones, review window, M-of-N arbiters, batch payouts. Not audited.",
+      "audit": null
+    },
+    {
+      "contract": "bounty_escrow v1",
+      "contract_id": "CDX6FN2MIGLHCMUJOU6C7FYP3QTNDL6BVIPEG4B5HAUEPU7NI4SFY4CY",
+      "note": "Superseded by v2. Escrows created on it keep using it (bounty_escrows.contract_id). Not audited.",
+      "audit": null
+    },
+    {
+      "contract": "web_auth (SEP-45)",
+      "contract_id": "CB3GXQ2BW2AHSIWUITLVBKODKPUHIK5DLEPWIIWTKLTKLA6TE24PLSZX",
+      "note": "Proves control of contract accounts (passkey smart wallets). Not audited.",
+      "audit": null
+    },
+    {
+      "contract": "attestations",
+      "contract_id": "CBXJVFUQHWECJZQSEBAFGHXLHP72PCPUX7XES42KVEMVAMZ26D5CZ33N",
+      "note": "Completion attestation registry. Not audited.",
+      "audit": null
+    }
+  ],
+  "mainnet": []
+}

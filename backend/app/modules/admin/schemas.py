@@ -29,6 +29,18 @@ class AdminUserUpdate(APIModel):
     role: Role | None = None
 
 
+class ReportTargetSummary(APIModel):
+    """Context a moderator needs beside a report (filled for Q&A posts)."""
+
+    label: str
+    excerpt: str | None = None
+    link: str | None = None
+    author: UserSummary | None = None
+    is_hidden: bool = False
+    is_deleted: bool = False
+    bounty_id: uuid.UUID | None = None
+
+
 class ReportOut(APIModel):
     id: uuid.UUID
     reporter: UserSummary
@@ -39,6 +51,7 @@ class ReportOut(APIModel):
     created_at: datetime
     resolution_note: str | None
     resolved_at: datetime | None
+    target_summary: ReportTargetSummary | None = None
 
 
 class ReportResolve(APIModel):

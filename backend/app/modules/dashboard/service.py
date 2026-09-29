@@ -1,7 +1,8 @@
 """Role-aware dashboard aggregation for the authenticated user.
 
-Recommendations are deterministic (no AI): open bounties the user does not own and has not applied to, ranked by
-the number of required skills that match the user's profile skills, then by category interest, then recency.
+Recommendations are deterministic (no AI): the top of the skill-graph ranking (``discovery.recommendations``),
+open bounties the user does not own and has not applied to, ranked by how close their skills are to the user's,
+blended with reward, deadline and funding. Each comes with the skills it matched.
 """
 
 from __future__ import annotations
@@ -9,6 +10,7 @@ from __future__ import annotations
 from sqlalchemy import Select, func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.schemas import PageParams
 from app.modules.admin.models import AuditLog
 from app.modules.applications.models import (
     ApplicationStatus,
@@ -16,11 +18,11 @@ from app.modules.applications.models import (
     BountyApplication,
     BountyAssignment,
 )
-from app.modules.bounties import repository as bounty_repo
 from app.modules.bounties import service as bounty_service
-from app.modules.bounties import state_machine as sm
-from app.modules.bounties.models import Bounty, BountySkill, BountyStatus
+from app.modules.bounties.models import Bounty, BountyStatus
 from app.modules.dashboard.schemas import Dashboard
+from app.modules.discovery import recommendations as discovery_recommendations
+from app.modules.discovery.schemas import Recommendation
 from app.modules.payments.models import PaymentRecord, PaymentStatus
 from app.modules.submissions.models import BountySubmission, SubmissionStatus
 from app.modules.users.models import User
@@ -40,30 +42,9 @@ async def _count(session: AsyncSession, stmt: Select[int]) -> int:
     return int(await session.scalar(stmt) or 0)
 
 
-async def recommendations(session: AsyncSession, user: User, limit: int = 6) -> list[Bounty]:
-    applied = select(BountyApplication.bounty_id).where(BountyApplication.contributor_id == user.id)
-    skills = user.skill_names
-    match_count = (
-        select(func.count(BountySkill.id))
-        .where(BountySkill.bounty_id == Bounty.id, BountySkill.skill_name.in_(skills or ["__none__"]))
-        .correlate(Bounty)
-        .scalar_subquery()
-    )
-    stmt = (
-        select(Bounty)
-        .where(
-            bounty_repo.public_filter(),
-            Bounty.status.in_(sm.ACCEPTING_APPLICATIONS),
-            Bounty.requester_id != user.id,
-            Bounty.id.not_in(applied),
-        )
-        .order_by(
-            match_count.desc(),
-            func.coalesce(Bounty.published_at, Bounty.created_at).desc(),
-        )
-        .limit(limit)
-    )
-    return list((await session.scalars(stmt)).unique().all())
+async def recommendations(session: AsyncSession, user: User, limit: int = 6) -> list[Recommendation]:
+    page = await discovery_recommendations.recommend(session, user, None, PageParams(page=1, page_size=limit))
+    return page.items
 
 
 async def build(session: AsyncSession, user: User) -> Dashboard:
@@ -169,5 +150,6 @@ async def build(session: AsyncSession, user: User) -> Dashboard:
             bounty_service.activity_item(r, bounties.get(r.bounty_id) if r.bounty_id else None)
             for r in activity_rows
         ],
-        recommendations=await bounty_service.summaries(session, recs, user),
+        recommendations=[r.bounty for r in recs],
+        recommendation_reasons={str(r.bounty.id): r.reason for r in recs},
     )

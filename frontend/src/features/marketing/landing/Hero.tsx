@@ -783,7 +783,7 @@ export function Hero() {
       <PageContainer className="pt-14 pb-12 text-center sm:pt-24 sm:pb-16 lg:pt-28">
         <h1
           id="hero-title"
-          className="mx-auto max-w-5xl font-display text-[2.75rem] leading-[0.98] tracking-[-0.03em] sm:text-[4.25rem] lg:text-[5.25rem]"
+          className="mx-auto max-w-5xl font-display text-[2.75rem] leading-[0.98] tracking-[-0.018em] sm:text-[4.25rem] lg:text-[5.25rem]"
         >
           Bounties with the reward held in escrow
         </h1>

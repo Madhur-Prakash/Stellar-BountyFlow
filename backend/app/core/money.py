@@ -10,7 +10,8 @@ from decimal import ROUND_DOWN, Decimal, InvalidOperation
 STROOPS_PER_UNIT = 10_000_000
 DECIMALS = 7
 QUANTUM = Decimal("0.0000001")
-MAX_AMOUNT = Decimal("100000000000")  # 1e11 XLM — far above total supply, guards overflow
+# 1e11 units: far above the XLM supply and any reward, and guards i128 / NUMERIC overflow.
+MAX_AMOUNT = Decimal("100000000000")
 
 ZERO = Decimal("0")
 
@@ -50,11 +51,15 @@ def fmt(amount: Decimal | None) -> str:
     return f"{(amount or ZERO).quantize(QUANTUM):f}"
 
 
-def display_xlm(amount: Decimal | None) -> str:
-    """Human-facing amount for messages, e.g. "150 XLM" or "12.5 XLM" (API fields keep the fixed 7-dp form)."""
+def display_amount(amount: Decimal | None, code: str = "XLM") -> str:
+    """Human-facing amount for messages, e.g. "150 XLM" or "12.5 USDC" (API fields keep the fixed 7-dp form)."""
     text = fmt(amount)
     if "." in text:
         text = text.rstrip("0").rstrip(".")
     whole, _, frac = text.partition(".")
     grouped = f"{int(whole):,}"
-    return f"{grouped}.{frac} XLM" if frac else f"{grouped} XLM"
+    return f"{grouped}.{frac} {code}" if frac else f"{grouped} {code}"
+
+
+def display_xlm(amount: Decimal | None) -> str:
+    return display_amount(amount, "XLM")

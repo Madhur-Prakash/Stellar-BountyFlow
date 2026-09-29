@@ -32,6 +32,9 @@ import {
 import { ChainActionButton } from '@/components/chain/ChainActionButton'
 import { TransactionTable } from '@/components/chain/TransactionExplorer'
 import { UserAvatar } from '@/components/common/UserAvatar'
+import { ContributorChainActions } from '@/components/escrow/ContributorChainActions'
+import { MilestoneTimeline } from '@/components/escrow/MilestoneTimeline'
+import { ReviewClock } from '@/components/escrow/ReviewClock'
 import { Bones } from '@/components/layout/Bones'
 import { EmptyState } from '@/components/layout/EmptyState'
 import { ErrorState } from '@/components/layout/ErrorState'
@@ -43,12 +46,17 @@ import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { PullRequestList } from '@/components/github/PullRequestList'
+import { RelatedSkills } from '@/features/public/marketplace/RelatedSkills'
+import { QuestionsSection } from '@/features/public/bounty/qa/QuestionsSection'
 import { isApiError } from '@/lib/api/client'
 import { chainApi } from '@/lib/api/endpoints'
 import { useBounty } from '@/lib/api/queries/bounties'
 import { useBountyTransactions } from '@/lib/api/queries/chain'
+import { useGitHubAccount } from '@/lib/api/queries/github'
 import { useBountySubmissions } from '@/lib/api/queries/submissions'
-import type { BountyDetail } from '@/lib/api/types'
+import type { BountyDetail, SubmissionStatus } from '@/lib/api/types'
+import { formatWindow } from '@/lib/escrow'
 import { CATEGORY_LABELS, DIFFICULTY_LABELS, formatDate, formatNumber } from '@/lib/format'
 import NotFoundPage from '../NotFoundPage'
 
@@ -80,40 +88,90 @@ function PageSection({ id, title, children }: { id: string; title: string; child
   )
 }
 
+/** Submissions that still hold their milestone. */
+const HOLDS_MILESTONE = new Set<SubmissionStatus>([
+  'SUBMITTED',
+  'RESUBMITTED',
+  'REVISION_REQUESTED',
+  'APPROVED',
+])
+
+/** Submissions whose linked pull requests can still be changed. */
+const EDITABLE_SUBMISSION = new Set<SubmissionStatus>(['SUBMITTED', 'RESUBMITTED', 'REVISION_REQUESTED'])
+
 /** Assigned contributor: deliver work, follow the review, and consent to cancellations. */
 function ContributorWorkArea({ bounty }: { bounty: BountyDetail }) {
   const viewer = bounty.viewer!
+  const github = useGitHubAccount()
   const { data } = useBountySubmissions(bounty.id, { page_size: 20 })
-  const mine = data?.items[0] ?? null
-  const needsRevision = mine?.status === 'REVISION_REQUESTED'
+  const milestones = bounty.milestones ?? []
+  const items = data?.items ?? []
+  // A milestone bounty has one submission per milestone; any other bounty has one.
+  const mine = milestones.length > 0 ? items : items.slice(0, 1)
+  const taken = new Set(
+    items.flatMap((s) => (s.milestone && HOLDS_MILESTONE.has(s.status) ? [s.milestone.id] : [])),
+  )
+  const openMilestones = milestones.filter((m) => m.status === 'OPEN' && !taken.has(m.id))
   return (
     <div className="space-y-3">
       <div className="rounded-lg border bg-surface/60 p-3 text-sm">
         <p className="font-medium">You’re assigned to this bounty.</p>
-        {mine && (
-          <div className="mt-2 flex flex-wrap items-center gap-1.5 text-xs text-muted-foreground">
-            Your submission (v{mine.version}): <SubmissionStatusBadge status={mine.status} />
-            {mine.payment && <PaymentStatusBadge status={mine.payment.payment_status} />}
+        {mine.map((s) => (
+          <div key={s.id} className="mt-2 space-y-2">
+            <div className="flex flex-wrap items-center gap-1.5 text-xs text-muted-foreground">
+              {s.milestone
+                ? `Milestone ${s.milestone.position + 1} (v${s.version}):`
+                : `Your submission (v${s.version}):`}{' '}
+              <SubmissionStatusBadge status={s.status} />
+              {s.payment && <PaymentStatusBadge status={s.payment.payment_status} />}
+            </div>
+            {s.status === 'REVISION_REQUESTED' && s.review_feedback && (
+              <p className="text-sm">
+                <span className="text-muted-foreground">Requested changes: </span>
+                {s.review_feedback}
+              </p>
+            )}
+            {s.onchain_review && <ReviewClock review={s.onchain_review} perspective="contributor" />}
           </div>
-        )}
-        {needsRevision && mine.review_feedback && (
-          <p className="mt-2 text-sm">
-            <span className="text-muted-foreground">Requested changes: </span>
-            {mine.review_feedback}
-          </p>
-        )}
+        ))}
       </div>
+      {mine.map((s) => (
+        <PullRequestList
+          key={s.id}
+          submissionId={s.id}
+          pullRequests={s.pull_requests ?? []}
+          requireMerged={!!bounty.require_merged_pr}
+          editable={EDITABLE_SUBMISSION.has(s.status)}
+          showGitHubHint={!github.data && (bounty.require_merged_pr || (s.pull_requests?.length ?? 0) > 0)}
+          review={s.onchain_review ?? null}
+          perspective="contributor"
+        />
+      ))}
       {viewer.can_submit && (
-        <SubmitWorkButton bountyId={bounty.id} bountyTitle={bounty.title} className="w-full" />
-      )}
-      {needsRevision && (
         <SubmitWorkButton
           bountyId={bounty.id}
           bountyTitle={bounty.title}
-          submission={mine}
+          milestones={openMilestones}
+          assetCode={bounty.reward_asset.code}
           className="w-full"
         />
       )}
+      {mine
+        .filter((s) => s.status === 'REVISION_REQUESTED')
+        .map((s) => (
+          <SubmitWorkButton
+            key={s.id}
+            bountyId={bounty.id}
+            bountyTitle={bounty.title}
+            submission={s}
+            className="w-full"
+          />
+        ))}
+      {mine.map((s) => (
+        <div key={s.id} className="grid gap-2 *:w-full empty:hidden">
+          <ContributorChainActions submission={s} size="default" />
+        </div>
+      ))}
       {bounty.escrow?.state === 'CANCEL_REQUESTED' && (
         <ChainActionButton
           variant="outline"
@@ -313,6 +371,17 @@ function BountyDetailView({ bounty }: { bounty: BountyDetail }) {
                 {bounty.completion_deadline && (
                   <SummaryRow label="Work due">{formatDate(bounty.completion_deadline)}</SummaryRow>
                 )}
+                {(bounty.milestones?.length ?? 0) > 0 && (
+                  <SummaryRow label="Milestones">
+                    {bounty.milestones!.filter((m) => m.status !== 'OPEN').length} of{' '}
+                    {bounty.milestones!.length} paid
+                  </SummaryRow>
+                )}
+                {(bounty.escrow?.contract_version ?? 0) >= 2 && bounty.escrow?.review_window_seconds && (
+                  <SummaryRow label="Review window">
+                    {formatWindow(bounty.escrow.review_window_seconds)}
+                  </SummaryRow>
+                )}
               </dl>
               <ApplyArea bounty={bounty} />
             </CardContent>
@@ -352,6 +421,17 @@ function BountyDetailView({ bounty }: { bounty: BountyDetail }) {
             </CardContent>
           </Card>
 
+          {(bounty.milestones?.length ?? 0) > 0 && (
+            <Card>
+              <CardHeader>
+                <CardTitle className="text-base font-semibold">Milestones</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <MilestoneTimeline milestones={bounty.milestones!} assetCode={bounty.reward_asset.code} />
+              </CardContent>
+            </Card>
+          )}
+
           <Card className="sm:[--card-spacing:--spacing(7)]">
             <CardContent className="space-y-8">
               <section aria-labelledby="desc-h">
@@ -369,6 +449,7 @@ function BountyDetailView({ bounty }: { bounty: BountyDetail }) {
                       Tags: {bounty.tags.map((t) => `#${t}`).join(' ')}
                     </p>
                   )}
+                  <RelatedSkills skills={bounty.required_skills} />
                 </DocSection>
               )}
 
@@ -406,6 +487,8 @@ function BountyDetailView({ bounty }: { bounty: BountyDetail }) {
               )}
             </CardContent>
           </Card>
+
+          <QuestionsSection bountyRef={bounty.slug || bounty.id} bountyId={bounty.id} className="pt-4" />
 
           <PageSection id="tx-h" title="Verified transactions">
             <BountyTransactions bountyId={bounty.id} />

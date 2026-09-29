@@ -15,6 +15,11 @@ import { isValidAmount } from '@/lib/money'
 export const DEADLINE_WINDOWS = { '3d': 3, '7d': 7, '30d': 30 } as const
 export type DeadlineWindow = keyof typeof DEADLINE_WINDOWS
 
+/** "For you": skill-graph recommendations for a signed-in user (served by /recommendations, not a list sort). */
+export const FOR_YOU = 'for_you' as const
+export type MarketplaceSort = BountySort | typeof FOR_YOU
+const MARKETPLACE_SORTS: readonly MarketplaceSort[] = [...BOUNTY_SORTS, FOR_YOU]
+
 export type MarketplaceFilters = {
   q: string
   category: Category | null
@@ -25,8 +30,10 @@ export type MarketplaceFilters = {
   maxReward: string
   deadline: DeadlineWindow | null
   fundedOnly: boolean
+  /** Reward asset identifier ("native" or "CODE:ISSUER"); null = every asset. */
+  asset: string | null
   /** null = API default: `relevance` when searching, otherwise `newest`. */
-  sort: BountySort | null
+  sort: MarketplaceSort | null
   page: number
 }
 
@@ -40,6 +47,7 @@ export const DEFAULT_FILTERS: MarketplaceFilters = {
   maxReward: '',
   deadline: null,
   fundedOnly: false,
+  asset: null,
   sort: null,
   page: 1,
 }
@@ -54,10 +62,11 @@ export const FILTER_RESET: Partial<MarketplaceFilters> = {
   maxReward: '',
   deadline: null,
   fundedOnly: false,
+  asset: null,
 }
 
 /** The sort actually applied (mirrors the API default). */
-export function effectiveSort(f: Pick<MarketplaceFilters, 'q' | 'sort'>): BountySort {
+export function effectiveSort(f: Pick<MarketplaceFilters, 'q' | 'sort'>): MarketplaceSort {
   if (f.sort === 'relevance' && !f.q.trim()) return 'newest'
   return f.sort ?? (f.q.trim() ? 'relevance' : 'newest')
 }
@@ -76,6 +85,9 @@ const splitList = (v: string | null) =>
     .map((s) => s.trim())
     .filter(Boolean)
 
+/** "native" or "CODE:ISSUER" (1–12 letters or digits, then a G… account). */
+const ASSET_RE = /^(native|[A-Za-z0-9]{1,12}:G[A-Z2-7]{55})$/
+
 /** URLSearchParams → validated filters (unknown / invalid values are dropped). */
 export function parseFilters(sp: URLSearchParams): MarketplaceFilters {
   const page = Number.parseInt(sp.get('page') ?? '1', 10)
@@ -93,7 +105,8 @@ export function parseFilters(sp: URLSearchParams): MarketplaceFilters {
     maxReward: max && isValidAmount(max, { allowZero: true }) ? max : '',
     deadline: oneOf(Object.keys(DEADLINE_WINDOWS) as DeadlineWindow[], sp.get('deadline')),
     fundedOnly: sp.get('funded_only') === 'true',
-    sort: oneOf(BOUNTY_SORTS, sp.get('sort')),
+    asset: ASSET_RE.test(sp.get('asset') ?? '') ? sp.get('asset') : null,
+    sort: oneOf(MARKETPLACE_SORTS, sp.get('sort')),
     page: Number.isFinite(page) && page > 0 ? page : 1,
   }
 }
@@ -110,6 +123,7 @@ export function serializeFilters(f: MarketplaceFilters): URLSearchParams {
   if (f.maxReward) sp.set('max_reward', f.maxReward)
   if (f.deadline) sp.set('deadline', f.deadline)
   if (f.fundedOnly) sp.set('funded_only', 'true')
+  if (f.asset) sp.set('asset', f.asset)
   if (f.sort) sp.set('sort', f.sort)
   if (f.page > 1) sp.set('page', String(f.page))
   return sp
@@ -117,7 +131,13 @@ export function serializeFilters(f: MarketplaceFilters): URLSearchParams {
 
 /** Filters → API query params. `now` is injectable for deterministic tests. */
 export function toApiParams(f: MarketplaceFilters, now: Date = new Date()): BountyListParams {
-  const params: BountyListParams = { sort: effectiveSort(f), page: f.page, page_size: PAGE_SIZE }
+  const sort = effectiveSort(f)
+  // "For you" has no list sort: the marketplace list falls back to the API default.
+  const params: BountyListParams = {
+    sort: sort === FOR_YOU ? undefined : sort,
+    page: f.page,
+    page_size: PAGE_SIZE,
+  }
   if (f.q.trim()) params.q = f.q.trim()
   if (f.category) params.category = f.category
   if (f.difficulty) params.difficulty = f.difficulty
@@ -126,6 +146,7 @@ export function toApiParams(f: MarketplaceFilters, now: Date = new Date()): Boun
   if (f.minReward) params.min_reward = f.minReward
   if (f.maxReward) params.max_reward = f.maxReward
   if (f.fundedOnly) params.funded_only = true
+  if (f.asset) params.asset = [f.asset]
   if (f.deadline) {
     const days = DEADLINE_WINDOWS[f.deadline]
     // Floor to the minute so the query key stays stable across re-renders.
@@ -145,6 +166,7 @@ export function activeFilterCount(f: MarketplaceFilters): number {
     (f.skills.length ? 1 : 0) +
     (f.minReward || f.maxReward ? 1 : 0) +
     (f.deadline ? 1 : 0) +
-    (f.fundedOnly ? 1 : 0)
+    (f.fundedOnly ? 1 : 0) +
+    (f.asset ? 1 : 0)
   )
 }

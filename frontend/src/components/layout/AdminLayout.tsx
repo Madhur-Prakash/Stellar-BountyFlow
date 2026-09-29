@@ -2,9 +2,12 @@ import {
   ArrowLeft,
   ArrowLeftRight,
   BriefcaseBusiness,
+  Coins,
   Flag,
   LayoutDashboard,
+  LockKeyhole,
   ScrollText,
+  ShieldBan,
   Scale,
   Users,
 } from 'lucide-react'
@@ -30,7 +33,10 @@ const ADMIN_NAV: (ShellNavItem & { permission?: Permission })[] = [
     icon: ArrowLeftRight,
     permission: 'transaction:view_all',
   },
+  { label: 'Assets', to: '/admin/assets', icon: Coins, permission: 'asset:manage' },
   { label: 'Audit logs', to: '/admin/audit-logs', icon: ScrollText, permission: 'audit:read' },
+  { label: 'Screening', to: '/admin/screening', icon: ShieldBan, permission: 'audit:read' },
+  { label: 'Privacy and legal', to: '/admin/privacy', icon: LockKeyhole, permission: 'audit:read' },
 ]
 
 export function AdminLayout() {

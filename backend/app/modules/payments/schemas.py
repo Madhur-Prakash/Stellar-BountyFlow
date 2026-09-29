@@ -11,7 +11,7 @@ from pydantic import AfterValidator, Field
 
 from app.blockchain.config import get_network
 from app.core.money import fmt, parse_amount
-from app.core.schemas import APIModel, Asset, Money, OptionalMoney, UserSummary, native_asset
+from app.core.schemas import APIModel, Asset, Money, OptionalMoney, UserSummary, asset_from_identifier
 from app.modules.payments.models import BlockchainTransaction, PaymentRecord, PaymentStatus, TxStatus, TxType
 
 
@@ -24,6 +24,14 @@ class ChainAction(StrEnum):
     REFUND = "REFUND"
     RAISE_DISPUTE = "RAISE_DISPUTE"
     RESOLVE_DISPUTE = "RESOLVE_DISPUTE"
+    # Escrow v2 (app/modules/escrow/chain.py)
+    MILESTONE_PAYOUT = "MILESTONE_PAYOUT"
+    BATCH_PAYOUT = "BATCH_PAYOUT"
+    SUBMIT_WORK = "SUBMIT_WORK"
+    REQUEST_CHANGES = "REQUEST_CHANGES"
+    REJECT_SUBMISSION = "REJECT_SUBMISSION"
+    CLAIM = "CLAIM"
+    DISPUTE_VOTE = "DISPUTE_VOTE"
 
 
 class BlockchainTransactionOut(APIModel):
@@ -48,6 +56,8 @@ class BlockchainTransactionOut(APIModel):
     failure_reason: str | None
     explorer_url: str | None
     created_at: datetime
+    # The platform sponsor paid (or bid to pay) this transaction's network fee.
+    fee_sponsored: bool = False
 
 
 def serialize_tx(tx: BlockchainTransaction) -> BlockchainTransactionOut:
@@ -67,7 +77,7 @@ def serialize_tx(tx: BlockchainTransaction) -> BlockchainTransactionOut:
         transaction_type=tx.transaction_type,
         network=tx.network,
         amount=tx.amount,
-        asset=native_asset() if tx.asset_identifier else None,
+        asset=asset_from_identifier(tx.asset_identifier) if tx.asset_identifier else None,
         status=tx.status,
         source_address=tx.source_address,
         destination_address=tx.destination_address,
@@ -81,6 +91,7 @@ def serialize_tx(tx: BlockchainTransaction) -> BlockchainTransactionOut:
         if tx.status in (TxStatus.SIGNATURE_REQUIRED, TxStatus.EXPIRED, TxStatus.CREATED)
         else network.tx_url(tx.transaction_hash),
         created_at=tx.created_at,
+        fee_sponsored=bool((tx.verification_metadata or {}).get("sponsorship")),
     )
 
 
@@ -97,6 +108,7 @@ class PaymentRecordOut(APIModel):
     transaction: BlockchainTransactionOut | None
     created_at: datetime
     settled_at: datetime | None
+    milestone_id: uuid.UUID | None = None
 
 
 def serialize_payment(
@@ -113,11 +125,12 @@ def serialize_payment(
         ),
         submission_id=p.submission_id,
         amount=p.amount,
-        asset=native_asset(),
+        asset=asset_from_identifier(p.asset_identifier),
         payment_status=p.payment_status,
         transaction=serialize_tx(p.transaction) if p.transaction else None,
         created_at=p.created_at,
         settled_at=p.settled_at,
+        milestone_id=p.milestone_id,
     )
 
 
@@ -138,6 +151,10 @@ class PrepareRequest(APIModel):
     assignment_id: uuid.UUID | None = None
     dispute_id: uuid.UUID | None = None
     amount: AmountString = None
+    # BATCH_PAYOUT: the approved submissions paid in one call.
+    submission_ids: list[uuid.UUID] | None = Field(default=None, max_length=10)
+    # REQUEST_CHANGES / REJECT_SUBMISSION: applied to the submission once the answer is confirmed on-chain.
+    feedback: str | None = Field(default=None, min_length=5, max_length=5000)
 
 
 class FundingPrepareRequest(APIModel):
@@ -166,6 +183,8 @@ class TxSummary(APIModel):
     fee_estimate_stroops: str | None
     contract_id: str | None
     function_name: str
+    # BountyFlow's sponsor is expected to pay the network fee (decided again when the transaction is submitted).
+    fee_sponsored: bool = False
 
 
 class PreparedTransactionOut(APIModel):

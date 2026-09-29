@@ -105,7 +105,7 @@ describe('TransactionsPage', () => {
       transaction_type: 'PAYOUT',
       network: 'testnet',
       amount: '2.5000000',
-      asset: { code: 'XLM', issuer: null, type: 'native', contract_id: null },
+      asset: { code: 'XLM', issuer: null, type: 'native', contract_id: null, identifier: 'native', decimals: 7 },
       status: 'CONFIRMED',
       source_address: null,
       destination_address: null,

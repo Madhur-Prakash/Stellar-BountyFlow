@@ -41,6 +41,11 @@ Common codes: `validation_error` (422), `not_authenticated` (401), `token_expire
 | `wrong_wallet` | 422 | Sign with the wallet recorded on the escrow / on-chain assignment |
 | `account_not_found` | 422 | The wallet account does not exist on the network yet |
 | `contributor_wallet_missing` | 422 | The contributor has no verified wallet to receive the reward |
+| `trustline_missing` | 422 | The receiving (or funding) wallet has no trustline for the reward asset. `details` carries `asset`, `address`, `state` and `stage` (`funding`, `assignment`, `payout`, `batch_payout`, `refund`) |
+| `trustline_unauthorized` | 422 | A trustline exists but the issuer has not authorized it |
+| `insufficient_balance` | 422 | The funding wallet holds less of the asset than the deposit needs |
+| `asset_not_supported` | 422 | The reward asset is not an enabled registry asset on this network |
+| `trustline_exists` / `trustline_not_required` | 409 / 422 | The wallet already has the trustline; or the asset needs none (XLM, or a `C…` contract wallet) |
 | `signature_invalid` | 422 | The signed envelope does not match the prepared transaction |
 | `service_unavailable` | 503 | A required component (e.g. escrow configuration, Redis for wallet challenges) is unavailable |
 | `method_not_allowed` / `payload_too_large` | 405 / 413 | Standard HTTP errors in the same envelope |
@@ -57,11 +62,24 @@ type Page<T> = { items: T[]; total: number; page: number; page_size: number; pag
 
 - Monetary amounts are **decimal strings** with up to 7 fractional digits (Stellar precision), e.g. `"250.5000000"`. Never floats.
 - `reward_amount` on a bounty is the reward **per position**. Required escrow = `reward_amount × positions_available`.
-- Assets:
+- Every amount carries its **asset**. `identifier` is `"native"` (XLM) or `"CODE:ISSUER"`; `contract_id` is the
+  asset's Stellar Asset Contract on the active network (derived by the backend, never sent by a client):
 
 ```ts
-type Asset = { code: "XLM"; issuer: null; type: "native"; contract_id: string | null }
+type Asset = {
+  code: string; issuer: string | null
+  type: "native" | "credit_alphanum4" | "credit_alphanum12"
+  contract_id: string | null; identifier: string; decimals: number
+}
+type AssetAmount = { asset: Asset; amount: DecimalString }
 ```
+
+- **Amounts of different assets are never added together.** Where a total could span assets, the scalar field
+  stays XLM-only (unchanged for existing clients) and a `*_by_asset: AssetAmount[]` field beside it carries
+  every asset: `PublicStats.payout_volume_by_asset`, `UserStats.rewards_received_by_asset` /
+  `rewards_paid_by_asset`, `RequesterAnalytics.escrowed_by_asset` / `paid_by_asset` / `spending_by_asset`,
+  `ContributorAnalytics.earned_by_asset` / `earnings_by_asset`, `PlatformAnalytics.transactions.payout_volume_by_asset`
+  and `PlatformDay.payout_volume_by_asset`.
 
 ### Timestamps
 
@@ -83,13 +101,16 @@ type PaymentStatus = "NOT_REQUIRED" | "CREATED" | "SIGNATURE_REQUIRED" | "SUBMIT
 type TxStatus = "CREATED" | "SIGNATURE_REQUIRED" | "SUBMITTED" | "CONFIRMED" | "FAILED" | "EXPIRED"
 type TxType = "ESCROW_CREATE" | "ESCROW_FUND" | "ASSIGN" | "PAYOUT" | "CANCEL_REQUEST" | "CANCEL_CONSENT"
   | "REFUND" | "DISPUTE_RAISE" | "DISPUTE_RESOLVE" | "WALLET_CHALLENGE"
+  | "MILESTONE_PAYOUT" | "BATCH_PAYOUT" | "SUBMIT_WORK" | "REQUEST_CHANGES" | "REJECT_SUBMISSION" | "CLAIM" | "DISPUTE_VOTE"  // escrow v2
 type ChainAction = "FUND" | "ASSIGN" | "PAYOUT" | "REQUEST_CANCEL" | "CONSENT_CANCEL" | "REFUND" | "RAISE_DISPUTE" | "RESOLVE_DISPUTE"
+  | "MILESTONE_PAYOUT" | "BATCH_PAYOUT" | "SUBMIT_WORK" | "REQUEST_CHANGES" | "REJECT_SUBMISSION" | "CLAIM" | "DISPUTE_VOTE"  // escrow v2
 type DisputeStatus = "OPEN" | "UNDER_REVIEW" | "RESOLVED" | "DISMISSED"
-type DisputeResolution = "RELEASE_TO_CONTRIBUTOR" | "REFUND_TO_REQUESTER" | "DISMISSED"
+type DisputeResolution = "RELEASE_TO_CONTRIBUTOR" | "REFUND_TO_REQUESTER" | "SPLIT" | "DISMISSED"   // SPLIT: v2 escrows
 type ReportStatus = "OPEN" | "REVIEWING" | "ACTIONED" | "DISMISSED"
 type NotificationType = "BOUNTY_PUBLISHED" | "BOUNTY_FUNDED" | "APPLICATION_RECEIVED" | "APPLICATION_ACCEPTED"
   | "APPLICATION_REJECTED" | "SUBMISSION_RECEIVED" | "REVISION_REQUESTED" | "SUBMISSION_APPROVED"
   | "SUBMISSION_REJECTED" | "PAYMENT_CONFIRMED" | "BOUNTY_CANCELLED" | "BOUNTY_EXPIRED" | "DISPUTE_UPDATE" | "SYSTEM"
+  | "SAVED_SEARCH_MATCH"   // a new bounty, or a digest of them, matches a saved search
 ```
 
 ## Shared shapes
@@ -232,6 +253,11 @@ The backend returns every field above. It also returns the following extra field
 | `PaymentRecord` | `bounty_title: string \| null`, `bounty_slug: string \| null` |
 | `BlockchainTransaction` | `bounty_slug: string \| null`, `contract_id: string \| null`, `function_name: string \| null` |
 | `Dispute` | `contributor: UserSummary \| null` (the assigned contributor the dispute concerns), `escrow_frozen_onchain: boolean`, `requires_onchain_execution: boolean` (a release/refund decision the arbiter must still execute with `RESOLVE_DISPUTE`) |
+| `EscrowView` (v2) | `contract_version: number` (1 or 2, the contract this escrow lives on), `arbiter_addresses: string[]`, `arbiter_threshold: number`, `review_window_seconds: number \| null` |
+| `BountyDetail` (v2) | `milestones: Milestone[]` (empty unless the reward is paid in milestones), `review_window_seconds: number \| null` |
+| `Submission` (v2) | `milestone: { id, position, title, amount, status } \| null`, `onchain_review: OnchainReview \| null`, `can_record_onchain: boolean` (the viewer can sign `SUBMIT_WORK` for it) |
+| `PaymentRecord` (v2) | `milestone_id: string \| null` |
+| `Dispute` (v2) | `contract_version: number`, `arbiter_threshold: number`, `arbiter_approvals: number` (verified approvals of the current round), `contributor_amount: string \| null` (SPLIT); `requires_onchain_execution` is also true for a SPLIT on a frozen escrow |
 | `GET /config/public` | `contract_explorer_url: string \| null` |
 | `AdminUser` | `last_login_at: string \| null` |
 | Admin report | `resolved_at: string \| null` |
@@ -278,12 +304,78 @@ The backend returns every field above. It also returns the following extra field
 - `GET /users/{username}/bounties?page&page_size` → `Page<BountySummary>` (public bounties created)
 - `GET /users/{username}/contributions?page&page_size` → `Page<{ bounty: BountySummary; completed_at: string; amount: string | null; transaction_hash: string | null }>`
 - `GET /users/{username}/stats` → `UserStats`
+- `GET /users/{username}/reputation` → `ReputationSummary` (attested completions only; `earned` is per asset)
+- `GET /users/{username}/attestations?page&page_size` → `Page<Attestation>` (completions recorded on-chain)
+
+### Reputation and credentials
+- `GET /attestations/{id|uuid}` → `Attestation & { chain }`. Public page for one completion; `chain` is a live
+  read of the registry contract (`{ checked_at, found, matches, revoked, record, error }`), cached 30 s.
+- `GET /reputation/me/attestations?page&page_size` → `Page<Attestation>` (the owner's, including in-flight ones)
+- `GET /reputation/me/counts` → `{ confirmed, in_progress, revoked, failed }`
+- `GET /credentials/issuer` → `{ enabled, did, verification_method, did_document_url, status_list_url, cryptosuite }`
+- `GET /credentials/status/revocation` → signed `BitstringStatusListCredential` (`application/vc+json`, public)
+- `POST /credentials/verify` `{ credential }` → `VerificationReport` (public, CSRF-exempt; see docs/credentials.md)
+- `POST /credentials/completions/{attestation_id}` → `IssuedCredential` (the contributor; idempotent)
+- `POST /credentials/summary` → `IssuedCredential` (every standing attested completion)
+- `GET /credentials/me` → `CredentialRecord[]`; `GET /credentials/{id}` → `IssuedCredential`
+- `GET /credentials/{id}/download` → the credential JSON as an attachment
+- `GET /.well-known/did.json` → the issuer's DID document (unversioned, public)
+- Staff: `GET /admin/attestations?status&page&page_size`, `POST /admin/attestations/backfill`,
+  `POST /admin/attestations/reconcile`, `GET /admin/attestations/reconciliation`,
+  `POST /admin/attestations/{id}/retry` (`system:health`), `POST /admin/attestations/{id}/revoke` `{ reason }`
+  (`user:manage`)
+
+```ts
+// One completed (bounty, contributor) pair. `amount` is everything that contributor was paid on the bounty,
+// in the bounty's reward asset, however many transfers paid it (`payments_count`).
+type Attestation = {
+  id: string; onchain_id: number | null
+  status: "PENDING" | "SUBMITTED" | "CONFIRMED" | "REVOKING" | "REVOKED" | "FAILED"
+  network: string; contributor: UserSummary; contributor_address: string   // G… or a passkey wallet C…
+  bounty: { id: string; slug: string; title: string }
+  amount: string; asset: Asset; payments_count: number
+  first_paid_at: string | null; completed_at: string; attested_at: string | null; confirmed_at: string | null
+  payout_tx_hash: string; payout_explorer_url: string | null
+  attestation_tx_hash: string | null; attestation_explorer_url: string | null
+  contract_id: string; contract_explorer_url: string
+  escrow_contract_id: string; onchain_bounty_id: string; token_contract_id: string
+  revoked_at: string | null; revocation_reason: string | null
+}
+
+type ReputationSummary = {
+  enabled: boolean            // false when the registry is not configured on this server
+  attested_completions: number; revoked: number
+  earned: AssetAmount[]       // one total per asset; never summed across assets
+  first_completed_at: string | null; last_completed_at: string | null
+  network: string; contract_id: string | null; contract_explorer_url: string | null
+  attester_address: string | null
+}
+
+type VerificationReport = {
+  verified: boolean
+  checks: { id: "format"|"issuer"|"signature"|"validity"|"status"|"attestation"
+            label: string; status: "pass"|"fail"|"skip"; detail: string }[]
+  credential_id: string | null; kind: "completion" | "summary" | null
+  issuer: { id: string | null; name: string | null; is_this_site: boolean }
+  subject: string | null; valid_from: string | null
+  attestations: { onchain_id: number; contract_id: string; matches: boolean; revoked: boolean; detail: string
+                  attestation_path: string | null; explorer_url: string | null
+                  contract_explorer_url: string }[]
+  checked_at: string
+}
+```
 
 ### Wallets
-- `POST /wallets/challenge` `{ public_address }` → `{ challenge_xdr, network_passphrase, expires_at }`. SEP-10-style challenge transaction; the wallet signs it (it is never submitted to the network).
-- `POST /wallets/verify` `{ public_address, signed_challenge_xdr }` → `Wallet`
-- `GET /wallets` → `Wallet[]`
+- `POST /wallets/challenge` `{ public_address, method? }` → `{ method, challenge_xdr, message, authorization_entries, network_passphrase, expires_at }`. `method` is `sep10` (a challenge transaction, the default for `G…`), `sep53` (a message to sign) or `sep45` (Soroban authorization entries for contract accounts, the default for `C…`). Single use; nothing is ever submitted to the network.
+- `POST /wallets/verify` `{ public_address, signed_challenge_xdr? | signed_message? | signed_authorization_entries?, wallet_app? }` → `Wallet`. The answer must match the method the challenge was issued with.
+- `GET /wallets` → `Wallet[]` (each with `wallet_app`, `proof_method`, `is_primary` and `kind: account|contract`)
+- `POST /wallets/{wallet_id}/primary` → `Wallet`. Chooses the wallet payouts go to.
 - `DELETE /wallets/{wallet_id}` → `204`
+- `GET /wallets/options` → `{ sponsorship: { enabled, sponsor_address, functions, daily_tx_limit, used_today }, passkey: { enabled, unavailable_reason, wasm_hash, rpc_url, network_passphrase } }`. What this deployment offers; both are off without a sponsor key.
+- `GET /wallets/passkey` → `PasskeyWallet[]` (`status: DEPLOYING|ACTIVE|FAILED`, `linked`, `deploy_tx_hash`, `explorer_url`)
+- `POST /wallets/passkey` `{ key_id, public_key, deploy_xdr }` → `201 PasskeyWallet`. Relays a passkey-kit wallet deployment through the platform sponsor. `422` when the deployment is not exactly the expected contract for that passkey, `409` when the wallet belongs to another account, `503` when passkey wallets are off.
+- `GET /wallets/passkey/candidates?key_id` → `{ schema: 2, complete, indexedThroughLedger, candidates: [{ contractId, birthWasmHash, creationTransactionHash, creationLedger }] }`. The caller's own wallet for that credential, in passkey-kit's lookup shape.
+- `GET /admin/sponsorship` → `SponsorshipOverview` (staff: `transaction:view_all`). Sponsor balance, today's spend, thresholds and the recent sponsored transactions.
 
 ### Bounties
 - `GET /bounties` query: `q, category, skills (comma), tags (comma), difficulty, status (comma), min_reward, max_reward, deadline_before, deadline_after, funded_only (bool), sort = newest|deadline|reward_high|reward_low|popular, page, page_size` → `Page<BountySummary>`. Only PUBLIC, non-draft bounties. Default status filter: OPEN, FUNDING_PENDING, FUNDED, IN_PROGRESS, UNDER_REVIEW.
@@ -316,19 +408,19 @@ The backend returns every field above. It also returns the following extra field
 - `POST /applications/{id}/reject` `{ note? }` → `Application`
 
 ### Submissions
-- `POST /bounties/{bounty_id}/submissions` `{ description, evidence_url?, evidence_links?: string[] }` → `201 Submission` (assigned contributor only)
+- `POST /bounties/{bounty_id}/submissions` `{ description, evidence_url?, evidence_links?: string[], pull_request_urls?: string[], milestone_id? }` → `201 Submission` (assigned contributor only). `pull_request_urls` holds up to 5 GitHub pull request URLs, verified after the submission is created (see [github.md](github.md)).
 - `GET /bounties/{bounty_id}/submissions?page&page_size` → `Page<Submission>` (owner, moderator, or own submissions for contributor)
 - `GET /submissions/me?status&page&page_size` → `Page<Submission>`
 - `GET /submissions/{id}` → `Submission`
-- `PATCH /submissions/{id}` `{ description?, evidence_url?, evidence_links? }` → `Submission` (while REVISION_REQUESTED; becomes RESUBMITTED, version += 1)
+- `PATCH /submissions/{id}` `{ description?, evidence_url?, evidence_links?, pull_request_urls? }` → `Submission` (while REVISION_REQUESTED; becomes RESUBMITTED, version += 1)
 - `POST /submissions/{id}/request-revision` `{ feedback }` → `Submission`
-- `POST /submissions/{id}/approve` `{ feedback? }` → `Submission` (creates PaymentRecord with status CREATED)
+- `POST /submissions/{id}/approve` `{ feedback? }` → `Submission` (creates PaymentRecord with status CREATED). `409 merged_pr_required` while the bounty requires a merged pull request and none is verified; the message names the problem and, when the on-chain review clock is running, says that silence still pays the contributor. `details` carries `pull_requests`, `onchain_review_pending` and `claimable_at`.
 - `POST /submissions/{id}/reject` `{ reason }` → `Submission`
 
 ### Funding, payouts, and chain actions
 The frontend runs every on-chain action through the same three steps: **prepare → sign in wallet → submit**, then polls the transaction until `CONFIRMED` or `FAILED`.
 
-- `POST /bounties/{bounty_id}/chain/prepare` `{ action: ChainAction, wallet_address: string, submission_id?, assignment_id?, dispute_id?, amount? }` → `PreparedTransaction`
+- `POST /bounties/{bounty_id}/chain/prepare` `{ action: ChainAction, wallet_address: string, submission_id?, assignment_id?, dispute_id?, amount?, submission_ids?, feedback? }` → `PreparedTransaction` (`submission_ids`: `BATCH_PAYOUT`, 2 to 10 approved submissions; `feedback`: `REQUEST_CHANGES` / `REJECT_SUBMISSION`, applied once the answer is confirmed)
 - `POST /bounties/{bounty_id}/funding/prepare` `{ wallet_address, amount? }` → `PreparedTransaction` (alias of action FUND)
 - `POST /bounties/{bounty_id}/funding/submit` `{ transaction_id, signed_xdr }` → `BlockchainTransaction`
 - `GET /bounties/{bounty_id}/funding` → `{ funding_status: FundingStatus; escrow: EscrowView | null; transactions: BlockchainTransaction[] }`
@@ -363,7 +455,158 @@ The frontend runs every on-chain action through the same three steps: **prepare 
 - `GET /analytics/platform` (ADMIN/MODERATOR) → detailed platform metrics incl. activation, conversion, repeat contributors, failed transactions, time series.
 
 ### Dashboard
-- `GET /dashboard` → `{ active_bounties: number; pending_applications_to_review: number; submissions_awaiting_review: number; pending_payments: number; my_pending_applications: number; my_active_assignments: number; revision_requests: number; recent_completed: BountySummary[]; recent_activity: ActivityItem[]; recommendations: BountySummary[] }`
+- `GET /dashboard` → `{ active_bounties: number; pending_applications_to_review: number; submissions_awaiting_review: number; pending_payments: number; my_pending_applications: number; my_active_assignments: number; revision_requests: number; recent_completed: BountySummary[]; recent_activity: ActivityItem[]; recommendations: BountySummary[]; recommendation_reasons: Record<string, RecommendationReason> }`
+  `recommendations` is the top of the skill-graph ranking; `recommendation_reasons` is keyed by bounty id.
+
+### Discovery: saved searches and recommendations
+See [discovery.md](discovery.md) for the matching and ranking rules.
+
+```ts
+type AlertFrequency = 'INSTANT' | 'DAILY' | 'WEEKLY' | 'OFF'
+
+/** Every marketplace filter, plus a rolling deadline window instead of fixed dates. */
+type SavedSearchFilters = {
+  q?: string | null; category?: Category[] | null; difficulty?: Difficulty[] | null
+  status?: BountyStatus[] | null; skills?: string[] | null; tags?: string[] | null
+  min_reward?: string | null; max_reward?: string | null
+  asset?: string[] | null            // reward asset identifiers ("native", "CODE:ISSUER")
+  deadline_within_days?: number | null   // 1..365; deadline_before / deadline_after are rejected
+  funded_only?: boolean; sort?: BountySort | null
+}
+
+type SavedSearch = {
+  id: string; name: string; filters: SavedSearchFilters
+  alert_frequency: AlertFrequency; notify_in_app: boolean; notify_email: boolean; is_paused: boolean
+  new_count: number                  // matched since last_viewed_at and still listed by the search
+  last_viewed_at: string; next_digest_at: string | null; created_at: string; updated_at: string
+}
+
+type RecommendationReason = {
+  matched_skills: string[]                             // skills the user has
+  related_skills: { skill: string; via: string }[]      // reached through the skill graph
+}
+type Recommendation = { bounty: BountySummary; score: number; reason: RecommendationReason }
+```
+
+- `GET /saved-searches` → `SavedSearch[]` (the caller's own, newest first)
+- `POST /saved-searches` `{ name, filters?, alert_frequency?, notify_in_app?, notify_email? }` → `201 SavedSearch`.
+  Up to 25 per user (`409` beyond that). Choosing email opts the account into `SAVED_SEARCH_MATCH` emails.
+- `GET /saved-searches/{id}` → `SavedSearch`
+- `PATCH /saved-searches/{id}` `{ name?, filters?, alert_frequency?, notify_in_app?, notify_email?, is_paused? }` → `SavedSearch`
+- `DELETE /saved-searches/{id}` → `204` (its matches cascade)
+- `POST /saved-searches/{id}/viewed` → `SavedSearch` with `new_count: 0`
+- `POST /saved-searches/unsubscribe` `{ token }` → `{ saved_search_id, name, alert_frequency: 'OFF' }`.
+  **Public and CSRF-exempt**: authorised by the signed token in an alert email, and it can only turn alerts off.
+  `422` for a malformed or wrongly signed token, `404` when the search is gone.
+- `GET /recommendations?<marketplace filters>&page&page_size` → `Page<Recommendation> & { seed_skills: string[]; has_profile_skills: boolean }`.
+  Signed in only. Excludes the caller's own bounties and ones they applied to. `sort` is ignored (the ranking is
+  the order); every other marketplace filter applies. Empty `items` with `has_profile_skills: false` means the
+  user has no skills to rank from yet.
+- `GET /skills/related?skills=a,b&limit` → `{ skills: string[]; related: { skill, weight, via: string[], marketplace_skills: string[] }[]; computed_at: string | null }`.
+  Public. `marketplace_skills` are the raw names to filter the marketplace by (empty when only tags use the skill).
+- `POST /admin/discovery/digests/run` `{ frequency: 'DAILY' | 'WEEKLY' }` → `{ frequency, users, searches, matches }`
+  (ADMIN). Sends pending digests immediately, ignoring the schedule. **Answers `404` unless
+  `DISCOVERY_DIGEST_TRIGGER_ENABLED` is set**, so it does not exist in normal deployments.
+
+### Questions (bounty Q&A)
+Public to read, signed in to write. Bodies are Markdown, stored raw and rendered by the SPA without raw HTML
+(see [security.md](security.md#input-handling)). Replies are one level deep: replying to a reply joins the same
+thread.
+
+- `GET /bounties/{bounty_ref}/questions?sort=newest|helpful&page&page_size` → `QuestionPage` (public)
+- `POST /bounties/{bounty_id}/questions` `{ body }` → `201 Thread` (10–5,000 characters; verified email; 20 posts
+  per 10 minutes per user, 60 per hour per IP)
+- `POST /qa/posts/{post_id}/replies` `{ body }` → `201 Thread` (2–5,000 characters)
+- `PATCH /qa/posts/{post_id}` `{ body }` → `Thread` (author only; sets `edited_at`)
+- `DELETE /qa/posts/{post_id}` → `204` (author only; soft delete — the thread keeps its shape)
+- `PUT /qa/posts/{post_id}/vote` → `QAVote`; `DELETE /qa/posts/{post_id}/vote` → `QAVote` (one per user, never your own post)
+- `POST /qa/posts/{post_id}/accept` / `DELETE …/accept` → `Thread` (requester only, replies only, one per question)
+- `POST /qa/posts/{post_id}/pin` / `DELETE …/pin` → `Thread` (requester only, questions only, up to 3 per bounty)
+- `POST /qa/posts/{post_id}/report` `{ reason }` → `201 { id }` (goes to the moderation queue as `target_type: "QA_POST"`)
+- `POST /admin/qa/posts/{post_id}/moderate` `{ action: "HIDE" | "UNHIDE", reason }` → `ModeratedPost`
+  (`bounty:moderate`). Hiding also marks the post's open reports as actioned.
+
+```ts
+type QAPost = {
+  id: string
+  question_id: string          // the thread; a question's own id
+  parent_id: string | null
+  author: UserSummary | null   // null once deleted
+  body: string | null          // null when deleted, or hidden and you are not its author or a moderator
+  is_requester: boolean        // written by the bounty's requester
+  is_mine: boolean
+  is_pinned: boolean
+  is_accepted: boolean
+  upvotes: number
+  viewer_voted: boolean
+  is_deleted: boolean
+  is_hidden: boolean
+  hidden_reason: string | null // author and moderators only
+  edited_at: string | null
+  created_at: string
+}
+type Thread = QAPost & { replies: QAPost[]; reply_count: number; answered: boolean }
+type QuestionPage = Page<Thread> & {
+  questions_count: number      // visible questions, also on BountySummary.questions_count
+  can_ask: boolean
+  closed_reason: string | null // why posting is closed (draft, hidden, completed, cancelled, expired)
+  viewer_is_requester: boolean
+  viewer_is_moderator: boolean
+}
+```
+
+### GitHub
+Account linking and pull request verification; the rules are in [github.md](github.md).
+
+- `GET /github/config` → `{ oauth_enabled, webhook_enabled, authenticated_api }` (public)
+- `GET /github/account` → `GitHubAccount | null`
+- `POST /github/account/challenge` `{ login }` → `{ login, challenge, filename, expires_at }` (10 per 15 min)
+- `POST /github/account/verify-gist` `{ gist_url }` → `GitHubAccount`. `422 gist_not_found`,
+  `422 gist_not_verified` (wrong owner or missing text), `422 challenge_expired`, `409 github_account_taken`.
+- `POST /github/oauth/start` → `{ authorize_url }`; `POST /github/oauth/callback` `{ code, state }` →
+  `GitHubAccount`. Both answer `400 github_oauth_disabled` unless an OAuth app is configured.
+- `DELETE /github/account` → `204`
+- `GET /users/{username}/github` → `{ login, avatar_url, profile_url, verified_at } | null` (public)
+- `GET /submissions/{id}/pull-requests` → `PullRequest[]` (contributor, requester, `submission:view_all`)
+- `POST /submissions/{id}/pull-requests` `{ url }` → `201 PullRequest` (contributor, while the submission is open)
+- `DELETE /submissions/{id}/pull-requests/{pull_request_id}` → `204`
+- `POST /submissions/{id}/pull-requests/recheck` → `PullRequest[]` (20 per 5 min per user)
+- `POST /github/webhook` → `202 { ok, rechecks }`. Server-to-server, CSRF-exempt, HMAC-verified with
+  `X-Hub-Signature-256`; `404` while `GITHUB_WEBHOOK_SECRET` is empty, `401 invalid_signature` otherwise.
+
+```ts
+type GitHubAccount = {
+  github_id: number
+  login: string
+  avatar_url: string | null
+  profile_url: string
+  method: "GIST" | "OAUTH"
+  proof_url: string | null     // the gist that proved it
+  verified_at: string
+}
+type PullRequest = {
+  id: string
+  url: string
+  repository: string           // "owner/name"
+  number: number
+  verification: "PENDING" | "VERIFIED" | "NOT_FOUND" | "REPO_MISMATCH" | "AUTHOR_MISMATCH" | "AUTHOR_NOT_LINKED" | "UNAVAILABLE"
+  detail: string | null        // why it did not verify, in plain words
+  state: "OPEN" | "CLOSED" | "MERGED" | null
+  title: string | null
+  author_login: string | null
+  merged_at: string | null
+  head_sha: string | null
+  draft: boolean
+  checks: "SUCCESS" | "FAILURE" | "PENDING" | "NONE" | null
+  checks_passed: number
+  checks_failed: number
+  checks_pending: number
+  check_runs: { name: string | null; status: string | null; conclusion: string | null }[]
+  statuses: { context: string | null; state: string | null }[]
+  last_checked_at: string | null
+  next_check_at: string | null
+}
+```
 
 ### Disputes
 - `POST /bounties/{bounty_id}/disputes` `{ reason, evidence_url?, contributor_id? }` → `201 Dispute` (requester or assigned contributor). `contributor_id` is required when the requester raises it and several contributors are assigned.
@@ -371,7 +614,83 @@ The frontend runs every on-chain action through the same three steps: **prepare 
 - `GET /disputes/{id}` → `Dispute` (parties and moderators)
 - `POST /disputes/{id}/evidence` `{ description, url? }` → `Dispute`
 - `POST /disputes/{id}/assign` → `Dispute` (moderator assigns self)
-- `POST /disputes/{id}/resolve` `{ resolution: DisputeResolution; note }` → `Dispute` (MODERATOR/ADMIN). Records the off-chain decision. If funds are in the on-chain escrow, the arbiter wallet must then sign chain action `RESOLVE_DISPUTE`.
+- `POST /disputes/{id}/resolve` `{ resolution: DisputeResolution; note; contributor_amount? }` → `Dispute` (MODERATOR/ADMIN). Records the off-chain decision. If funds are in the on-chain escrow, the arbiter wallet must then sign chain action `RESOLVE_DISPUTE` (1-of-1 arbiter set), or the escrow's arbiters sign `DISPUTE_VOTE` until the threshold is reached. `SPLIT` needs a frozen v2 escrow and `contributor_amount` between 0 and the contributor's open reward (exclusive); the rest returns to the requester.
+- `GET /disputes/{id}/arbitration` → `Arbitration` (parties and staff): the escrow's arbiter set, read live from the contract (`resolution_votes`), falling back to the verified mirror when the RPC is unavailable.
+
+### Escrow v2
+
+- `GET /escrow/config` → `EscrowConfig` (public). `contract_version` is read from the configured contract's `version()`.
+- `GET /bounties/{bounty_id}/milestones` → `Milestone[]` (anyone who can see the bounty)
+- `PUT /bounties/{bounty_id}/milestones` `{ milestones: { title, description?, amount }[] }` → `Milestone[]` (owner, DRAFT only). 2 to 20 milestones on a single-position bounty, adding up to `reward_amount`; an empty list removes them. `POST /bounties` and `PATCH /bounties/{id}` also take `milestones` and `review_window_seconds`.
+- `POST /bounties/{bounty_id}/submissions` takes `milestone_id` (required on a milestone bounty; one live submission per milestone).
+- While a submission's clock runs on-chain, `POST /submissions/{id}/request-revision` and `/reject` answer `409 onchain_review_pending`: sign `REQUEST_CHANGES` / `REJECT_SUBMISSION` instead.
+- Approving a milestone submission creates a payment for that milestone's amount, paid with `MILESTONE_PAYOUT` (or `BATCH_PAYOUT`). `PAYOUT` on a milestone bounty answers `409`.
+
+```ts
+type Milestone = {
+  id: string; position: number; title: string; description: string | null; amount: string
+  status: "OPEN" | "PAID" | "SETTLED"   // PAID / SETTLED only after the payout was verified on-chain
+  paid_at: string | null; payout_transaction_id: string | null; explorer_url: string | null
+}
+type OnchainReview = {
+  state: "PENDING" | "CHANGES_REQUESTED" | "REJECTED" | "PAID"
+  submitted_at: string | null; claimable_at: string | null   // claim opens at claimable_at
+  can_claim: boolean; can_answer: boolean                     // server view at response time; the contract decides
+}
+type EscrowConfig = {
+  contract_id: string | null; contract_version: number
+  default_review_window_seconds: number; min_review_window_seconds: number; max_review_window_seconds: number
+  arbiter_addresses: string[]; arbiter_threshold: number; max_milestones: number; max_batch: number
+}
+type Arbitration = {
+  dispute_id: string; contract_version: number; escrow_frozen: boolean; executed: boolean
+  round: number; threshold: number; approvals: number
+  arbiters: { address: string; staff: UserSummary | null; approved: boolean; contributor_amount: string | null }[]
+  resolution: DisputeResolution | null; contributor_amount: string | null; requester_amount: string | null
+  position_value: string | null
+  my_arbiter_wallets: string[]; my_vote_recorded: boolean; can_vote: boolean; vote_blocked_reason: string | null
+}
+```
+
+### Reward assets and trustlines
+- `GET /assets` → `RewardAsset[]` (public): the enabled reward assets on this network.
+  `RewardAsset = { id, asset: Asset, name, is_default, requires_trustline, faucet_url }`
+- `GET /assets/wallets` → `WalletAssets[]`: each verified wallet of the caller with its XLM balance and, per
+  enabled asset, whether it can receive it.
+  `WalletAssets = { wallet_id, address, network, account_exists, native_balance, native_spendable, trustlines: TrustlineStatus[] }`,
+  `TrustlineStatus = { asset: Asset, address, state: TrustlineState, balance }`
+  `TrustlineState = "NOT_REQUIRED" | "ACTIVE" | "MISSING" | "UNAUTHORIZED" | "ACCOUNT_MISSING" | "NO_WALLET" | "UNKNOWN"`
+- `POST /assets/{asset_id}/trustline/prepare` `{ wallet_address }` → `PreparedAssetOperation`: an unsigned
+  `changeTrust` from that verified wallet.
+- `POST /assets/operations/{id}/submit` `{ signed_xdr }` → `AssetOperation`
+- `GET /assets/operations/{id}` → `AssetOperation` (polled like a transaction; `CONFIRMED` only once the
+  trustline, or the deployed contract, reads back from the network)
+  `AssetOperation = { id, kind: "TRUSTLINE" | "DEPLOY_CONTRACT", status, asset, network, source_address, transaction_hash, ledger_sequence, submitted_at, confirmed_at, failure_reason, explorer_url, created_at }`
+- `GET /bounties/{id}/trustlines` → `{ asset, requires_trustline, applicants: { contributor_id, address, state }[] }`
+  (requester or `application:view_all`)
+- `GET /bounties/{id}/funding/readiness?wallet_address=G…` →
+  `{ asset, address, required, available, trustline, ready, message, faucet_url }` (requester only)
+
+A bounty picks its asset at creation: `POST /bounties` accepts `reward_asset` as `"native"`, `"XLM"`, a full
+`"CODE:ISSUER"`, or a bare code when exactly one enabled asset uses it (default XLM). It can still be changed
+while the bounty is a `DRAFT`. The marketplace filters on it: `GET /bounties?asset=USDC:G…` (comma-separated).
+
+### Privacy and legal
+- `GET /privacy/exports` → `DataExport[]` (the caller's own, newest first). A `READY` export carries
+  `download_url`, a signed path valid for a few minutes; fetch the list again for a fresh one.
+- `POST /privacy/exports` → `202 DataExport`: queues an archive the worker builds. 409 while one is being built,
+  and at most 3 a day.
+- `GET /privacy/exports/{id}/download?expires&signature` → the JSON archive as an attachment. Needs the owner's
+  session **and** an unexpired signature; 403 when the link expired, 404 when the archive is gone.
+- `GET /privacy/deletion` → `{ request, blockers, grace_days }`. `blockers` is empty when the account can be
+  deleted; each entry is `{ kind, message, count, links }`.
+- `POST /privacy/deletion` `{ password, reason? }` → `201` the same shape. 422 `invalid_password`, or 409
+  `deletion_blocked` with the blockers in `details`.
+- `POST /privacy/deletion/cancel` → the same shape (404 when nothing is scheduled).
+- `GET /legal/versions` → `LegalVersion[]` **(public)**: the terms and privacy notice versions in effect.
+- `GET /legal/status` → `{ documents, needs_acceptance, upcoming_pending }`. `needs_acceptance` gates the
+  workspace; `upcoming_pending` is advance notice of a scheduled version.
+- `POST /legal/accept` `{ version_ids }` → the same shape. Only versions in effect or scheduled are accepted.
 
 ### Admin (MODERATOR/ADMIN unless noted)
 - `GET /admin/overview` → counts + health snapshot
@@ -379,13 +698,45 @@ The frontend runs every on-chain action through the same three steps: **prepare 
 - `PATCH /admin/users/{id}` `{ is_active?, role? }` → `AdminUser` (role changes ADMIN only)
 - `GET /admin/bounties?q&status&page&page_size` → `Page<BountySummary>`
 - `POST /admin/bounties/{id}/moderate` `{ action: "HIDE" | "UNHIDE" | "CANCEL", reason }` → `BountyDetail`
-- `GET /admin/reports?status&page&page_size` → `Page<{ id, reporter: UserSummary, target_type, target_id, reason, status, created_at, resolution_note }>`
+- `GET /admin/reports?status&target_type&page&page_size` → `Page<{ id, reporter: UserSummary, target_type, target_id, reason, status, created_at, resolution_note, target_summary }>`. For a `QA_POST` report `target_summary` carries `{ label, excerpt, link, author, is_hidden, is_deleted, bounty_id }` so the queue shows what was reported without a second request.
 - `POST /admin/reports/{id}/resolve` `{ status: "ACTIONED" | "DISMISSED", note }` → report
 - `GET /admin/disputes?status&page&page_size` → `Page<Dispute>`
 - `GET /admin/transactions?status&type&page&page_size` → `Page<BlockchainTransaction>`
 - `GET /admin/audit-logs?entity_type&action&page&page_size` → `Page<{ id, actor: UserSummary | null, action, entity_type, entity_id, metadata, created_at }>`
 - Additional filters: `GET /admin/users?is_active`, `GET /admin/bounties?hidden`, `GET /admin/reports?target_type`, `GET /admin/audit-logs?entity_id&actor_id`.
+- `GET /admin/assets` → `AdminRewardAsset[]` (`asset:manage`, ADMIN): the whole registry, enabled or not, with
+  `is_enabled`, `contract_status`, `symbol`, `decimals`, `issuer_flags`, `bounty_count` and `verified_at`.
+- `POST /admin/assets` `{ code?, issuer?, contract_id?, name?, enable? }` → `AdminRewardAsset`: a classic asset by
+  code and issuer, or by its Stellar Asset Contract id. The backend derives the SAC address, checks the contract
+  answers the token interface with 7 decimals and reads the issuer's flags; an asset whose SAC is not deployed
+  is created disabled.
+- `PATCH /admin/assets/{id}` `{ is_enabled?, name?, sort_order? }` → `AdminRewardAsset` (the last enabled asset
+  cannot be disabled; an asset whose contract is not deployed cannot be enabled)
+- `POST /admin/assets/{id}/verify` → `AdminRewardAsset`: re-reads the contract and issuer from the network.
+- `POST /admin/assets/{id}/deploy/prepare` `{ wallet_address }` → `PreparedAssetOperation`: deploys the asset's
+  Stellar Asset Contract, signed by the admin's verified wallet and submitted through `/assets/operations/{id}/submit`.
 - `POST /admin/bounties/{id}/reconcile` → `BountyDetail` (`transaction:view_all`): re-reads the escrow from the contract and refreshes the stored escrow view.
+- `GET /admin/compliance/deletions?status&page&page_size` → `Page<AdminDeletionRequest>` (`audit:read`): pending
+  and past deletion requests, each with the live `blockers` and, once carried out, the `pseudonym`.
+- `GET /admin/compliance/screening/status` → `{ enabled, provider, manual_entries, list_entries, list }`
+  (`audit:read`): whether screening is on, and when the configured sanctions list last loaded or failed.
+- `GET /admin/compliance/screening/entries?q&source&include_removed&page&page_size` → `Page<ScreeningEntry>`
+  (`audit:read`).
+- `POST /admin/compliance/screening/entries` `{ address, reason }` → `201 ScreeningEntry` (**ADMIN**). Blocks a
+  `G…` or `C…` address at wallet verification, funding and every payout.
+- `POST /admin/compliance/screening/entries/{id}/remove` `{ note }` → `ScreeningEntry` (**ADMIN**). Only manual
+  entries; list entries change only when the list does.
+- `GET /admin/compliance/screening/decisions?result&q&page&page_size` → `Page<ScreeningDecision>`
+  (`audit:read`): blocked (default) or cleared decisions, with the matching entry and its reason.
+- `GET /admin/compliance/legal/versions` → `AdminLegalVersion[]` (`audit:read`), with `accepted_count`.
+- `POST /admin/compliance/legal/versions` `{ document, version, summary, effective_at? }` → `201` (**ADMIN**).
+  Without `effective_at` the version is in effect at once and the workspace asks users to accept it.
+- `POST /admin/compliance/legal/versions/{id}/withdraw` → `AdminLegalVersion` (**ADMIN**): only a version that
+  has not taken effect yet.
+- `GET /admin/ops/status` → `{ jobs, workers, kafka_lag, reconciliation }` (`system:health`): worker job health,
+  heartbeat ages, consumer lag and the last chain-versus-database audit.
+- `GET /metrics` (**not** under `/api/v1`, not in the OpenAPI document): Prometheus text. Needs
+  `Authorization: Bearer $METRICS_TOKEN`, or a direct loopback request when no token is set; anything else 404s.
 
 ## Staff response shapes
 

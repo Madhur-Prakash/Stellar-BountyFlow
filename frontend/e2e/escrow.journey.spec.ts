@@ -132,18 +132,35 @@ test('12. dispute: assign on-chain, contributor raises and freezes the escrow, a
     await dialog.getByRole('button', { name: 'Record decision' }).click()
     await expect(dialog).toBeHidden()
 
+    // A v2 escrow with an M-of-N arbiter set (M > 1) is executed by arbiter votes (escrow-v2.journey.spec.ts).
+    const escrow = await apiCall<{ contract_version: number; arbiter_threshold: number }>(
+      admin,
+      'GET',
+      '/escrow/config',
+    )
+    const multisig = escrow.contract_version >= 2 && escrow.arbiter_threshold > 1
     const notice = admin.getByRole('status').filter({ hasText: 'Decision recorded' })
-    await expect(notice.getByText(/arbiter wallet must now sign/i)).toBeVisible()
+    await expect(
+      notice.getByText(multisig ? /arbiter wallets must now approve/i : /arbiter wallet must now sign/i),
+    ).toBeVisible()
     await expect(row.getByText('Awaiting arbiter signature')).toBeVisible()
 
     // The RESOLVE_DISPUTE step names the escrow's arbiter wallet; any other wallet is rejected by the contract.
     const config = await apiCall<{ arbiter_address: string }>(admin, 'GET', '/config/public')
     await notice.getByRole('button', { name: 'Sign as arbiter' }).click()
-    const chain = admin.getByRole('dialog', { name: /execute dispute decision/i })
-    await expect(chain.getByText(/arbiter wallet must sign this transaction/i)).toBeVisible()
-    await expect(
-      chain.getByText(`${config.arbiter_address.slice(0, 4)}…${config.arbiter_address.slice(-4)}`),
-    ).toBeVisible()
+    const chain = admin.getByRole('dialog', {
+      name: multisig ? /approve dispute decision/i : /execute dispute decision/i,
+    })
+    if (multisig) {
+      await expect(chain.getByText(`0 of ${escrow.arbiter_threshold} approvals`)).toBeVisible({
+        timeout: 30_000,
+      })
+    } else {
+      await expect(chain.getByText(/arbiter wallet must sign this transaction/i)).toBeVisible()
+      await expect(
+        chain.getByText(`${config.arbiter_address.slice(0, 4)}…${config.arbiter_address.slice(-4)}`),
+      ).toBeVisible()
+    }
     await chain
       .getByRole('button', { name: 'Close' })
       .or(chain.getByRole('button', { name: 'Cancel' }))

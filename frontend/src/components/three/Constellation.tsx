@@ -194,7 +194,8 @@ function Network({ theme, count }: { theme: ThreeTheme; count: number }) {
   const pulseMaterial = useRef<THREE.ShaderMaterial>(null)
   const nodePoints = useRef<THREE.Points>(null)
   const pulsePoints = useRef<THREE.Points>(null)
-  const pulses = useRef<Pulse[] | null>(null)
+  // The pulses in flight, and the network they belong to (a new node count starts them afresh).
+  const pulses = useRef<{ network: Network; list: Pulse[] } | null>(null)
   const pointer = useRef({ x: 0, y: 0 })
   const pixelRatio = useThree((s) => s.viewport.dpr)
   const invalidate = useThree((s) => s.invalidate)
@@ -283,8 +284,13 @@ function Network({ theme, count }: { theme: ThreeTheme; count: number }) {
         duration: 1 + (i % 3) * 0.35,
       }
     }
-    pulses.current ??= Array.from({ length: PULSES }, (_, i) => seedPulse(i, t - (i / PULSES) * 1.2))
-    const list = pulses.current
+    if (pulses.current?.network !== network) {
+      pulses.current = {
+        network,
+        list: Array.from({ length: PULSES }, (_, i) => seedPulse(i, t - (i / PULSES) * 1.2)),
+      }
+    }
+    const list = pulses.current.list
 
     const glowAttr = nodePoints.current?.geometry.getAttribute('aGlow') as THREE.BufferAttribute | undefined
     const glowArray = glowAttr?.array as Float32Array | undefined

@@ -66,9 +66,18 @@ async def _claim(
     return (await session.execute(upsert)).scalar_one_or_none()
 
 
-async def send_once(*, key: str, user_id: uuid.UUID | None, to: str, template: str, prepare: Prepare) -> bool:
+async def send_once(
+    *,
+    key: str,
+    user_id: uuid.UUID | None,
+    to: str,
+    template: str,
+    prepare: Prepare,
+    headers: dict[str, str] | None = None,
+) -> bool:
     """Send one email at most once per idempotency key. Returns False if it had already been sent.
-    Raises ``EmailSendError`` on delivery failure (after recording it) so the event is retried."""
+    Raises ``EmailSendError`` on delivery failure (after recording it) so the event is retried. ``headers`` adds
+    extra mail headers (e.g. ``List-Unsubscribe``)."""
     sessionmaker = get_sessionmaker()
     async with sessionmaker() as session:
         delivery_id = await _claim(session, key=key, user_id=user_id, to=to, template=template)
@@ -89,7 +98,7 @@ async def send_once(*, key: str, user_id: uuid.UUID | None, to: str, template: s
         subject=rendered.subject,
         html=rendered.html,
         text=rendered.text,
-        headers={"X-BountyFlow-Template": template, "X-Entity-Ref-ID": key},
+        headers={**(headers or {}), "X-BountyFlow-Template": template, "X-Entity-Ref-ID": key},
     )
     try:
         await mail.get_email_backend().send(message)
@@ -192,6 +201,8 @@ async def handle_notification_created(session: AsyncSession, envelope: EventEnve
     notification = await session.get(Notification, uuid.UUID(str(envelope.payload["notification_id"])))
     if notification is None:
         return
+    if (notification.payload or {}).get("transactional_email"):
+        return  # its own transactional email is sent separately (e.g. "data export ready")
     user = await session.get(User, notification.user_id)
     if user is None:
         return

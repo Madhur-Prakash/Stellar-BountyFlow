@@ -15,7 +15,7 @@ import {
   type TxType,
 } from '@/lib/api/types'
 import { formatDateTime, formatRelative, TX_STATUS_LABELS, TX_TYPE_LABELS } from '@/lib/format'
-import { formatAmount } from '@/lib/money'
+import { assetCode, formatAmount } from '@/lib/money'
 import { networkDisplayName, NOT_SUBMITTED, transactionExplorerHref } from '@/lib/stellar/explorer'
 
 import { AdminTable, FilterSelect, PagedResults, UserCell, type AdminColumn } from './admin-shared'
@@ -53,7 +53,7 @@ export default function AdminTransactionsPage() {
         tx.amount ? (
           <span className="whitespace-nowrap">
             <span className="amount">{formatAmount(tx.amount)}</span>{' '}
-            <span className="text-xs text-muted-foreground">{tx.asset?.code ?? 'XLM'}</span>
+            <span className="text-xs text-muted-foreground">{assetCode(tx.asset)}</span>
           </span>
         ) : (
           <span className="text-muted-foreground">—</span>

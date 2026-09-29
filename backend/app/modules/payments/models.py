@@ -11,8 +11,19 @@ from decimal import Decimal
 from enum import StrEnum
 from typing import Any
 
-from sqlalchemy import CheckConstraint, ForeignKey, Index, Integer, String, Text, UniqueConstraint
-from sqlalchemy.dialects.postgresql import JSONB
+from sqlalchemy import (
+    BigInteger,
+    CheckConstraint,
+    ForeignKey,
+    Index,
+    Integer,
+    SmallInteger,
+    String,
+    Text,
+    UniqueConstraint,
+    text,
+)
+from sqlalchemy.dialects.postgresql import ARRAY, JSONB
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.db.base import MONEY, Base, CreatedAt, Timestamps, UUIDPrimaryKey
@@ -42,6 +53,14 @@ class TxType(StrEnum):
     DISPUTE_RAISE = "DISPUTE_RAISE"
     DISPUTE_RESOLVE = "DISPUTE_RESOLVE"
     WALLET_CHALLENGE = "WALLET_CHALLENGE"
+    # Escrow v2
+    MILESTONE_PAYOUT = "MILESTONE_PAYOUT"
+    BATCH_PAYOUT = "BATCH_PAYOUT"
+    SUBMIT_WORK = "SUBMIT_WORK"
+    REQUEST_CHANGES = "REQUEST_CHANGES"
+    REJECT_SUBMISSION = "REJECT_SUBMISSION"
+    CLAIM = "CLAIM"
+    DISPUTE_VOTE = "DISPUTE_VOTE"
 
 
 class TxStatus(StrEnum):
@@ -92,6 +111,17 @@ class BountyEscrow(UUIDPrimaryKey, Timestamps, Base):
         str_enum(EscrowState, "escrow_state"), nullable=False, default=EscrowState.NOT_CREATED
     )
     last_reconciled_at: Mapped[datetime | None]
+    # Escrow v2. contract_id + contract_version name the deployment this escrow lives on (v1 escrows stay there).
+    contract_version: Mapped[int] = mapped_column(SmallInteger, nullable=False, default=1, server_default="1")
+    review_window_seconds: Mapped[int | None] = mapped_column(Integer)
+    arbiter_addresses: Mapped[list[str]] = mapped_column(
+        ARRAY(String(56)), nullable=False, default=list, server_default="{}"
+    )
+    arbiter_threshold: Mapped[int] = mapped_column(
+        SmallInteger, nullable=False, default=1, server_default="1"
+    )
+    dispute_round: Mapped[int] = mapped_column(Integer, nullable=False, default=0, server_default="0")
+    clock_reset_at: Mapped[int | None] = mapped_column(BigInteger)
 
 
 class BlockchainTransaction(UUIDPrimaryKey, CreatedAt, Base):
@@ -141,9 +171,22 @@ class BlockchainTransaction(UUIDPrimaryKey, CreatedAt, Base):
 class PaymentRecord(UUIDPrimaryKey, CreatedAt, Base):
     __tablename__ = "payment_records"
     __table_args__ = (
-        # One payout per approved submission; a contributor is paid at most once per bounty.
+        # One payout per approved submission; a contributor is paid at most once per bounty, or once per
+        # milestone on a milestone bounty.
         UniqueConstraint("submission_id", name="uq_payment_records_submission"),
-        UniqueConstraint("bounty_id", "contributor_id", name="uq_payment_records_bounty_contributor"),
+        Index(
+            "uq_payment_records_bounty_contributor",
+            "bounty_id",
+            "contributor_id",
+            unique=True,
+            postgresql_where=text("milestone_id IS NULL"),
+        ),
+        Index(
+            "uq_payment_records_milestone",
+            "milestone_id",
+            unique=True,
+            postgresql_where=text("milestone_id IS NOT NULL"),
+        ),
     )
 
     bounty_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("bounties.id", ondelete="RESTRICT"), index=True)
@@ -151,6 +194,9 @@ class PaymentRecord(UUIDPrimaryKey, CreatedAt, Base):
     submission_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("bounty_submissions.id", ondelete="RESTRICT"))
     blockchain_transaction_id: Mapped[uuid.UUID | None] = mapped_column(
         ForeignKey("blockchain_transactions.id", ondelete="SET NULL")
+    )
+    milestone_id: Mapped[uuid.UUID | None] = mapped_column(
+        ForeignKey("bounty_milestones.id", ondelete="RESTRICT")
     )
     amount: Mapped[Decimal] = mapped_column(MONEY, nullable=False)
     asset_identifier: Mapped[str] = mapped_column(String(80), nullable=False)

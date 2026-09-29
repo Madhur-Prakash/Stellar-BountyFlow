@@ -7,7 +7,7 @@ import { Skeleton } from '@/components/ui/skeleton'
 import { usePlatformAnalytics } from '@/lib/api/queries/analytics'
 import type { PlatformAnalytics } from '@/lib/api/types'
 import { formatDateTime, formatNumber, humanize } from '@/lib/format'
-import { formatAmount } from '@/lib/money'
+import { AssetTotals } from './assets/AssetTotals'
 import { cn } from '@/lib/utils'
 
 import { ChartCard, ChartEmpty, ChartFallback } from './workspace-ui'
@@ -123,10 +123,10 @@ function PlatformContent({ data }: { data: PlatformAnalytics }) {
         <StatTile
           label="Verified payout volume"
           value={
-            <>
-              {formatAmount(transactions.verified_payout_volume, { maxDecimals: 2 })}{' '}
-              <span className="text-sm font-normal text-muted-foreground">XLM</span>
-            </>
+            <AssetTotals
+              rows={transactions.payout_volume_by_asset}
+              fallback={transactions.verified_payout_volume}
+            />
           }
         />
         <StatTile

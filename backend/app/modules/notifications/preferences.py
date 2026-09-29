@@ -23,6 +23,12 @@ DEFAULT_EMAIL_TYPES: frozenset[NotificationType] = frozenset(
         NotificationType.DISPUTE_UPDATE,
         NotificationType.SUBMISSION_RECEIVED,
         NotificationType.APPLICATION_RECEIVED,
+        NotificationType.QUESTION_RECEIVED,
+        NotificationType.QUESTION_REPLY,
+        NotificationType.PULL_REQUEST_UPDATE,
+        NotificationType.CLAIM_AVAILABLE,
+        NotificationType.MILESTONE_PAID,
+        NotificationType.ARBITER_VOTE,
     }
 )
 

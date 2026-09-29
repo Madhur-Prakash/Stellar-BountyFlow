@@ -17,6 +17,7 @@ export const ROLE_LABELS: Record<Role, string> = {
 export const DISPUTE_RESOLUTION_LABELS: Record<DisputeResolution, string> = {
   RELEASE_TO_CONTRIBUTOR: 'Release to contributor',
   REFUND_TO_REQUESTER: 'Refund to requester',
+  SPLIT: 'Split the reward',
   DISMISSED: 'Dismiss',
 }
 

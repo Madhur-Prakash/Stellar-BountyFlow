@@ -8,6 +8,12 @@
 # Environment overrides:
 #   STELLAR_SOURCE_ACCOUNT   deployer identity name   (default: bountyflow-deployer)
 #   ARBITER_IDENTITY         arbiter identity name    (default: bountyflow-arbiter)
+#   ADMIN_IDENTITY           contract admin identity, the only key that can upgrade the code
+#                            (default: bountyflow-escrow-admin)
+#   MIN_REVIEW_WINDOW        shortest review window escrows may use, in seconds, passed to the constructor
+#                            (default: 86400; 60..604800; use 60 only for a Testnet test deployment)
+#   ARBITER_ADDRESSES        comma-separated arbiter set recorded in the deployment file (default: the arbiter)
+#   ARBITER_THRESHOLD        approvals a dispute resolution needs, recorded with the set (default: 1)
 #   SMOKE_REQUESTER          smoke-test requester     (default: bountyflow-smoke-requester)
 #   STELLAR_NETWORK          network name             (default: testnet)
 #   RUN_SMOKE_TEST           1 to run the smoke flow  (default: 0)
@@ -25,6 +31,9 @@ WASM_REL="target/wasm32v1-none/release/bounty_escrow.wasm"
 NETWORK="${STELLAR_NETWORK:-testnet}"
 SOURCE="${STELLAR_SOURCE_ACCOUNT:-bountyflow-deployer}"
 ARBITER="${ARBITER_IDENTITY:-bountyflow-arbiter}"
+ADMIN="${ADMIN_IDENTITY:-bountyflow-escrow-admin}"
+MIN_REVIEW_WINDOW="${MIN_REVIEW_WINDOW:-86400}"
+ARBITER_THRESHOLD="${ARBITER_THRESHOLD:-1}"
 REQUESTER="${SMOKE_REQUESTER:-bountyflow-smoke-requester}"
 RUN_SMOKE_TEST="${RUN_SMOKE_TEST:-0}"
 OUT_JSON="$DEPLOY_DIR/$NETWORK.json"
@@ -84,10 +93,15 @@ log "wasm: $WASM ($(wc -c <"$WASM" | tr -d ' ') bytes)"
 # 2. Identities --------------------------------------------------------------
 ensure_identity "$SOURCE"
 ensure_identity "$ARBITER"
+ensure_identity "$ADMIN"
 DEPLOYER_ADDRESS="$(stellar keys address "$SOURCE" | strip_cr)"
 ARBITER_ADDRESS="$(stellar keys address "$ARBITER" | strip_cr)"
+ADMIN_ADDRESS="$(stellar keys address "$ADMIN" | strip_cr)"
+ARBITER_LIST="${ARBITER_ADDRESSES:-$ARBITER_ADDRESS}"
+ARBITERS_JSON="[$(printf '%s' "$ARBITER_LIST" | tr -d ' ' | sed -E 's/([^,]+)/"\1"/g')]"
 log "deployer: $DEPLOYER_ADDRESS"
 log "arbiter:  $ARBITER_ADDRESS"
+log "admin:    $ADMIN_ADDRESS (min review window ${MIN_REVIEW_WINDOW}s)"
 
 # 3. Upload + deploy ---------------------------------------------------------
 log "uploading wasm"
@@ -95,8 +109,9 @@ WASM_HASH="$(run_logged stellar contract upload --wasm "$WASM" --source-account 
 UPLOAD_TX="$(tx_hash_from "$STDERR_LOG")"
 log "wasm hash: $WASM_HASH (upload tx: ${UPLOAD_TX:-none - wasm already on ledger})"
 
-log "deploying contract"
-CONTRACT_ID="$(run_logged stellar contract deploy --wasm-hash "$WASM_HASH" --source-account "$SOURCE" --network "$NETWORK" --alias bounty_escrow | tail -n1 | strip_cr)"
+log "deploying contract (constructor: admin, min_review_window)"
+CONTRACT_ID="$(run_logged stellar contract deploy --wasm-hash "$WASM_HASH" --source-account "$SOURCE" --network "$NETWORK" --alias bounty_escrow \
+  -- --admin "$ADMIN_ADDRESS" --min_review_window "$MIN_REVIEW_WINDOW" | tail -n1 | strip_cr)"
 DEPLOY_TX="$(tx_hash_from "$STDERR_LOG")"
 case "$CONTRACT_ID" in
   C*) ;;
@@ -161,12 +176,22 @@ fi
 
 # 6. Write deployment record ------------------------------------------------
 mkdir -p "$DEPLOY_DIR"
+# Escrows keep living on the contract they were created on, so the previous record is kept, not overwritten.
+if [ -f "$OUT_JSON" ]; then
+  BACKUP="$DEPLOY_DIR/$NETWORK.$(date -u +%Y%m%dT%H%M%SZ).superseded.json"
+  cp "$OUT_JSON" "$BACKUP"
+  log "previous record kept at $BACKUP; move its contract under superseded_deployments in $OUT_JSON"
+fi
 cat >"$OUT_JSON" <<EOF
 {
   "network": "$NETWORK",
   "contract_id": "$CONTRACT_ID",
   "native_asset_contract_id": "$NATIVE_SAC_ID",
   "arbiter_address": "$ARBITER_ADDRESS",
+  "arbiter_addresses": $ARBITERS_JSON,
+  "arbiter_threshold": $ARBITER_THRESHOLD,
+  "admin_address": "$ADMIN_ADDRESS",
+  "min_review_window": $MIN_REVIEW_WINDOW,
   "wasm_hash": "$WASM_HASH",
   "upload_tx": $(json_str_or_null "$UPLOAD_TX"),
   "deploy_tx": "$DEPLOY_TX",

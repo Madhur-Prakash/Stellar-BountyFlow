@@ -5,8 +5,8 @@
 .DESCRIPTION
   Mirrors scripts/deploy-contract.sh for Windows PowerShell 5.1+ / PowerShell 7.
     1. stellar contract build (optimized wasm)
-    2. ensure deployer + arbiter identities exist (generate + friendbot fund)
-    3. upload wasm, deploy contract, look up the native XLM SAC id
+    2. ensure deployer, arbiter and admin identities exist (generate + friendbot fund)
+    3. upload wasm, deploy contract (constructor: admin, min_review_window), look up the native XLM SAC id
     4. sanity-check version()
     5. optional smoke flow (create_escrow -> get_escrow -> release)
     6. write contracts/deployments/<network>.json
@@ -14,6 +14,11 @@
   Environment overrides:
     STELLAR_SOURCE_ACCOUNT  deployer identity (default bountyflow-deployer)
     ARBITER_IDENTITY        arbiter identity  (default bountyflow-arbiter)
+    ADMIN_IDENTITY          contract admin, the only key that can upgrade the code (default bountyflow-escrow-admin)
+    MIN_REVIEW_WINDOW       shortest review window escrows may use, seconds (default 86400; 60..604800;
+                            use 60 only for a Testnet test deployment)
+    ARBITER_ADDRESSES       comma-separated arbiter set recorded in the deployment file (default: the arbiter)
+    ARBITER_THRESHOLD       approvals a dispute resolution needs, recorded with the set (default 1)
     SMOKE_REQUESTER         smoke requester   (default bountyflow-demo-requester)
     STELLAR_NETWORK         network name      (default testnet)
     RUN_SMOKE_TEST          1 to run the smoke flow (or pass -SmokeTest)
@@ -43,6 +48,9 @@ function EnvOr([string]$name, [string]$default) {
 $Network = EnvOr 'STELLAR_NETWORK' 'testnet'
 $Source = EnvOr 'STELLAR_SOURCE_ACCOUNT' 'bountyflow-deployer'
 $Arbiter = EnvOr 'ARBITER_IDENTITY' 'bountyflow-arbiter'
+$Admin = EnvOr 'ADMIN_IDENTITY' 'bountyflow-escrow-admin'
+$MinReviewWindow = [uint64](EnvOr 'MIN_REVIEW_WINDOW' '86400')
+$ArbiterThreshold = [int](EnvOr 'ARBITER_THRESHOLD' '1')
 $Requester = EnvOr 'SMOKE_REQUESTER' 'bountyflow-demo-requester'
 if ((EnvOr 'RUN_SMOKE_TEST' '0') -eq '1') { $SmokeTest = $true }
 $OutJson = Join-Path $DeployDir "$Network.json"
@@ -121,8 +129,11 @@ Log "wasm: $Wasm ($((Get-Item $Wasm).Length) bytes)"
 # 2. Identities --------------------------------------------------------------
 $DeployerAddress = Ensure-Identity $Source
 $ArbiterAddress = Ensure-Identity $Arbiter
+$AdminAddress = Ensure-Identity $Admin
+$ArbiterAddresses = @((EnvOr 'ARBITER_ADDRESSES' $ArbiterAddress).Split(',') | ForEach-Object { $_.Trim() } | Where-Object { $_ })
 Log "deployer: $DeployerAddress"
 Log "arbiter:  $ArbiterAddress"
+Log "admin:    $AdminAddress (min review window ${MinReviewWindow}s)"
 
 # 3. Upload + deploy ---------------------------------------------------------
 Log 'uploading wasm'
@@ -131,8 +142,9 @@ $WasmHash = LastLine $r
 $UploadTx = TxHashFrom $r.Err
 Log "wasm hash: $WasmHash (upload tx: $(if ($UploadTx) { $UploadTx } else { 'none - wasm already on ledger' }))"
 
-Log 'deploying contract'
-$r = Invoke-StellarChecked @('contract', 'deploy', '--wasm-hash', $WasmHash, '--source-account', $Source, '--network', $Network, '--alias', 'bounty_escrow')
+Log 'deploying contract (constructor: admin, min_review_window)'
+$r = Invoke-StellarChecked @('contract', 'deploy', '--wasm-hash', $WasmHash, '--source-account', $Source, '--network', $Network, '--alias', 'bounty_escrow',
+  '--', '--admin', $AdminAddress, '--min_review_window', "$MinReviewWindow")
 $ContractId = LastLine $r
 $DeployTx = TxHashFrom $r.Err
 if (-not $ContractId.StartsWith('C')) { throw "unexpected deploy output: $ContractId" }
@@ -150,6 +162,10 @@ $record = [ordered]@{
   contract_id              = $ContractId
   native_asset_contract_id = $NativeSacId
   arbiter_address          = $ArbiterAddress
+  arbiter_addresses        = $ArbiterAddresses
+  arbiter_threshold        = $ArbiterThreshold
+  admin_address            = $AdminAddress
+  min_review_window        = $MinReviewWindow
   wasm_hash                = $WasmHash
   upload_tx                = $UploadTx
   deploy_tx                = $DeployTx
@@ -200,7 +216,22 @@ if ($SmokeTest) {
 
 # 6. Write deployment record ------------------------------------------------
 New-Item -ItemType Directory -Force -Path $DeployDir | Out-Null
-$json = $record | ConvertTo-Json -Depth 6
+# Escrows keep living on the contract they were created on, so the previous deployment is kept as superseded.
+if (Test-Path $OutJson) {
+  $previous = Get-Content -Raw $OutJson | ConvertFrom-Json
+  $superseded = @()
+  if ($previous.PSObject.Properties.Name -contains 'superseded_deployments') { $superseded = @($previous.superseded_deployments) }
+  $entry = [ordered]@{
+    contract_id  = $previous.contract_id
+    wasm_hash    = $previous.wasm_hash
+    upload_tx    = $previous.upload_tx
+    deploy_tx    = $previous.deploy_tx
+    deployed_at  = $previous.deployed_at
+    reason       = "Superseded by $ContractId. Escrows created on it stay on it."
+  }
+  $record['superseded_deployments'] = @($entry) + $superseded
+}
+$json = $record | ConvertTo-Json -Depth 8
 [System.IO.File]::WriteAllText($OutJson, $json + "`n", (New-Object System.Text.UTF8Encoding $false))
 Log "wrote $OutJson"
 Write-Output $json

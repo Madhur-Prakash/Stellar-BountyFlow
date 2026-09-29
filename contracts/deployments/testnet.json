@@ -1,60 +1,92 @@
 {
   "network": "testnet",
-  "contract_id": "CDX6FN2MIGLHCMUJOU6C7FYP3QTNDL6BVIPEG4B5HAUEPU7NI4SFY4CY",
+  "contract_id": "CBCXG46FJPYBPWYZ24BWFVNJ6G2ILFAXHX2COETDNXYE6C5IJWAZ3M4C",
   "native_asset_contract_id": "CDLZFC3SYJYDZT7K67VZ75HPJVIEUVNIXF47ZG2FB2RMQQVU2HHGCYSC",
   "arbiter_address": "GDKMJJGPM7ZFTDG6Y74O6JA2QCMQBEJJE7Q7I5FGKI77Z67XXY2C3LU2",
-  "wasm_hash": "a8ed0b13d5902f2bb17327337e7476c5ce484fd6d434434fbb82349ad9a12966",
-  "upload_tx": "ab6fe69398915d35c6c20296622260f507b2b82690f5b68131ae5f5bf8de2239",
-  "deploy_tx": "59e1a6d870153887af3ce751b98ed06cde1e85e02ecba0424925e17e8b7e977e",
-  "deployed_at": "2026-09-25T19:44:29Z",
+  "arbiter_addresses": [
+    "GDKMJJGPM7ZFTDG6Y74O6JA2QCMQBEJJE7Q7I5FGKI77Z67XXY2C3LU2",
+    "GBC4ELFGZ4EO2A7Q33GKNZ2RJRCQ56CGV4MP4RHKPEE4AXNN6ESJCZMA",
+    "GCS2KVV474R2V4M2CY45SINSNO7FPMOCBUE7WGH7UWHPXCSRGV3HHG5U"
+  ],
+  "arbiter_threshold": 2,
+  "admin_address": "GAXPFJGPZ2X2DLQWKLQKUAX55MBY7SRXHK2HGC2KAV5QHOP6QCSDD26R",
+  "min_review_window": 60,
+  "wasm_hash": "f9b88bca3b3b90e39e33007be337945c28395e1b9464567d3b2a2c8aed810d8a",
+  "upload_tx": "a450748d0e031bbd37e575a67be267c47567fb699f039cac10d7e5c0259f591e",
+  "deploy_tx": "fc9c588c385f7e4f6ab0c47731a86c0efc287fc32e391dbf34a5d5ec8cf90a0e",
+  "deployed_at": "2026-09-28T21:10:37Z",
   "deployer_address": "GD646RGJJOHCMJDICTLPTPZXYQSS2Y4IZBOWEAYU2AU7PAT7ESKZKPE5",
-  "contract_version": 1,
-  "explorer_url": "https://stellar.expert/explorer/testnet/contract/CDX6FN2MIGLHCMUJOU6C7FYP3QTNDL6BVIPEG4B5HAUEPU7NI4SFY4CY",
+  "contract_version": 2,
+  "explorer_url": "https://stellar.expert/explorer/testnet/contract/CBCXG46FJPYBPWYZ24BWFVNJ6G2ILFAXHX2COETDNXYE6C5IJWAZ3M4C",
   "smoke_test": {
     "requester_address": "GAWFBBDZOKXYCGJ5VQDX3CPXRUNMLLNUDFUZT3OB5YASYFMLLMG5PV55",
-    "contributor_address": "GD646RGJJOHCMJDICTLPTPZXYQSS2Y4IZBOWEAYU2AU7PAT7ESKZKPE5",
-    "bounty_id": "ca9e4014c8aa7e8fee7127f8dc22ebb6ed4f88d85a823fec6da2b8a0f4e700e8",
-    "reward_per_position": 10000000,
-    "positions": 1,
-    "deadline": 1790970271,
-    "create_escrow_tx": "5a38e54170982e23f10315a411d98a5e09e98b431e27d24f79c476936109761c",
-    "escrow_after_create": {
-      "arbiter": "GDKMJJGPM7ZFTDG6Y74O6JA2QCMQBEJJE7Q7I5FGKI77Z67XXY2C3LU2",
-      "assigned_unpaid": 0,
-      "created_at": 1790365477,
-      "deadline": 1790970271,
-      "funded_amount": "10000000",
-      "paid_out_amount": "0",
-      "payouts_made": 0,
-      "positions": 1,
-      "pre_dispute_status": 1,
-      "refunded_amount": "0",
-      "requester": "GAWFBBDZOKXYCGJ5VQDX3CPXRUNMLLNUDFUZT3OB5YASYFMLLMG5PV55",
-      "required_amount": "10000000",
-      "reward_per_position": "10000000",
-      "status": 1,
-      "token": "CDLZFC3SYJYDZT7K67VZ75HPJVIEUVNIXF47ZG2FB2RMQQVU2HHGCYSC"
+    "contributor_addresses": [
+      "GCK456G3UAIM2YV4AKURRJ65GWZGT76FGZOZO76HZVIT23M6U7CACI7F",
+      "GABPQLUNALIXQIRO4ONQR7FFDX7A3BEKJ5NCYAGVDWWR3NEEE67GBKS6"
+    ],
+    "claim_after_timeout": {
+      "bounty_id": "6f1d70d9e44f4d49b259e13a78940d3646725b4f440899177d9d3e74cde6ba6d",
+      "review_window": 60,
+      "create_escrow_v2_tx": "1a7f22f545cba6fa331b58f03c7e04e0735b3432f1441836a34b9c88de5feca6",
+      "fund_tx": "8f5b2e68e13760def734539ca99e6c6c35dae78a127cee23cce2a160a5c189f2",
+      "assign_tx": "d333a5ab4bad60a6dd6da461677db33bec9ee6fac61524d3559ad9b8d2241619",
+      "submit_work_tx": "a6062fbcd0d8d7291cc5df66e77c8def9157d8d17f8318d082b3d2f0f6bb11a9",
+      "claim_before_window": "refused in simulation (ReviewWindowOpen)",
+      "claim_tx": "7bb981cae51fd629d1463a209fdf4fddf4221edf39d31af09e2a60624deaaf60",
+      "status_after": 4
     },
-    "release_tx": "2d758e99455848993d0e71e6f08ce2c75f3082a0582f4e42fbde67df48b8d273",
-    "escrow_after_release": {
-      "arbiter": "GDKMJJGPM7ZFTDG6Y74O6JA2QCMQBEJJE7Q7I5FGKI77Z67XXY2C3LU2",
-      "assigned_unpaid": 0,
-      "created_at": 1790365477,
-      "deadline": 1790970271,
-      "funded_amount": "10000000",
-      "paid_out_amount": "10000000",
-      "payouts_made": 1,
-      "positions": 1,
-      "pre_dispute_status": 1,
-      "refunded_amount": "0",
-      "requester": "GAWFBBDZOKXYCGJ5VQDX3CPXRUNMLLNUDFUZT3OB5YASYFMLLMG5PV55",
-      "required_amount": "10000000",
-      "reward_per_position": "10000000",
-      "status": 4,
-      "token": "CDLZFC3SYJYDZT7K67VZ75HPJVIEUVNIXF47ZG2FB2RMQQVU2HHGCYSC"
+    "milestone_release": {
+      "bounty_id": "5c9d1b93ff79284672227e9df9d785c40b71187248e71636a3405f3791bd5934",
+      "milestones": ["4000000", "6000000"],
+      "create_escrow_v2_tx": "e2ba6fa8262b1f593f7674070e070f989ac35b116a5ff0e454316f6ff72a28e6",
+      "assign_tx": "5d5a86af80938540523e306cc6161b7e1f2e111198b265a76ade0d61298ab925",
+      "release_milestone_tx": "f589b7e35df8b94892a7eb0a813f2a2592768edf53dac0441f562b8a21346ea8",
+      "paid_out_after": "4000000"
+    },
+    "batch_release": {
+      "bounty_id": "ba6f1dbb58b97d70b6c35eede02d9684173a4261813e3dac4b845e3f6cb0edf8",
+      "create_escrow_tx": "a42924ab2bcabc2b966905edf5a8bb3c6cc21029fdadad8f80e76b5ecb17281f",
+      "assign_txs": [
+        "22a3d16e1301553523bb1b13bd89ccf4765ace95db97938e3877edfe492645aa",
+        "9b5e8b4f0e8a9e39f5a8c9c5dc48585ba3537f16e949c87bd38733ec9ff71f17"
+      ],
+      "batch_release_tx": "9138451a89ba49d1a98cdbbd54a77d4164cd0473d398346e608ab4d3f4987911",
+      "status_after": 4
+    },
+    "two_of_three_arbiters": {
+      "bounty_id": "26124b3e1dc7315e7642a5d8a2370196ea9202764dd31a44341fa275ce16f06a",
+      "create_escrow_v2_tx": "2b8c564078d5e090fd53816514790d9bc429f44ae8ba201fa97aa32e5c441cd1",
+      "assign_tx": "b8b6b5a171d1752053d8b7c28248dde389d7f5a91939257286ef65e18687b35f",
+      "raise_dispute_tx": "d01cb12546b6773b8812e6bbab9a46d9b5aba6e94e84511147376291f494a0ee",
+      "vote_arbiter_2_tx": "c86d752e0f7e295812a051b60928c7f3b9ace0719f888c225ab62f959a509acc",
+      "vote_arbiter_3_tx": "b48ce6fe9a04ce60c829df5498e6a0530659292953de764a8eaf1064d4555ddd",
+      "split": { "contributor": "6000000", "requester": "4000000" },
+      "status_after": 4
+    },
+    "upgrade_auth": {
+      "note": "Checked on a separate instance of the same wasm (not the contract above).",
+      "instance": "CBITF32RNLU7BQTXEGA556JZTBGY6L4TTZOZEYUL5DS2UVGY5PDIBOSC",
+      "non_admin_upgrade": "refused (missing the admin's signature)",
+      "admin_upgrade_tx": "4c487da1f8177ce85590ce1a9854f595bffc3e385e33452e6e6fb0dc42a3aae7",
+      "version_after": 2
     }
   },
   "superseded_deployments": [
+    {
+      "contract_id": "CDX6FN2MIGLHCMUJOU6C7FYP3QTNDL6BVIPEG4B5HAUEPU7NI4SFY4CY",
+      "wasm_hash": "a8ed0b13d5902f2bb17327337e7476c5ce484fd6d434434fbb82349ad9a12966",
+      "upload_tx": "ab6fe69398915d35c6c20296622260f507b2b82690f5b68131ae5f5bf8de2239",
+      "deploy_tx": "59e1a6d870153887af3ce751b98ed06cde1e85e02ecba0424925e17e8b7e977e",
+      "deployed_at": "2026-09-25T19:44:29Z",
+      "contract_version": 1,
+      "arbiter_address": "GDKMJJGPM7ZFTDG6Y74O6JA2QCMQBEJJE7Q7I5FGKI77Z67XXY2C3LU2",
+      "reason": "Superseded by interface version 2 (milestones, review-window claims, M-of-N arbiters, batch releases, admin upgrade). Escrows created on it stay there: bounty_escrows.contract_id keeps pointing at it and every call for those bounties still goes to this contract. Do not create new escrows on it.",
+      "smoke_test": {
+        "bounty_id": "ca9e4014c8aa7e8fee7127f8dc22ebb6ed4f88d85a823fec6da2b8a0f4e700e8",
+        "create_escrow_tx": "5a38e54170982e23f10315a411d98a5e09e98b431e27d24f79c476936109761c",
+        "release_tx": "2d758e99455848993d0e71e6f08ce2c75f3082a0582f4e42fbde67df48b8d273"
+      }
+    },
     {
       "contract_id": "CCJ52FHVMCQUPTOKFKT56DJ6BR5H2552ZAETND3P4Z5S5DGSBCQRLMXK",
       "wasm_hash": "60dc91063268a99c3a13354bb698c2ea99604b29f1c552e20ddef4a9d90cd2a5",

@@ -13,6 +13,7 @@ import { formatNumber, humanize } from '@/lib/format'
 import { formatAmount, STROOPS_PER_UNIT, tryParseAmount } from '@/lib/money'
 import { hasPermission } from '@/lib/permissions'
 
+import { AssetTotals } from './assets/AssetTotals'
 import { PlatformAnalyticsPanel } from './PlatformAnalyticsPanel'
 import { ChartCard, ChartEmpty, ChartFallback } from './workspace-ui'
 
@@ -40,16 +41,6 @@ function toChartNumber(amount: string): number {
 function monthLabel(month: string): string {
   const d = parseISO(`${month}-01`)
   return isValid(d) ? format(d, 'MMM yy') : month
-}
-
-/** An XLM total at two decimals. */
-function XlmFigure({ amount }: { amount: string }) {
-  return (
-    <>
-      {formatAmount(amount, { maxDecimals: 2 })}{' '}
-      <span className="text-sm font-normal text-muted-foreground">XLM</span>
-    </>
-  )
 }
 
 function MonthlyCard({
@@ -182,8 +173,14 @@ export default function AnalyticsPage() {
             <TabsContent value="requester" className="mt-5 space-y-6">
               <h2 className="sr-only">As a requester</h2>
               <StatGrid className="grid-cols-2 xl:grid-cols-4">
-                <StatTile label="Total escrowed" value={<XlmFigure amount={r.total_escrowed} />} />
-                <StatTile label="Total paid" value={<XlmFigure amount={r.total_paid} />} />
+                <StatTile
+                  label="Total escrowed"
+                  value={<AssetTotals rows={r.escrowed_by_asset} fallback={r.total_escrowed} />}
+                />
+                <StatTile
+                  label="Total paid"
+                  value={<AssetTotals rows={r.paid_by_asset} fallback={r.total_paid} />}
+                />
                 <StatTile label="Applications received" value={formatNumber(r.applications_received)} />
                 <StatTile
                   label="First application"
@@ -213,7 +210,10 @@ export default function AnalyticsPage() {
             <TabsContent value="contributor" className="mt-5 space-y-6">
               <h2 className="sr-only">As a contributor</h2>
               <StatGrid className="grid-cols-2 xl:grid-cols-4">
-                <StatTile label="Total earned" value={<XlmFigure amount={c.total_earned} />} />
+                <StatTile
+                  label="Total earned"
+                  value={<AssetTotals rows={c.earned_by_asset} fallback={c.total_earned} />}
+                />
                 <StatTile label="Completed bounties" value={formatNumber(c.completed_count)} />
                 <StatTile label="Applications sent" value={formatNumber(sum(c.applications_by_status))} />
                 <StatTile label="Submissions" value={formatNumber(sum(c.submissions_by_status))} />

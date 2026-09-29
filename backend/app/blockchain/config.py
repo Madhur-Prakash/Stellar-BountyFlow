@@ -5,6 +5,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from functools import lru_cache
 
+from app.blockchain.assets import NATIVE, native_contract_id, sac_contract_id
 from app.core.config import Settings, get_settings
 
 
@@ -27,6 +28,10 @@ class NetworkConfig:
     @property
     def is_configured(self) -> bool:
         return bool(self.contract_id and self.native_asset_contract_id)
+
+    def sac_contract_id(self, identifier: str | None) -> str:
+        """Contract id of the Stellar Asset Contract for ``identifier`` ("native" or "CODE:ISSUER") here."""
+        return sac_contract_id(identifier or NATIVE, self.passphrase)
 
     def tx_url(self, tx_hash: str | None) -> str | None:
         if not tx_hash:
@@ -51,7 +56,10 @@ def build_network_config(settings: Settings) -> NetworkConfig:
         soroban_rpc_url=settings.stellar_soroban_rpc_url,
         explorer_base_url=settings.stellar_explorer_base_url,
         contract_id=settings.soroban_contract_id,
-        native_asset_contract_id=settings.stellar_native_asset_contract_id,
+        # The native XLM SAC id is derived from the network passphrase, so it no longer has to be configured.
+        # A configured value is checked against it at startup (Settings validation).
+        native_asset_contract_id=settings.stellar_native_asset_contract_id
+        or native_contract_id(settings.stellar_network_passphrase),
         arbiter_address=settings.stellar_arbiter_address,
         base_fee=settings.stellar_base_fee,
         tx_timeout_seconds=settings.stellar_tx_timeout_seconds,

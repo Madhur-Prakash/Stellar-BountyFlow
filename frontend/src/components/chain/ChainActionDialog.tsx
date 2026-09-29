@@ -15,11 +15,12 @@ import {
 } from '@/components/ui/dialog'
 import { usePublicConfig } from '@/lib/api/queries/config'
 import { formatDateTime } from '@/lib/format'
-import { formatAmount, formatStroops } from '@/lib/money'
+import { assetCode, formatAmount, formatStroops } from '@/lib/money'
 import { contractExplorerUrl, networkDisplayName } from '@/lib/stellar/explorer'
-import { FREIGHTER_INSTALL_URL, walletProviderName } from '@/lib/stellar/wallet'
+import { walletProviderName } from '@/lib/stellar/wallet'
 import type { ChainActionController, ChainErrorKind, ChainStep } from '@/lib/stellar/useChainAction'
 import { cn } from '@/lib/utils'
+import { useWalletStore } from '@/stores/wallet'
 
 import { TransactionExplorerCard } from './TransactionExplorer'
 
@@ -200,7 +201,7 @@ export function ChainActionDialog({
               {summary.amount ? (
                 <span className="amount text-[0.9375rem]">
                   {formatAmount(summary.amount)}{' '}
-                  <span className="font-normal text-muted-foreground">{summary.asset?.code ?? 'XLM'}</span>
+                  <span className="font-normal text-muted-foreground">{assetCode(summary.asset)}</span>
                 </span>
               ) : (
                 <span className="text-muted-foreground">No transfer</span>
@@ -218,7 +219,11 @@ export function ChainActionDialog({
               <code className="font-mono text-[0.8125rem]">{summary.function_name}</code>
             </Row>
             <Row label="Estimated fee">
-              <span className="tabular-nums">{formatStroops(summary.fee_estimate_stroops)}</span>
+              {summary.fee_sponsored ? (
+                <span className="text-muted-foreground">Network fee paid by BountyFlow</span>
+              ) : (
+                <span className="tabular-nums">{formatStroops(summary.fee_estimate_stroops)}</span>
+              )}
             </Row>
             {prepared && (
               <Row label="Expires">
@@ -247,14 +252,16 @@ export function ChainActionDialog({
                 </Link>
               )}
               {error.kind === 'wallet_not_installed' && (
-                <a
-                  href={FREIGHTER_INSTALL_URL}
-                  target="_blank"
-                  rel="noopener noreferrer nofollow"
+                <button
+                  type="button"
                   className="mt-2 inline-block font-medium underline"
+                  onClick={() => {
+                    handleOpenChange(false)
+                    useWalletStore.getState().openPicker()
+                  }}
                 >
-                  Install Freighter
-                </a>
+                  Choose another wallet
+                </button>
               )}
             </AlertDescription>
           </Alert>

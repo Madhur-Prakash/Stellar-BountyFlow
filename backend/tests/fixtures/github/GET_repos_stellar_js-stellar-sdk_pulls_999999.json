@@ -1,0 +1,22 @@
+{
+  "request": {
+    "method": "GET",
+    "path": "/repos/stellar/js-stellar-sdk/pulls/999999",
+    "query": ""
+  },
+  "status": 404,
+  "headers": {
+    "content-type": "application/json; charset=utf-8",
+    "x-github-media-type": "github.v3; format=json",
+    "x-ratelimit-limit": "60",
+    "x-ratelimit-remaining": "31",
+    "x-ratelimit-reset": "1790631303",
+    "x-ratelimit-resource": "core",
+    "x-ratelimit-used": "29"
+  },
+  "body": {
+    "message": "Not Found",
+    "documentation_url": "https://docs.github.com/rest/pulls/pulls#get-a-pull-request",
+    "status": "404"
+  }
+}

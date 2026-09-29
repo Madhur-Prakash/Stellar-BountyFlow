@@ -14,6 +14,7 @@ from redis.exceptions import WatchError
 from app.cache import keys
 from app.cache.redis import get_redis
 from app.core.logging import get_logger
+from app.modules.ops.health import record_job_run
 from worker.retry import interruptible_sleep
 
 logger = get_logger(__name__)
@@ -81,12 +82,19 @@ async def run_periodic(
     logger.info("periodic_job_started", job=name, interval=interval)
     while not stop.is_set():
         started = time.monotonic()
+        started_at = time.time()
+        error: Exception | None = None
+        result: Any = None
         try:
-            await run_locked(name, job, lock_ttl=lock_ttl)
+            result = await run_locked(name, job, lock_ttl=lock_ttl)
         except asyncio.CancelledError:
             raise
-        except Exception:
+        except Exception as exc:
+            error = exc
             logger.exception("periodic_job_failed", job=name)
         elapsed = time.monotonic() - started
+        if error is not None or not was_skipped(result):
+            # Job health for /metrics (bountyflow_worker_job_*); skipped runs belong to another replica.
+            await record_job_run(name, started_at, elapsed, error)
         await interruptible_sleep(max(0.0, interval - elapsed), stop)
     logger.info("periodic_job_stopped", job=name)

@@ -1,0 +1,17 @@
+# Grafana datasource provisioning: the Prometheus that scrapes the BountyFlow API.
+# Mounted read-only at /etc/grafana/provisioning/datasources by docker-compose.observability.yml.
+
+apiVersion: 1
+
+datasources:
+  - name: Prometheus
+    type: prometheus
+    uid: PROMETHEUS
+    access: proxy
+    url: http://prometheus:9090
+    isDefault: true
+    editable: false
+    jsonData:
+      # Matches global.scrape_interval in deploy/prometheus/prometheus.yml.
+      timeInterval: 15s
+      httpMethod: POST

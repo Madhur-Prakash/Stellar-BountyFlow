@@ -1,7 +1,7 @@
 import { zodResolver } from '@hookform/resolvers/zod'
 import { LoaderCircle, Lock } from 'lucide-react'
 import { useState, type ReactNode } from 'react'
-import { useForm, useWatch, type Control, type Path } from 'react-hook-form'
+import { useForm, useWatch, type Control, type FieldPathByValue, type Path } from 'react-hook-form'
 import { Link } from 'react-router'
 
 import { BountyStatusBadge } from '@/components/bounty/BountyStatusBadge'
@@ -29,7 +29,10 @@ import { CATEGORY_LABELS, DIFFICULTY_LABELS, formatDate } from '@/lib/format'
 import { applyApiErrors } from '@/lib/form-errors'
 import { formatAmount, isValidAmount, multiplyAmount } from '@/lib/money'
 
+import { useAssetCode } from '../assets/asset-display'
+import { RewardAssetSelect } from '../assets/RewardAssetSelect'
 import { bountyFormSchema, localInputToIso, toRequest, type BountyFormValues } from './bounty-form-schema'
+import { MilestonesEditor, ReviewWindowField } from './EscrowTermsFields'
 
 const FIELDS: Path<BountyFormValues>[] = [
   'title',
@@ -41,6 +44,7 @@ const FIELDS: Path<BountyFormValues>[] = [
   'tags',
   'required_skills',
   'reward_amount',
+  'reward_asset',
   'positions_available',
   'application_deadline',
   'completion_deadline',
@@ -49,6 +53,7 @@ const FIELDS: Path<BountyFormValues>[] = [
   'acceptance_criteria',
   'repository_url',
   'links',
+  'milestones',
 ]
 
 const HELP = 'text-[0.8125rem]'
@@ -85,7 +90,7 @@ const csvList = (v: string) =>
 
 /** How the bounty will read on a marketplace card, from what has been typed so far. */
 function LivePreview({ control, status }: { control: Control<BountyFormValues>; status: BountyStatus }) {
-  const [title, summary, category, difficulty, skills, reward, positions, closes] = useWatch({
+  const [title, summary, category, difficulty, skills, reward, positions, closes, rewardAsset] = useWatch({
     control,
     name: [
       'title',
@@ -96,8 +101,10 @@ function LivePreview({ control, status }: { control: Control<BountyFormValues>; 
       'reward_amount',
       'positions_available',
       'application_deadline',
+      'reward_asset',
     ],
   })
+  const code = useAssetCode(rewardAsset)
   const count = /^\d+$/.test(positions) ? Number(positions) : 0
   const closesIso = localInputToIso(closes)
   return (
@@ -121,7 +128,7 @@ function LivePreview({ control, status }: { control: Control<BountyFormValues>; 
             {isValidAmount(reward) ? (
               <p>
                 <span className="amount text-lg">{formatAmount(reward)}</span>{' '}
-                <span className="text-muted-foreground">XLM per position</span>
+                <span className="text-muted-foreground">{code} per position</span>
               </p>
             ) : (
               <p className="text-muted-foreground">No reward set</p>
@@ -169,10 +176,11 @@ export function BountyForm({
     defaultValues,
     mode: 'onTouched',
   })
-  const [reward, positions, description] = useWatch({
+  const [reward, positions, description, rewardAsset] = useWatch({
     control: form.control,
-    name: ['reward_amount', 'positions_available', 'description'],
+    name: ['reward_amount', 'positions_available', 'description', 'reward_asset'],
   })
+  const code = useAssetCode(rewardAsset)
   const total =
     isValidAmount(reward) && /^\d+$/.test(positions) && Number(positions) > 0
       ? multiplyAmount(reward, Number(positions))
@@ -186,6 +194,8 @@ export function BountyForm({
       delete (body as Partial<CreateBountyRequest>).reward_amount
       delete (body as Partial<CreateBountyRequest>).positions_available
       delete (body as Partial<CreateBountyRequest>).reward_asset
+      // Milestones are part of the reward terms, which are fixed once the bounty is published.
+      delete (body as Partial<CreateBountyRequest>).milestones
     }
     try {
       await onSubmit(body)
@@ -195,7 +205,7 @@ export function BountyForm({
   })
 
   const textField = (
-    name: Path<BountyFormValues>,
+    name: FieldPathByValue<BountyFormValues, string>,
     label: string,
     opts: {
       description?: string
@@ -333,7 +343,27 @@ export function BountyForm({
               </p>
             )}
             <div className="grid gap-5 sm:grid-cols-2">
-              {textField('reward_amount', 'Reward per position (XLM)', {
+              <FormField
+                control={form.control}
+                name="reward_asset"
+                render={({ field }) => (
+                  <FormItem className="min-w-0 sm:col-span-2">
+                    <FormLabel>Reward asset</FormLabel>
+                    <FormControl>
+                      <RewardAssetSelect
+                        value={field.value}
+                        onChange={field.onChange}
+                        disabled={lockEconomics}
+                      />
+                    </FormControl>
+                    <FormDescription className={HELP}>
+                      Contributors need a trustline for assets other than XLM before they can be paid.
+                    </FormDescription>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              {textField('reward_amount', `Reward per position (${code})`, {
                 inputMode: 'decimal',
                 disabled: lockEconomics,
                 placeholder: '250',
@@ -345,8 +375,9 @@ export function BountyForm({
             </div>
             <div className="flex items-center justify-between gap-3 rounded-lg border bg-surface/60 px-4 py-3">
               <span className="text-sm text-muted-foreground">Escrow required</span>
-              <span className="amount text-base">{total ? `${formatAmount(total)} XLM` : '—'}</span>
+              <span className="amount text-base">{total ? `${formatAmount(total)} ${code}` : '—'}</span>
             </div>
+            <MilestonesEditor control={form.control} disabled={lockEconomics} code={code} />
           </Section>
 
           <Section title="Timeline">
@@ -360,6 +391,7 @@ export function BountyForm({
                 description: 'Optional, in your local time.',
               })}
             </div>
+            <ReviewWindowField control={form.control} />
           </Section>
 
           <Section title="Skills and eligibility">

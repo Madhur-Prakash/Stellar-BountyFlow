@@ -22,6 +22,7 @@ from app.messaging.events import Topics
 from app.messaging.kafka import create_consumer
 from app.messaging.processing import MalformedEvent, parse_envelope, process_event
 from app.messaging.registry import Consumer
+from app.modules.ops.health import record_consumer_lag
 from worker.retry import Outcome, backoff_delay, dlq_headers, interruptible_sleep, run_with_retries
 
 logger = get_logger(__name__)
@@ -213,3 +214,4 @@ class ConsumerRunner:
             logger.warning("consumer_lag_unavailable", consumer=self.consumer.name, error=str(exc))
             return
         logger.info("consumer_lag", consumer=self.consumer.name, total_lag=sum(lag.values()), partitions=lag)
+        await record_consumer_lag(self.consumer.name, lag)  # exported as bountyflow_kafka_consumer_lag

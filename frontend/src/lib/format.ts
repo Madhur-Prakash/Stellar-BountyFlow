@@ -143,6 +143,13 @@ export const TX_TYPE_LABELS: Record<TxType, string> = {
   DISPUTE_RAISE: 'Dispute raised',
   DISPUTE_RESOLVE: 'Dispute resolved',
   WALLET_CHALLENGE: 'Wallet verification',
+  MILESTONE_PAYOUT: 'Milestone payout',
+  BATCH_PAYOUT: 'Batch payout',
+  SUBMIT_WORK: 'Work recorded',
+  REQUEST_CHANGES: 'Changes requested',
+  REJECT_SUBMISSION: 'Work rejected',
+  CLAIM: 'Payment claimed',
+  DISPUTE_VOTE: 'Arbiter vote',
 }
 
 export const DISPUTE_STATUS_LABELS: Record<DisputeStatus, string> = {

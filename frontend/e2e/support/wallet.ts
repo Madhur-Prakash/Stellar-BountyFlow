@@ -6,13 +6,15 @@ import { expect } from '../fixtures'
 /**
  * Test-only Stellar wallet for Playwright.
  *
- * Playwright cannot drive the Freighter extension, so the app (built with
+ * Playwright cannot drive a wallet extension, so the app (built with
  * VITE_ENABLE_TEST_WALLET=true, dev/E2E only) looks for an injected
- * `window.__BOUNTYFLOW_TEST_WALLET__`. The page only ever sees the PUBLIC key:
- * signing is done here, in the test process, through `exposeFunction`, with
- * a fresh Friendbot-funded Testnet keypair per session. Nothing is mocked:
- * the API verifies real SEP-10 signatures and submits real Soroban
- * transactions to Stellar Testnet.
+ * `window.__BOUNTYFLOW_TEST_WALLET__` and wraps it as a Stellar Wallets Kit
+ * module, so it goes through exactly the same adapter as a real wallet. The
+ * page only ever sees the PUBLIC key: signing is done here, in the test
+ * process, through `exposeFunction`, with a fresh Friendbot-funded Testnet
+ * keypair per session. It signs both transactions (SEP-10) and messages
+ * (SEP-53). Nothing is mocked: the API verifies real signatures and submits
+ * real Soroban transactions to Stellar Testnet.
  */
 
 export const TESTNET_PASSPHRASE = Networks.TESTNET
@@ -54,7 +56,7 @@ export async function fundWithFriendbot(publicKey: string): Promise<void> {
  */
 export async function installTestWallet(
   target: Page | BrowserContext,
-  opts: { fund?: boolean; name?: string } = {},
+  opts: { fund?: boolean; name?: string; proof?: 'transaction' | 'message'; autoConnect?: boolean } = {},
 ): Promise<TestWallet> {
   const context = 'context' in target ? target.context() : target
   const keypair = Keypair.random()
@@ -65,10 +67,15 @@ export async function installTestWallet(
     tx.sign(keypair)
     return tx.toXDR()
   })
+  // SEP-53: the wallet signs sha256("Stellar Signed Message:\n" + message) with the account key.
+  await context.exposeFunction('__bfTestSignMessage', (message: string) =>
+    keypair.signMessage(message).toString('base64'),
+  )
   await context.addInitScript(
-    ({ publicKey, passphrase, name }) => {
+    ({ publicKey, passphrase, name, proof, autoConnect }) => {
       const w = window as unknown as {
         __bfTestSign: (xdr: string) => Promise<string>
+        __bfTestSignMessage: (message: string) => Promise<string>
         __BOUNTYFLOW_TEST_WALLET__?: unknown
       }
       w.__BOUNTYFLOW_TEST_WALLET__ = {
@@ -76,10 +83,19 @@ export async function installTestWallet(
         publicKey,
         network: 'TESTNET',
         networkPassphrase: passphrase,
+        proof,
+        autoConnect,
         signTransaction: (xdr: string) => w.__bfTestSign(xdr),
+        signMessage: (message: string) => w.__bfTestSignMessage(message),
       }
     },
-    { publicKey: keypair.publicKey(), passphrase: TESTNET_PASSPHRASE, name: opts.name },
+    {
+      publicKey: keypair.publicKey(),
+      passphrase: TESTNET_PASSPHRASE,
+      name: opts.name,
+      proof: opts.proof,
+      autoConnect: opts.autoConnect,
+    },
   )
   return { publicKey: keypair.publicKey(), keypair }
 }
@@ -94,7 +110,9 @@ export async function verifyWalletViaUi(page: Page, wallet: TestWallet): Promise
   await expect(trigger).toContainText(short, { timeout: 20_000 })
   await trigger.click()
   await page.getByRole('menuitem', { name: 'Verify ownership' }).click()
-  await expect(page.locator('[data-sonner-toast]').filter({ hasText: 'Wallet ownership verified by signature' }).first()).toBeVisible({
+  await expect(
+    page.locator('[data-sonner-toast]').filter({ hasText: 'Wallet ownership verified by signature' }).first(),
+  ).toBeVisible({
     timeout: 30_000,
   })
 }

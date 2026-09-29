@@ -1,7 +1,10 @@
 import { describe, expect, it } from 'vitest'
 
+import type { Asset, AssetAmount } from '@/lib/api/types'
+
 import {
   InvalidAmountError,
+  assetCode,
   addAmounts,
   amountRatio,
   compareAmounts,
@@ -12,6 +15,9 @@ import {
   multiplyAmount,
   normalizeAmount,
   parseAmount,
+  formatAssetAmounts,
+  formatMoney,
+  shortAddress,
   subtractAmounts,
   toDecimalString,
   tryParseAmount,
@@ -108,5 +114,49 @@ describe('arithmetic', () => {
     expect(amountRatio('0', '200')).toBe(0)
     expect(amountRatio('10', '0')).toBe(0)
     expect(amountRatio(null, '10')).toBe(0)
+  })
+})
+
+const asset = (code: string, identifier: string): Asset => ({
+  code,
+  issuer: identifier === 'native' ? null : identifier.split(':')[1]!,
+  type: identifier === 'native' ? 'native' : 'credit_alphanum4',
+  contract_id: null,
+  identifier,
+  decimals: 7,
+})
+
+const XLM = asset('XLM', 'native')
+const USDC = asset('USDC', 'USDC:GBBD47IF6LWK7P7MDEVSCWR7DPUWV3NY3DTQEVFL4NAT4AQH3ZLLFLA5')
+
+describe('assets', () => {
+  it('names the asset an amount is in, defaulting to XLM', () => {
+    expect(assetCode(USDC)).toBe('USDC')
+    expect(assetCode('EURC')).toBe('EURC')
+    expect(assetCode(null)).toBe('XLM')
+    expect(assetCode(undefined)).toBe('XLM')
+  })
+
+  it('formats an amount with its asset', () => {
+    expect(formatMoney('20.5000000', USDC)).toBe('20.5 USDC')
+    expect(formatMoney('1250.5', XLM, { maxDecimals: 2 })).toBe('1,250.5 XLM')
+    expect(formatMoney(null, USDC)).toBe('—')
+  })
+
+  it('lists per-asset totals without ever adding assets together', () => {
+    const rows: AssetAmount[] = [
+      { asset: XLM, amount: '12.5000000' },
+      { asset: USDC, amount: '20.0000000' },
+    ]
+    expect(formatAssetAmounts(rows)).toBe('12.5 XLM, 20 USDC')
+    expect(formatAssetAmounts([{ asset: USDC, amount: '0.0000000' }])).toBe('0 XLM')
+    expect(formatAssetAmounts([])).toBe('0 XLM')
+    expect(formatAssetAmounts(undefined)).toBe('0 XLM')
+  })
+
+  it('shortens addresses for labels', () => {
+    expect(shortAddress('GBBD47IF6LWK7P7MDEVSCWR7DPUWV3NY3DTQEVFL4NAT4AQH3ZLLFLA5')).toBe('GBBD…LFLA5')
+    expect(shortAddress('GBBD47IF')).toBe('GBBD47IF')
+    expect(shortAddress(null)).toBe('')
   })
 })

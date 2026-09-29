@@ -11,7 +11,7 @@ import { useMyTransactions } from '@/lib/api/queries/chain'
 import { usePublicConfig } from '@/lib/api/queries/config'
 import type { BlockchainTransaction, PublicConfig } from '@/lib/api/types'
 import { formatDateTime, formatRelative, TX_TYPE_LABELS } from '@/lib/format'
-import { formatAmount } from '@/lib/money'
+import { assetCode, formatAmount } from '@/lib/money'
 import { networkDisplayName, NOT_SUBMITTED, transactionExplorerHref } from '@/lib/stellar/explorer'
 
 import { CardQuery, Money, ResponsiveTable } from './workspace-ui'
@@ -20,7 +20,7 @@ const when = (tx: BlockchainTransaction) => tx.confirmed_at ?? tx.submitted_at ?
 
 function Amount({ tx }: { tx: BlockchainTransaction }) {
   if (!tx.amount) return <span className="text-muted-foreground">—</span>
-  return <Money amount={formatAmount(tx.amount)} asset={tx.asset?.code ?? 'XLM'} />
+  return <Money amount={formatAmount(tx.amount)} asset={assetCode(tx.asset)} />
 }
 
 function Time({ tx }: { tx: BlockchainTransaction }) {

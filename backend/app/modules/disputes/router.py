@@ -65,4 +65,6 @@ async def resolve(
     session: SessionDep,
     user: Annotated[User, Depends(require_permission(Permission.DISPUTE_RESOLVE))],
 ) -> DisputeOut:
-    return await service.resolve(session, user, dispute_id, data.resolution, data.note)
+    return await service.resolve(
+        session, user, dispute_id, data.resolution, data.note, data.contributor_amount
+    )

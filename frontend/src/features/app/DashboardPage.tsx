@@ -26,6 +26,7 @@ import { QueryView } from '@/components/layout/QueryView'
 import { Button } from '@/components/ui/button'
 import { Card, CardAction, CardHeader, CardTitle } from '@/components/ui/card'
 import { Skeleton } from '@/components/ui/skeleton'
+import { reasonText } from '@/features/public/marketplace/recommendation-reason'
 import { useDashboard } from '@/lib/api/queries/analytics'
 import { useMe } from '@/lib/api/queries/auth'
 import type { BountySummary, Dashboard, Me } from '@/lib/api/types'
@@ -192,7 +193,16 @@ function AttentionCard({ d, me }: { d: Dashboard; me: Me | undefined | null }) {
  * One bounty in a dashboard list. The wide variant gives the funding badge its own column from sm up; the
  * narrow one (a side column) keeps it under the title.
  */
-function BountyRow({ bounty, variant }: { bounty: BountySummary; variant: 'open' | 'completed' }) {
+function BountyRow({
+  bounty,
+  variant,
+  reason,
+}: {
+  bounty: BountySummary
+  variant: 'open' | 'completed'
+  /** Why it was recommended, e.g. "Matches rust, soroban". */
+  reason?: string | null
+}) {
   const wide = variant === 'open'
   const badge = <FundingStatusBadge status={bounty.funding_status} bountyStatus={bounty.status} />
   return (
@@ -202,6 +212,7 @@ function BountyRow({ bounty, variant }: { bounty: BountySummary; variant: 'open'
           <Link to={bountyHref(bounty)} className="line-clamp-2 text-sm font-medium hover:underline">
             {bounty.title}
           </Link>
+          {reason && <p className="mt-0.5 text-xs text-foreground/80">{reason}</p>}
           <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-muted-foreground">
             <span>{CATEGORY_LABELS[bounty.category]}</span>
             {wide ? (
@@ -224,7 +235,15 @@ function BountyRow({ bounty, variant }: { bounty: BountySummary; variant: 'open'
   )
 }
 
-function RecommendedCard({ items }: { items: BountySummary[] }) {
+function RecommendedCard({
+  items,
+  reasons,
+  hasSkills,
+}: {
+  items: BountySummary[]
+  reasons?: Dashboard['recommendation_reasons']
+  hasSkills: boolean
+}) {
   return (
     <section aria-labelledby="rec-h">
       <Card className="gap-0 pb-0">
@@ -242,10 +261,14 @@ function RecommendedCard({ items }: { items: BountySummary[] }) {
           <EmptyState
             icon={BriefcaseBusiness}
             title="No recommendations yet"
-            description="Add skills to your profile and we’ll suggest matching bounties."
+            description={
+              hasSkills
+                ? 'Nothing open matches your skills right now. New bounties are matched as they are posted.'
+                : 'Add skills to your profile and we’ll suggest matching bounties.'
+            }
             action={
               <Button asChild variant="outline">
-                <Link to="/app/profile">Add skills</Link>
+                <Link to="/app/profile">{hasSkills ? 'Edit skills' : 'Add skills'}</Link>
               </Button>
             }
             className="rounded-none border-0 border-t bg-transparent py-10"
@@ -253,7 +276,7 @@ function RecommendedCard({ items }: { items: BountySummary[] }) {
         ) : (
           <ul className="divide-y border-t">
             {items.slice(0, 6).map((b) => (
-              <BountyRow key={b.id} bounty={b} variant="open" />
+              <BountyRow key={b.id} bounty={b} variant="open" reason={reasonText(reasons?.[b.id])} />
             ))}
           </ul>
         )}
@@ -372,7 +395,11 @@ function DashboardContent({ d, me }: { d: Dashboard; me: Me | undefined | null }
       <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_minmax(0,22.5rem)]">
         <div className="min-w-0 space-y-6">
           <AttentionCard d={d} me={me} />
-          <RecommendedCard items={d.recommendations} />
+          <RecommendedCard
+            items={d.recommendations}
+            reasons={d.recommendation_reasons}
+            hasSkills={!!me?.skills.length}
+          />
         </div>
         <div className="min-w-0 space-y-6">
           <ActivityCard items={d.recent_activity} />

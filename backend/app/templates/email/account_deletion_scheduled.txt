@@ -1,0 +1,12 @@
+{% if recipient_name %}Hi {{ recipient_name }},
+
+{% endif %}We received a request to delete your {{ app_name }} account. It will be deleted on {{ scheduled_for }}. Until then you can cancel the request from your privacy settings:
+
+{{ action_url }}
+
+After deletion your profile, email address and content are erased. Payment records and on-chain transactions are kept under a pseudonym, because the law requires financial records to be kept.
+
+If you did not ask for this, cancel the deletion and change your password.
+
+--
+{{ app_name }}

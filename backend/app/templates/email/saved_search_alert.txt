@@ -1,0 +1,18 @@
+{% if recipient_name %}Hi {{ recipient_name }},
+
+{% endif %}A new bounty matches your saved search{% if searches|length == 1 %} "{{ searches[0].name }}"{% endif %}.
+
+{{ bounty.title }}
+{{ bounty.summary }}
+Reward: {{ bounty.reward }}{% if bounty.closes %}
+Applications close: {{ bounty.closes }}{% endif %}{% if bounty.skills %}
+Skills: {{ bounty.skills }}{% endif %}
+
+{{ action_label }}: {{ action_url }}
+
+{% for search in searches %}Unsubscribe from alerts for "{{ search.name }}": {{ search.unsubscribe_url }}
+{% endfor %}
+--
+{{ app_name }}
+Manage saved searches: {{ manage_url }}
+Manage email notifications: {{ preferences_url }}

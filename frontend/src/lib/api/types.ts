@@ -4,6 +4,10 @@
  * corresponds 1:1 to a definition in the document.
  */
 
+import type { PullRequest, ReportTargetSummary } from './types/collab'
+import type { Milestone, MilestoneInput, OnchainReview, SubmissionMilestone } from './types/escrow'
+import type { RecommendationReason } from './types/discovery'
+
 // ---------------------------------------------------------------------------
 // Conventions
 // ---------------------------------------------------------------------------
@@ -49,6 +53,14 @@ export type ApiErrorCode =
   | 'service_unavailable'
   | 'method_not_allowed'
   | 'payload_too_large'
+  /** 422 — the wallet (or the contributor's wallet) has no trustline for the reward asset. */
+  | 'trustline_missing'
+  /** 422 — the issuer has not authorized the wallet's trustline. */
+  | 'trustline_unauthorized'
+  /** 422 — the funding wallet holds less of the asset than the deposit needs. */
+  | 'insufficient_balance'
+  /** 422 — the reward asset is not enabled (or not accepted for new deposits). */
+  | 'asset_not_supported'
 
 export type ValidationErrorDetail = { field: string; message: string }
 
@@ -61,7 +73,21 @@ export type ErrorEnvelope = {
   }
 }
 
-export type Asset = { code: 'XLM'; issuer: null; type: 'native'; contract_id: string | null }
+/**
+ * The asset an amount is in. `identifier` is "native" (XLM) or "CODE:ISSUER"; `contract_id` is its
+ * Stellar Asset Contract on the active network.
+ */
+export type Asset = {
+  code: string
+  issuer: string | null
+  type: 'native' | 'credit_alphanum4' | 'credit_alphanum12'
+  contract_id: string | null
+  identifier: string
+  decimals: number
+}
+
+/** An amount of one asset. Totals are grouped per asset, never added across assets. */
+export type AssetAmount = { asset: Asset; amount: DecimalString }
 
 // ---------------------------------------------------------------------------
 // Enums
@@ -89,6 +115,7 @@ export const PERMISSIONS = [
   'transaction:view_all',
   'analytics:platform',
   'system:health',
+  'asset:manage',
 ] as const
 export type KnownPermission = (typeof PERMISSIONS)[number]
 export type Permission = KnownPermission | (string & {})
@@ -182,6 +209,14 @@ export const TX_TYPES = [
   'DISPUTE_RAISE',
   'DISPUTE_RESOLVE',
   'WALLET_CHALLENGE',
+  // Escrow v2
+  'MILESTONE_PAYOUT',
+  'BATCH_PAYOUT',
+  'SUBMIT_WORK',
+  'REQUEST_CHANGES',
+  'REJECT_SUBMISSION',
+  'CLAIM',
+  'DISPUTE_VOTE',
 ] as const
 export type TxType = (typeof TX_TYPES)[number]
 
@@ -194,13 +229,26 @@ export const CHAIN_ACTIONS = [
   'REFUND',
   'RAISE_DISPUTE',
   'RESOLVE_DISPUTE',
+  // Escrow v2
+  'MILESTONE_PAYOUT',
+  'BATCH_PAYOUT',
+  'SUBMIT_WORK',
+  'REQUEST_CHANGES',
+  'REJECT_SUBMISSION',
+  'CLAIM',
+  'DISPUTE_VOTE',
 ] as const
 export type ChainAction = (typeof CHAIN_ACTIONS)[number]
 
 export const DISPUTE_STATUSES = ['OPEN', 'UNDER_REVIEW', 'RESOLVED', 'DISMISSED'] as const
 export type DisputeStatus = (typeof DISPUTE_STATUSES)[number]
 
-export const DISPUTE_RESOLUTIONS = ['RELEASE_TO_CONTRIBUTOR', 'REFUND_TO_REQUESTER', 'DISMISSED'] as const
+export const DISPUTE_RESOLUTIONS = [
+  'RELEASE_TO_CONTRIBUTOR',
+  'REFUND_TO_REQUESTER',
+  'SPLIT',
+  'DISMISSED',
+] as const
 export type DisputeResolution = (typeof DISPUTE_RESOLUTIONS)[number]
 
 export const REPORT_STATUSES = ['OPEN', 'REVIEWING', 'ACTIONED', 'DISMISSED'] as const
@@ -221,6 +269,18 @@ export const NOTIFICATION_TYPES = [
   'BOUNTY_EXPIRED',
   'DISPUTE_UPDATE',
   'SYSTEM',
+  /** A new bounty (or a digest of them) matches one of your saved searches. */
+  'SAVED_SEARCH_MATCH',
+  /** Bounty Q&A: a new question on your bounty, a reply in your thread, your answer accepted. */
+  'QUESTION_RECEIVED',
+  'QUESTION_REPLY',
+  'ANSWER_ACCEPTED',
+  /** A pull request linked to a submission was merged or closed. */
+  'PULL_REQUEST_UPDATE',
+  /** Escrow v2: a review window passed unanswered, a milestone was paid, an arbiter approved a resolution. */
+  'CLAIM_AVAILABLE',
+  'MILESTONE_PAID',
+  'ARBITER_VOTE',
 ] as const
 export type NotificationType = (typeof NOTIFICATION_TYPES)[number]
 
@@ -283,6 +343,13 @@ export type Wallet = {
   verification_status: 'VERIFIED'
   verified_at: ISODateTime
   created_at: ISODateTime
+  /** Wallet app the ownership proof was signed with (freighter, xbull, passkey, ...). */
+  wallet_app?: string | null
+  /** sep10 (challenge transaction), sep53 (signed message) or sep45 (contract account). */
+  proof_method?: WalletProofMethod | null
+  /** Payouts go to this wallet. */
+  is_primary?: boolean
+  kind?: 'account' | 'contract'
 }
 
 export type UserStats = {
@@ -297,6 +364,9 @@ export type UserStats = {
   /** XLM, only CONFIRMED on-chain payouts */
   total_rewards_received: DecimalString
   total_rewards_paid: DecimalString
+  /** Every asset, never added together (backend addition). */
+  rewards_received_by_asset?: AssetAmount[]
+  rewards_paid_by_asset?: AssetAmount[]
 }
 
 export type PublicWallet = {
@@ -333,6 +403,11 @@ export type EscrowView = {
   last_reconciled_at: ISODateTime | null
   /** Explorer link for the escrow contract/state (backend addition). */
   explorer_url: string | null
+  /** Escrow v2: the contract version this escrow lives on and its dispute terms. */
+  contract_version?: number
+  arbiter_addresses?: string[]
+  arbiter_threshold?: number
+  review_window_seconds?: number | null
 }
 
 export type BountySummary = {
@@ -363,6 +438,8 @@ export type BountySummary = {
   is_hidden?: boolean
   created_at: ISODateTime
   published_at: ISODateTime | null
+  /** Visible Q&A questions (backend addition). */
+  questions_count?: number
 }
 
 export type BountyLink = { label: string; url: string }
@@ -385,6 +462,8 @@ export type BountyDetail = BountySummary & {
   submission_requirements: string | null
   acceptance_criteria: string | null
   repository_url: string | null
+  /** Approval needs a merged pull request from the contributor, verified through GitHub. */
+  require_merged_pr?: boolean
   links: BountyLink[]
   visibility: Visibility
   /** Hidden by moderation (backend addition). */
@@ -393,6 +472,10 @@ export type BountyDetail = BountySummary & {
   escrow: EscrowView | null
   /** null for anonymous viewers */
   viewer: BountyViewer | null
+  /** Escrow v2: milestones of a single-position reward, oldest first. */
+  milestones?: Milestone[]
+  /** Seconds the requester has to answer work recorded on-chain. */
+  review_window_seconds?: number | null
 }
 
 export type BountyRef = { id: string; slug: string; title: string; status: BountyStatus }
@@ -442,6 +525,8 @@ export type BlockchainTransaction = {
   failure_reason: string | null
   explorer_url: string | null
   created_at: ISODateTime
+  /** BountyFlow's sponsor paid the network fee (fee bump or smart-wallet relay). */
+  fee_sponsored?: boolean
 }
 
 export type PaymentRecord = {
@@ -458,6 +543,8 @@ export type PaymentRecord = {
   transaction: BlockchainTransaction | null
   created_at: ISODateTime
   settled_at: ISODateTime | null
+  /** Escrow v2: set for a milestone payment. */
+  milestone_id?: string | null
 }
 
 export type Submission = {
@@ -477,8 +564,15 @@ export type Submission = {
   payment: PaymentRecord | null
   /** Earlier versions, oldest first (backend addition). */
   revisions?: SubmissionRevision[]
+  /** Linked GitHub pull requests with their latest verification. */
+  pull_requests?: PullRequest[]
   created_at: ISODateTime
   updated_at: ISODateTime
+  /** Escrow v2: the milestone this work is for, and its on-chain review clock. */
+  milestone?: SubmissionMilestone | null
+  onchain_review?: OnchainReview | null
+  /** The contributor can record this work on-chain now (v2 escrow, assigned on-chain). */
+  can_record_onchain?: boolean
 }
 
 export type SubmissionRevision = {
@@ -497,6 +591,8 @@ export type PreparedTransactionSummary = {
   fee_estimate_stroops: string | null
   contract_id: string | null
   function_name: string
+  /** BountyFlow's sponsor is expected to pay the network fee. */
+  fee_sponsored?: boolean
 }
 
 export type PreparedTransaction = {
@@ -562,6 +658,12 @@ export type Dispute = {
   requires_onchain_execution?: boolean
   created_at: ISODateTime
   resolved_at: ISODateTime | null
+  /** Escrow v2: the escrow's arbiter set and the confirmed approvals of the current round. */
+  contract_version?: number
+  arbiter_threshold?: number
+  arbiter_approvals?: number
+  /** SPLIT: what the contributor receives. */
+  contributor_amount?: DecimalString | null
 }
 
 // ---------------------------------------------------------------------------
@@ -636,6 +738,7 @@ export type Contribution = {
   bounty: BountySummary
   completed_at: ISODateTime
   amount: DecimalString | null
+  asset?: Asset | null
   transaction_hash: string | null
 }
 
@@ -643,13 +746,26 @@ export type Contribution = {
 // Wallets
 // ---------------------------------------------------------------------------
 
-export type WalletChallengeRequest = { public_address: string }
+export type WalletProofMethod = 'sep10' | 'sep53' | 'sep45'
+export type WalletChallengeRequest = { public_address: string; method?: WalletProofMethod }
 export type WalletChallengeResponse = {
-  challenge_xdr: string
+  method?: WalletProofMethod
+  /** sep10: the challenge transaction to sign (never submitted). */
+  challenge_xdr: string | null
+  /** sep53: the message to sign. */
+  message?: string | null
+  /** sep45: base64 SorobanAuthorizationEntries; the wallet signs its own entry. */
+  authorization_entries?: string | null
   network_passphrase: string
   expires_at: ISODateTime
 }
-export type WalletVerifyRequest = { public_address: string; signed_challenge_xdr: string }
+export type WalletVerifyRequest = {
+  public_address: string
+  signed_challenge_xdr?: string
+  signed_message?: string
+  signed_authorization_entries?: string
+  wallet_app?: string
+}
 
 // ---------------------------------------------------------------------------
 // Bounties
@@ -670,6 +786,8 @@ export type BountyListParams = PageParams & {
   deadline_before?: ISODateTime
   deadline_after?: ISODateTime
   funded_only?: boolean
+  /** Reward asset identifiers ("native", "CODE:ISSUER"); comma separated on the wire. */
+  asset?: string[]
   sort?: BountySort
 }
 
@@ -684,7 +802,8 @@ export type CreateBountyRequest = {
   tags: string[]
   required_skills: string[]
   reward_amount: DecimalString
-  reward_asset?: 'XLM'
+  /** "native"/"XLM" or an enabled registry asset identifier ("CODE:ISSUER"). */
+  reward_asset?: string
   application_deadline?: ISODateTime | null
   completion_deadline?: ISODateTime | null
   positions_available: number
@@ -692,8 +811,12 @@ export type CreateBountyRequest = {
   submission_requirements?: string | null
   acceptance_criteria?: string | null
   repository_url?: string | null
+  require_merged_pr?: boolean
   links?: BountyLink[]
   visibility?: Visibility
+  /** Escrow v2 */
+  review_window_seconds?: number | null
+  milestones?: MilestoneInput[]
 }
 
 export type UpdateBountyRequest = Partial<CreateBountyRequest>
@@ -723,6 +846,10 @@ export type CreateSubmissionRequest = {
   description: string
   evidence_url?: string | null
   evidence_links?: string[]
+  /** GitHub pull request URLs, up to 5. */
+  pull_request_urls?: string[]
+  /** Escrow v2: required on milestone bounties. */
+  milestone_id?: string
 }
 export type UpdateSubmissionRequest = Partial<CreateSubmissionRequest>
 export type SubmissionListParams = PageParams & { status?: SubmissionStatus }
@@ -741,6 +868,10 @@ export type ChainPrepareRequest = {
   assignment_id?: string
   dispute_id?: string
   amount?: DecimalString
+  /** BATCH_PAYOUT */
+  submission_ids?: string[]
+  /** REQUEST_CHANGES / REJECT_SUBMISSION */
+  feedback?: string
 }
 export type FundingPrepareRequest = { wallet_address: string; amount?: DecimalString }
 export type PayoutPrepareRequest = { wallet_address: string; submission_id: string }
@@ -783,13 +914,18 @@ export type PublicStats = {
   open_bounties: number
   funded_bounties: number
   completed_bounties: number
+  /** XLM only; see `payout_volume_by_asset`. */
   verified_payout_volume: DecimalString
+  payout_volume_by_asset?: AssetAmount[]
   successful_transactions: number
   unique_transacting_wallets: number
   methodology: Record<string, string>
 }
 
 export type MonthlyAmount = { month: string; amount: DecimalString }
+
+/** One asset's total and dense monthly series (oldest first). */
+export type AssetSeries = { asset: Asset; total: DecimalString; months: MonthlyAmount[] }
 
 export type RequesterAnalytics = {
   bounties_by_status: Record<BountyStatus, number>
@@ -798,6 +934,9 @@ export type RequesterAnalytics = {
   applications_received: number
   avg_time_to_first_application_hours: number | null
   spending_by_month: MonthlyAmount[]
+  escrowed_by_asset?: AssetAmount[]
+  paid_by_asset?: AssetAmount[]
+  spending_by_asset?: AssetSeries[]
 }
 
 export type ContributorAnalytics = {
@@ -806,6 +945,8 @@ export type ContributorAnalytics = {
   total_earned: DecimalString
   earnings_by_month: MonthlyAmount[]
   completed_count: number
+  earned_by_asset?: AssetAmount[]
+  earnings_by_asset?: AssetSeries[]
 }
 
 export type MyAnalytics = { requester: RequesterAnalytics; contributor: ContributorAnalytics }
@@ -835,6 +976,7 @@ export type PlatformAnalytics = {
     successful_transactions: number
     failed_transactions: number
     verified_payout_volume: DecimalString
+    payout_volume_by_asset?: AssetAmount[]
   }
   engagement: {
     repeat_contributors: number
@@ -860,6 +1002,8 @@ export type PlatformDay = {
   submissions: number
   payouts_confirmed_count: number
   payout_volume: DecimalString
+  /** asset identifier → that day's payout volume (XLM included). */
+  payout_volume_by_asset?: Record<string, DecimalString>
 }
 
 export type Dashboard = {
@@ -873,6 +1017,8 @@ export type Dashboard = {
   recent_completed: BountySummary[]
   recent_activity: ActivityItem[]
   recommendations: BountySummary[]
+  /** Why each recommendation was chosen, keyed by bounty id (skill-graph ranking). */
+  recommendation_reasons?: Record<string, RecommendationReason>
 }
 
 // ---------------------------------------------------------------------------
@@ -886,7 +1032,12 @@ export type CreateDisputeRequest = {
   contributor_id?: string | null
 }
 export type AddDisputeEvidenceRequest = { description: string; url?: string | null }
-export type ResolveDisputeRequest = { resolution: DisputeResolution; note: string }
+export type ResolveDisputeRequest = {
+  resolution: DisputeResolution
+  note: string
+  /** SPLIT only */
+  contributor_amount?: DecimalString
+}
 
 // ---------------------------------------------------------------------------
 // Admin
@@ -942,8 +1093,10 @@ export type Report = {
   status: ReportStatus
   created_at: ISODateTime
   resolution_note: string | null
+  /** Filled for Q&A posts: where the post is and what it says. */
+  target_summary?: ReportTargetSummary | null
 }
-export type AdminReportsParams = PageParams & { status?: ReportStatus }
+export type AdminReportsParams = PageParams & { status?: ReportStatus; target_type?: string }
 export type ResolveReportRequest = { status: 'ACTIONED' | 'DISMISSED'; note: string }
 
 export type AdminDisputesParams = PageParams & { status?: DisputeStatus }
@@ -959,3 +1112,15 @@ export type AuditLog = {
   created_at: ISODateTime
 }
 export type AuditLogParams = PageParams & { entity_type?: string; action?: string }
+
+// ---------------------------------------------------------------------------
+// Feature modules
+// ---------------------------------------------------------------------------
+
+export * from './types/collab'
+export * from './types/escrow'
+export * from './types/compliance'
+export * from './types/discovery'
+export * from './types/assets'
+export * from './types/reputation'
+export * from './types/wallets'

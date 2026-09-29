@@ -36,12 +36,14 @@ from app.modules.admin.schemas import (
     OverviewCounts,
     ReportOut,
     ReportResolve,
+    ReportTargetSummary,
 )
 from app.modules.analytics.rules import OPEN_STATUSES
 from app.modules.auth.repository import revoke_all_sessions
 from app.modules.bounties.models import Bounty
 from app.modules.disputes.models import Dispute, DisputeStatus
 from app.modules.payments.models import BlockchainTransaction, TxStatus
+from app.modules.qa.models import BountyQAPost
 from app.modules.submissions.models import BountySubmission
 from app.modules.users.models import Role, User
 
@@ -293,6 +295,7 @@ async def _target_exists(session: AsyncSession, target_type: ReportTarget, targe
         ReportTarget.USER: User,
         ReportTarget.BOUNTY: Bounty,
         ReportTarget.SUBMISSION: BountySubmission,
+        ReportTarget.QA_POST: BountyQAPost,
     }[target_type]
     return (await session.scalar(select(model.id).where(model.id == target_id))) is not None
 
@@ -366,7 +369,22 @@ async def list_reports(
         .offset(params.offset)
         .limit(params.page_size)
     )
-    return Page[ReportOut].build([report_out(r) for r in rows.unique().all()], total, params)
+    reports = rows.unique().all()
+    items = [report_out(r) for r in reports]
+    await _attach_target_summaries(session, items)
+    return Page[ReportOut].build(items, total, params)
+
+
+async def _attach_target_summaries(session: AsyncSession, items: list[ReportOut]) -> None:
+    """Q&A posts are reported by id; show the moderator where the post is and what it says."""
+    from app.modules.qa.service import report_target_summaries  # qa depends on this module
+
+    post_ids = [r.target_id for r in items if r.target_type == ReportTarget.QA_POST]
+    summaries = await report_target_summaries(session, post_ids)
+    for item in items:
+        summary = summaries.get(item.target_id) if item.target_type == ReportTarget.QA_POST else None
+        if summary is not None:
+            item.target_summary = ReportTargetSummary.model_validate(summary)
 
 
 async def resolve_report(

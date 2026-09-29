@@ -27,7 +27,17 @@ from app.messaging.kafka import create_producer
 from app.messaging.outbox import Publisher
 from app.messaging.registry import Consumer, all_consumers
 from worker.consumer import ConsumerRunner
-from worker.jobs import lifecycle, reconciliation
+from worker.jobs import (
+    asset_operations,
+    attestations,
+    compliance,
+    discovery,
+    github_prs,
+    lifecycle,
+    reconciliation,
+    reconciliation_audit,
+    review_clock,
+)
 from worker.jobs.outbox_relay import InProcessDispatcher, kafka_publisher, run_outbox_relay
 from worker.retry import backoff_delay, interruptible_sleep
 
@@ -126,13 +136,19 @@ def install_signal_handlers(stop: asyncio.Event) -> None:
 
 async def _close_clients(producer: AIOKafkaProducer | None) -> None:
     from app.blockchain.client import close_soroban
+    from app.blockchain.horizon import close_horizon
 
     if producer is not None:
         try:
             await producer.stop()
         except Exception as exc:
             logger.warning("kafka_producer_stop_failed", error=str(exc))
-    for name, closer in (("redis", close_redis), ("database", dispose_engine), ("soroban", close_soroban)):
+    for name, closer in (
+        ("redis", close_redis),
+        ("database", dispose_engine),
+        ("soroban", close_soroban),
+        ("horizon", close_horizon),
+    ):
         try:
             await closer()
         except Exception as exc:
@@ -165,6 +181,38 @@ async def main() -> None:
             asyncio.create_task(supervise("outbox-relay", lambda: run_outbox_relay(publisher, stop), stop)),
             asyncio.create_task(supervise(lifecycle.JOB_NAME, lambda: lifecycle.run(stop), stop)),
             asyncio.create_task(supervise(reconciliation.JOB_NAME, lambda: reconciliation.run(stop), stop)),
+            asyncio.create_task(supervise(review_clock.JOB_NAME, lambda: review_clock.run(stop), stop)),
+            asyncio.create_task(supervise(discovery.GRAPH_JOB_NAME, lambda: discovery.run_graph(stop), stop)),
+            asyncio.create_task(
+                supervise(discovery.DIGEST_JOB_NAME, lambda: discovery.run_digests(stop), stop)
+            ),
+            asyncio.create_task(supervise(github_prs.JOB_NAME, lambda: github_prs.run(stop), stop)),
+            asyncio.create_task(
+                supervise(compliance.EXPORTS_JOB, lambda: compliance.run_exports(stop), stop)
+            ),
+            asyncio.create_task(
+                supervise(compliance.DELETION_JOB, lambda: compliance.run_deletions(stop), stop)
+            ),
+            asyncio.create_task(
+                supervise(compliance.SANCTIONS_JOB, lambda: compliance.run_sanctions(stop), stop)
+            ),
+            asyncio.create_task(
+                supervise(reconciliation_audit.JOB_NAME, lambda: reconciliation_audit.run(stop), stop)
+            ),
+            asyncio.create_task(
+                supervise(attestations.PIPELINE_JOB, lambda: attestations.run_pipeline(stop), stop)
+            ),
+            asyncio.create_task(
+                supervise(attestations.BACKFILL_JOB, lambda: attestations.run_backfill(stop), stop)
+            ),
+            asyncio.create_task(
+                supervise(
+                    attestations.RECONCILIATION_JOB, lambda: attestations.run_reconciliation(stop), stop
+                )
+            ),
+            asyncio.create_task(
+                supervise(asset_operations.JOB_NAME, lambda: asset_operations.run(stop), stop)
+            ),
             asyncio.create_task(supervise("heartbeat", lambda: heartbeat(stop, settings), stop)),
         ]
         logger.info(

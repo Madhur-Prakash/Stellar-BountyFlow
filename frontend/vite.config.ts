@@ -34,6 +34,8 @@ export default defineConfig(({ mode }) => {
       proxy: {
         '/api': { target: proxyTarget, changeOrigin: true },
         '/health': { target: proxyTarget, changeOrigin: true },
+        // The credential issuer's did:web document must resolve at the site's own origin.
+        '/.well-known': { target: proxyTarget, changeOrigin: true },
       },
     },
     preview: {

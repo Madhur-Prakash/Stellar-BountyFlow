@@ -28,6 +28,7 @@ export const bountyListQuery = (p: BountyListParams = {}): QueryParams => ({
   deadline_before: p.deadline_before,
   deadline_after: p.deadline_after,
   funded_only: p.funded_only ? true : undefined,
+  asset: p.asset?.length ? p.asset : undefined,
   sort: p.sort,
   page: p.page,
   page_size: p.page_size,

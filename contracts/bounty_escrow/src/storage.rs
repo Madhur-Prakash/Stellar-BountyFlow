@@ -3,6 +3,10 @@
 //! Keys:
 //! - `DataKey::Escrow(bounty_id)`                 -> `Escrow`
 //! - `DataKey::Assignment(bounty_id, contributor)` -> `AssignmentState`
+//! - `DataKey::Review(bounty_id, contributor)`     -> `Review` (v2)
+//! - `DataKey::Vote(bounty_id, arbiter)`           -> `Vote` (v2)
+//! - `DataKey::Admin` (instance)                   -> `Address` (v2)
+//! - `DataKey::MinReviewWindow` (instance)         -> `u64` (v2)
 //!
 //! TTL policy: every write, and every read performed as part of a
 //! state-changing call, extends the entry's TTL to `BUMP_TO` ledgers
@@ -10,13 +14,13 @@
 //! `BUMP_THRESHOLD` (~15 days). Read-only view calls do not bump TTL
 //! (they are simulated, not submitted). Anyone may additionally extend
 //! TTLs off-chain via `stellar contract extend` if an escrow is idle for a
-//! long time. The contract instance TTL is bumped on each state-changing
-//! call as well.
+//! long time. The contract instance TTL (which holds the admin and the
+//! minimum review window) is bumped on each state-changing call as well.
 
 use soroban_sdk::{contracttype, Address, BytesN, Env};
 
 use crate::errors::Error;
-use crate::types::{AssignmentState, Escrow};
+use crate::types::{AssignmentState, Escrow, Review, Vote};
 
 /// Approximate ledgers per day (5 second close time).
 pub const DAY_IN_LEDGERS: u32 = 17_280;
@@ -30,11 +34,44 @@ pub const BUMP_TO: u32 = 30 * DAY_IN_LEDGERS;
 pub enum DataKey {
     Escrow(BytesN<32>),
     Assignment(BytesN<32>, Address),
+    Review(BytesN<32>, Address),
+    Vote(BytesN<32>, Address),
+    Admin,
+    MinReviewWindow,
 }
 
 pub fn bump_instance(env: &Env) {
     env.storage().instance().extend_ttl(BUMP_THRESHOLD, BUMP_TO);
 }
+
+// --- Contract configuration (instance storage) --------------------------------
+
+pub fn write_admin(env: &Env, admin: &Address) {
+    env.storage().instance().set(&DataKey::Admin, admin);
+}
+
+/// The admin is written by the constructor, so it is always present.
+pub fn read_admin(env: &Env) -> Address {
+    env.storage()
+        .instance()
+        .get(&DataKey::Admin)
+        .expect("admin is set at deployment")
+}
+
+pub fn write_min_review_window(env: &Env, seconds: u64) {
+    env.storage()
+        .instance()
+        .set(&DataKey::MinReviewWindow, &seconds);
+}
+
+pub fn read_min_review_window(env: &Env) -> u64 {
+    env.storage()
+        .instance()
+        .get(&DataKey::MinReviewWindow)
+        .expect("minimum review window is set at deployment")
+}
+
+// --- Escrows ------------------------------------------------------------------
 
 pub fn has_escrow(env: &Env, bounty_id: &BytesN<32>) -> bool {
     env.storage()
@@ -71,6 +108,8 @@ pub fn write_escrow(env: &Env, bounty_id: &BytesN<32>, escrow: &Escrow) {
         .persistent()
         .extend_ttl(&key, BUMP_THRESHOLD, BUMP_TO);
 }
+
+// --- Assignments ----------------------------------------------------------------
 
 /// Read an assignment without touching its TTL (view calls).
 pub fn read_assignment(
@@ -117,4 +156,63 @@ pub fn remove_assignment(env: &Env, bounty_id: &BytesN<32>, contributor: &Addres
     env.storage()
         .persistent()
         .remove(&DataKey::Assignment(bounty_id.clone(), contributor.clone()));
+}
+
+// --- Reviews ----------------------------------------------------------------------
+
+/// Read a review without touching its TTL (view calls).
+pub fn read_review(env: &Env, bounty_id: &BytesN<32>, contributor: &Address) -> Option<Review> {
+    env.storage()
+        .persistent()
+        .get(&DataKey::Review(bounty_id.clone(), contributor.clone()))
+}
+
+/// Read a review as part of a state-changing call, extending its TTL if it exists.
+pub fn load_review(env: &Env, bounty_id: &BytesN<32>, contributor: &Address) -> Option<Review> {
+    let key = DataKey::Review(bounty_id.clone(), contributor.clone());
+    let review: Option<Review> = env.storage().persistent().get(&key);
+    if review.is_some() {
+        env.storage()
+            .persistent()
+            .extend_ttl(&key, BUMP_THRESHOLD, BUMP_TO);
+    }
+    review
+}
+
+pub fn write_review(env: &Env, bounty_id: &BytesN<32>, contributor: &Address, review: &Review) {
+    let key = DataKey::Review(bounty_id.clone(), contributor.clone());
+    env.storage().persistent().set(&key, review);
+    env.storage()
+        .persistent()
+        .extend_ttl(&key, BUMP_THRESHOLD, BUMP_TO);
+}
+
+pub fn remove_review(env: &Env, bounty_id: &BytesN<32>, contributor: &Address) {
+    env.storage()
+        .persistent()
+        .remove(&DataKey::Review(bounty_id.clone(), contributor.clone()));
+}
+
+// --- Arbiter votes --------------------------------------------------------------------
+
+/// Read a vote without touching its TTL (view calls, and the approval count,
+/// which only needs votes of the current round).
+pub fn read_vote(env: &Env, bounty_id: &BytesN<32>, arbiter: &Address) -> Option<Vote> {
+    env.storage()
+        .persistent()
+        .get(&DataKey::Vote(bounty_id.clone(), arbiter.clone()))
+}
+
+pub fn write_vote(env: &Env, bounty_id: &BytesN<32>, arbiter: &Address, vote: &Vote) {
+    let key = DataKey::Vote(bounty_id.clone(), arbiter.clone());
+    env.storage().persistent().set(&key, vote);
+    env.storage()
+        .persistent()
+        .extend_ttl(&key, BUMP_THRESHOLD, BUMP_TO);
+}
+
+pub fn remove_vote(env: &Env, bounty_id: &BytesN<32>, arbiter: &Address) {
+    env.storage()
+        .persistent()
+        .remove(&DataKey::Vote(bounty_id.clone(), arbiter.clone()));
 }

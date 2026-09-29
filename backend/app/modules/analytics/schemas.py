@@ -1,10 +1,13 @@
-"""Analytics API schemas. Money is serialized as fixed 7-decimal strings."""
+"""Analytics API schemas. Money is serialized as fixed 7-decimal strings.
+
+Amounts of different assets are never added together. The scalar money fields are XLM only (as before USDC and other
+reward assets existed); every total also has a ``*_by_asset`` breakdown with one entry per asset."""
 
 from __future__ import annotations
 
 from datetime import date, datetime
 
-from app.core.schemas import APIModel, Money
+from app.core.schemas import APIModel, Asset, AssetAmount, Money
 
 
 class PublicStats(APIModel):
@@ -15,7 +18,8 @@ class PublicStats(APIModel):
     open_bounties: int
     funded_bounties: int
     completed_bounties: int
-    verified_payout_volume: Money
+    verified_payout_volume: Money  # XLM only
+    payout_volume_by_asset: list[AssetAmount] = []
     successful_transactions: int
     unique_transacting_wallets: int
     methodology: dict[str, str]
@@ -26,21 +30,34 @@ class MonthlyAmount(APIModel):
     amount: Money
 
 
+class AssetSeries(APIModel):
+    """One asset's total and its dense monthly series (oldest first)."""
+
+    asset: Asset
+    total: Money
+    months: list[MonthlyAmount]
+
+
 class RequesterAnalytics(APIModel):
     bounties_by_status: dict[str, int]
-    total_escrowed: Money
-    total_paid: Money
+    total_escrowed: Money  # XLM only
+    total_paid: Money  # XLM only
     applications_received: int
     avg_time_to_first_application_hours: float | None
-    spending_by_month: list[MonthlyAmount]
+    spending_by_month: list[MonthlyAmount]  # XLM only
+    escrowed_by_asset: list[AssetAmount] = []
+    paid_by_asset: list[AssetAmount] = []
+    spending_by_asset: list[AssetSeries] = []
 
 
 class ContributorAnalytics(APIModel):
     applications_by_status: dict[str, int]
     submissions_by_status: dict[str, int]
-    total_earned: Money
-    earnings_by_month: list[MonthlyAmount]
+    total_earned: Money  # XLM only
+    earnings_by_month: list[MonthlyAmount]  # XLM only
     completed_count: int
+    earned_by_asset: list[AssetAmount] = []
+    earnings_by_asset: list[AssetSeries] = []
 
 
 class MyAnalytics(APIModel):
@@ -68,7 +85,8 @@ class PlatformTransactions(APIModel):
     unique_transacting_wallets: int
     successful_transactions: int
     failed_transactions: int
-    verified_payout_volume: Money
+    verified_payout_volume: Money  # XLM only
+    payout_volume_by_asset: list[AssetAmount] = []
 
 
 class PlatformEngagement(APIModel):
@@ -88,7 +106,8 @@ class DailyPoint(APIModel):
     applications: int
     submissions: int
     payouts_confirmed_count: int
-    payout_volume: Money
+    payout_volume: Money  # XLM only
+    payout_volume_by_asset: dict[str, Money] = {}  # asset identifier -> volume (every asset, XLM included)
 
 
 class PlatformAnalytics(APIModel):

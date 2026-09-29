@@ -34,6 +34,7 @@ from app.modules.applications.schemas import (
     ApplicationOut,
     ContributorSummary,
 )
+from app.modules.assets import checks as asset_checks
 from app.modules.bounties import repository as bounty_repo
 from app.modules.bounties import service as bounty_service
 from app.modules.bounties import state_machine as sm
@@ -336,6 +337,8 @@ async def accept(
             "Ask them to connect a wallet first.",
             code="contributor_wallet_missing",
         )
+    # A classic reward asset (e.g. USDC) can only be paid to a wallet with a trustline for it.
+    await asset_checks.ensure_contributor_can_receive(session, bounty, app.contributor_id, actor_id=user.id)
     now = utcnow()
     app.status = ApplicationStatus.ACCEPTED
     app.reviewed_at = now

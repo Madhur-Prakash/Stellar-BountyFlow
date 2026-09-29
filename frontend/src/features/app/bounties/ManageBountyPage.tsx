@@ -20,6 +20,7 @@ import { FundingStatusBadge } from '@/components/bounty/FundingStatusBadge'
 import { ChainActionButton } from '@/components/chain/ChainActionButton'
 import { TransactionTable } from '@/components/chain/TransactionExplorer'
 import { EmailNotVerifiedNotice } from '@/components/common/EmailNotVerifiedNotice'
+import { MilestoneTimeline } from '@/components/escrow/MilestoneTimeline'
 import { ReasonDialog } from '@/components/common/ReasonDialog'
 import { EmptyState } from '@/components/layout/EmptyState'
 import { PageHeader } from '@/components/layout/PageHeader'
@@ -32,9 +33,11 @@ import { chainApi, fundingApi } from '@/lib/api/endpoints'
 import { useBounty, useCancelBounty, usePublishBounty } from '@/lib/api/queries/bounties'
 import { useBountyTransactions } from '@/lib/api/queries/chain'
 import type { BountyDetail } from '@/lib/api/types'
+import { formatWindow } from '@/lib/escrow'
 import { CATEGORY_LABELS, DIFFICULTY_LABELS, formatDate, formatDateTime } from '@/lib/format'
-import { formatAmount } from '@/lib/money'
+import { formatMoney } from '@/lib/money'
 
+import { FundingReadinessNotice } from '../assets/FundingReadinessNotice'
 import { ManageBountyNav, ManageStats } from './ManageBountyNav'
 
 /** Which lifecycle actions the requester can take right now. */
@@ -139,7 +142,7 @@ function Actions({ bounty, onPublishError }: { bounty: BountyDetail; onPublishEr
           label="Fund escrow"
           icon={Wallet}
           title="Fund escrow"
-          description={`Lock ${formatAmount(bounty.total_reward)} ${bounty.reward_asset.code} in the escrow contract for this bounty.`}
+          description={`Lock ${formatMoney(bounty.total_reward, bounty.reward_asset)} in the escrow contract for this bounty.`}
           prepare={(wallet_address) => fundingApi.prepare(bounty.id, { wallet_address })}
         />
       )}
@@ -203,7 +206,7 @@ function DetailRow({ label, children }: { label: string; children: ReactNode }) 
 
 function ManageView({ bounty }: { bounty: BountyDetail }) {
   const [publishError, setPublishError] = useState<unknown>(null)
-  const { cancelling, escrowState } = actionState(bounty)
+  const { cancelling, escrowState, canFund } = actionState(bounty)
 
   return (
     <>
@@ -247,6 +250,8 @@ function ManageView({ bounty }: { bounty: BountyDetail }) {
         </div>
       )}
 
+      {canFund && <FundingReadinessNotice bounty={bounty} className="mt-4 max-w-2xl" />}
+
       <ManageBountyNav bountyId={bounty.id} applicants={bounty.applications_count} className="mt-6" />
 
       <ManageStats bounty={bounty} className="mt-6" />
@@ -258,6 +263,17 @@ function ManageView({ bounty }: { bounty: BountyDetail }) {
               <BountyTimeline bounty={bounty} />
             </CardContent>
           </Card>
+
+          {(bounty.milestones?.length ?? 0) > 0 && (
+            <Card>
+              <CardHeader>
+                <CardTitle className="text-[0.9375rem] font-semibold">Milestones</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <MilestoneTimeline milestones={bounty.milestones!} assetCode={bounty.reward_asset.code} />
+              </CardContent>
+            </Card>
+          )}
 
           <section aria-labelledby="tx-h">
             <h2 id="tx-h" className="mb-3 text-[0.9375rem] font-semibold">
@@ -300,6 +316,9 @@ function ManageView({ bounty }: { bounty: BountyDetail }) {
                 <DetailRow label="Work due">
                   {bounty.completion_deadline ? formatDateTime(bounty.completion_deadline) : 'No deadline'}
                 </DetailRow>
+                {bounty.review_window_seconds ? (
+                  <DetailRow label="Review window">{formatWindow(bounty.review_window_seconds)}</DetailRow>
+                ) : null}
                 <DetailRow label="Created">{formatDate(bounty.created_at)}</DetailRow>
                 {bounty.published_at && (
                   <DetailRow label="Published">{formatDate(bounty.published_at)}</DetailRow>

@@ -51,5 +51,8 @@ def load_handlers() -> None:
     """Import modules that register handlers (idempotent)."""
     import app.blockchain.handlers
     import app.modules.analytics.handlers
+    import app.modules.compliance.handlers
+    import app.modules.discovery.handlers
     import app.modules.notifications.email_handlers
-    import app.modules.notifications.handlers  # noqa: F401
+    import app.modules.notifications.handlers
+    import app.modules.reputation.handlers  # noqa: F401

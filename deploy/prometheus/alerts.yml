@@ -1,0 +1,676 @@
+# BountyFlow alert rules.
+#
+# Every metric used here is produced by the API's GET /metrics
+# (backend/app/modules/ops/metrics.py for the request metrics, backend/app/modules/ops/collectors.py for the
+# platform gauges). Nothing else is invented: if a metric is not in those two files it is not used here.
+#
+# `runbook_url` is a repository-relative path, because this repository has no canonical code-host URL. If your
+# Alertmanager renders runbook_url as a link, prefix it there, or replace the paths with absolute URLs.
+#
+# Severity:
+#   page   — wake someone now; money, data or the whole API is affected.
+#   ticket — fix in business hours; degraded but contained.
+#
+# Check this file with: promtool check rules deploy/prometheus/alerts.yml
+
+groups:
+  - name: bountyflow-api
+    interval: 30s
+    rules:
+      - alert: BountyFlowApiDown
+        expr: up{job="bountyflow-api"} == 0
+        for: 2m
+        labels:
+          severity: page
+          component: api
+        annotations:
+          summary: "API instance {{ $labels.instance }} is not answering /metrics"
+          description: >-
+            Prometheus cannot scrape {{ $labels.instance }}. Either the process is down, METRICS_TOKEN no longer
+            matches (the endpoint answers 404 when the bearer token is wrong), or METRICS_ENABLED is false.
+          runbook_url: docs/runbooks/on-call.md
+
+      - alert: BountyFlowApiErrorRate
+        expr: |
+          sum(rate(bountyflow_http_requests_total{status=~"5.."}[5m]))
+            / clamp_min(sum(rate(bountyflow_http_requests_total[5m])), 0.001) > 0.02
+        for: 10m
+        labels:
+          severity: ticket
+          component: api
+        annotations:
+          summary: "API 5xx rate above 2%"
+          description: >-
+            {{ $value | humanizePercentage }} of API responses are 5xx over the last 5 minutes. Check
+            bountyflow_http_unhandled_exceptions_total by route and bountyflow_dependency_up first.
+          runbook_url: docs/runbooks/incident-response.md
+
+      - alert: BountyFlowApiErrorRateCritical
+        expr: |
+          sum(rate(bountyflow_http_requests_total{status=~"5.."}[5m]))
+            / clamp_min(sum(rate(bountyflow_http_requests_total[5m])), 0.001) > 0.10
+        for: 5m
+        labels:
+          severity: page
+          component: api
+        annotations:
+          summary: "API 5xx rate above 10%"
+          description: >-
+            {{ $value | humanizePercentage }} of API responses are 5xx. Treat as SEV2, or SEV1 if funding or
+            payout routes are among them.
+          runbook_url: docs/runbooks/incident-response.md
+
+      - alert: BountyFlowApiLatencyHigh
+        expr: |
+          histogram_quantile(
+            0.95,
+            sum by (le) (rate(bountyflow_http_request_duration_seconds_bucket[5m]))
+          ) > 2
+        for: 10m
+        labels:
+          severity: ticket
+          component: api
+        annotations:
+          summary: "API p95 latency above 2s"
+          description: >-
+            p95 is {{ $value | humanizeDuration }} over the last 5 minutes. Chain-backed routes (prepare, submit)
+            are the usual cause; check bountyflow_dependency_up{dependency="soroban_rpc"}.
+          runbook_url: docs/runbooks/rpc-outage.md
+
+      - alert: BountyFlowApiRouteLatencyHigh
+        expr: |
+          histogram_quantile(
+            0.95,
+            sum by (le, route) (rate(bountyflow_http_request_duration_seconds_bucket[5m]))
+          ) > 10
+        for: 10m
+        labels:
+          severity: ticket
+          component: api
+        annotations:
+          summary: "p95 above 10s on {{ $labels.route }}"
+          description: >-
+            {{ $labels.route }} has a p95 of {{ $value | humanizeDuration }}. A prepare or submit route this slow
+            means simulation is timing out against the RPC.
+          runbook_url: docs/runbooks/rpc-outage.md
+
+      - alert: BountyFlowApiUnhandledExceptions
+        expr: sum by (route) (rate(bountyflow_http_unhandled_exceptions_total[10m])) > 0
+        for: 15m
+        labels:
+          severity: ticket
+          component: api
+        annotations:
+          summary: "Unhandled exceptions on {{ $labels.route }}"
+          description: >-
+            {{ $labels.route }} is raising unhandled exceptions (answered 500). Find the stack traces in the API
+            logs by request id.
+          runbook_url: docs/runbooks/incident-response.md
+
+  - name: bountyflow-outbox
+    interval: 30s
+    rules:
+      - alert: BountyFlowOutboxBacklog
+        expr: max(bountyflow_outbox_backlog) > 500
+        for: 10m
+        labels:
+          severity: ticket
+          component: outbox
+        annotations:
+          summary: "Outbox backlog above 500 events"
+          description: >-
+            {{ $value }} events are waiting to be published. The relay polls every OUTBOX_POLL_INTERVAL_SECONDS
+            (1s by default) in batches of OUTBOX_BATCH_SIZE; a growing backlog means Kafka is unreachable or the
+            worker is not running.
+          runbook_url: docs/runbooks/kafka-lag-and-dlq.md
+
+      - alert: BountyFlowOutboxBacklogCritical
+        expr: max(bountyflow_outbox_backlog) > 5000
+        for: 15m
+        labels:
+          severity: page
+          component: outbox
+        annotations:
+          summary: "Outbox backlog above 5000 events"
+          description: >-
+            {{ $value }} unpublished events. Notifications, emails and analytics are stalled platform-wide. No
+            event is lost — the rows are committed — but every consumer effect is delayed.
+          runbook_url: docs/runbooks/kafka-lag-and-dlq.md
+
+      - alert: BountyFlowOutboxStalled
+        expr: max(bountyflow_outbox_oldest_unpublished_age_seconds) > 300
+        for: 5m
+        labels:
+          severity: page
+          component: outbox
+        annotations:
+          summary: "Oldest unpublished outbox event is {{ $value | humanizeDuration }} old"
+          description: >-
+            The relay is not draining. Check that the worker process is alive
+            (bountyflow_workers_alive) and that Kafka is up (bountyflow_dependency_up{dependency="kafka"}).
+          runbook_url: docs/runbooks/kafka-lag-and-dlq.md
+
+      - alert: BountyFlowOutboxDeadLettered
+        expr: max(bountyflow_outbox_dead_lettered_events) > 0
+        for: 5m
+        labels:
+          severity: page
+          component: outbox
+        annotations:
+          summary: "{{ $value }} outbox events were given up on"
+          description: >-
+            Rows in outbox_events with retry_count >= 25 and published_at set. The relay stopped retrying them so
+            one poison event cannot block the queue; their effects never happened. Read last_error, fix the
+            cause, then requeue.
+          runbook_url: docs/runbooks/kafka-lag-and-dlq.md
+
+  - name: bountyflow-kafka
+    interval: 30s
+    rules:
+      - alert: BountyFlowKafkaConsumerLag
+        expr: bountyflow_kafka_consumer_lag > 1000
+        for: 10m
+        labels:
+          severity: ticket
+          component: kafka
+        annotations:
+          summary: "Consumer {{ $labels.consumer }} is {{ $value }} messages behind"
+          description: >-
+            Consumer group is KAFKA_CONSUMER_GROUP.{{ $labels.consumer }}. Confirm with
+            kafka-consumer-groups.sh --describe before changing anything.
+          runbook_url: docs/runbooks/kafka-lag-and-dlq.md
+
+      - alert: BountyFlowKafkaConsumerLagCritical
+        expr: bountyflow_kafka_consumer_lag > 10000
+        for: 15m
+        labels:
+          severity: page
+          component: kafka
+        annotations:
+          summary: "Consumer {{ $labels.consumer }} is {{ $value }} messages behind"
+          description: >-
+            Lag this large stalls the effects this consumer owns (notifications, emails, chain verification or
+            attestations, depending on the consumer). Check whether the consumer is crash-looping.
+          runbook_url: docs/runbooks/kafka-lag-and-dlq.md
+
+      - alert: BountyFlowKafkaLagReadingStale
+        expr: bountyflow_kafka_consumer_lag_age_seconds > 600
+        for: 10m
+        labels:
+          severity: ticket
+          component: kafka
+        annotations:
+          summary: "Lag reading for {{ $labels.consumer }} is {{ $value | humanizeDuration }} old"
+          description: >-
+            The worker writes lag to Redis roughly once a minute per consumer. A stale reading means the consumer
+            stopped polling or Redis writes are failing — the lag number itself can no longer be trusted.
+          runbook_url: docs/runbooks/kafka-lag-and-dlq.md
+
+  - name: bountyflow-chain
+    interval: 30s
+    rules:
+      - alert: BountyFlowPendingTransactionsHigh
+        expr: sum(bountyflow_chain_transactions_pending) > 25
+        for: 15m
+        labels:
+          severity: ticket
+          component: blockchain
+        annotations:
+          summary: "{{ $value }} submitted transactions awaiting verification"
+          description: >-
+            Submitted but not yet verified on-chain. The tx-reconciliation job sweeps these every 20s; a growing
+            count means verification is failing, usually because the RPC is unreachable.
+          runbook_url: docs/runbooks/rpc-outage.md
+
+      - alert: BountyFlowTransactionStuck
+        expr: max(bountyflow_chain_transaction_oldest_pending_age_seconds) > 900
+        for: 5m
+        labels:
+          severity: page
+          component: blockchain
+        annotations:
+          summary: "Oldest submitted transaction is {{ $value | humanizeDuration }} unverified"
+          description: >-
+            A submitted transaction has not been resolved to CONFIRMED or FAILED. Money may have moved on-chain
+            without the database recording it. Do not let this sit.
+          runbook_url: docs/runbooks/rpc-outage.md
+
+      - alert: BountyFlowChainTransactionFailures
+        expr: max(bountyflow_chain_transactions_failed_24h) > 20
+        for: 30m
+        labels:
+          severity: ticket
+          component: blockchain
+        annotations:
+          summary: "{{ $value }} chain transactions failed in the last 24 hours"
+          description: >-
+            Read failure_reason on the recent blockchain_transactions rows. A cluster of the same contract error
+            usually means a bad prepare, not a user mistake.
+          runbook_url: docs/runbooks/incident-response.md
+
+  - name: bountyflow-reconciliation
+    interval: 30s
+    rules:
+      - alert: BountyFlowReconciliationMismatch
+        expr: max(bountyflow_reconciliation_mismatches) > 0
+        for: 15m
+        labels:
+          severity: page
+          component: reconciliation
+        annotations:
+          summary: "{{ $value }} escrows differ between the contract and the database"
+          description: >-
+            The reconciliation-audit job found escrows whose bounty_escrows row does not match the contract. The
+            contract is authoritative. Do not reconcile blindly — read the runbook first.
+          runbook_url: docs/runbooks/reconciliation-mismatch.md
+
+      - alert: BountyFlowForeignEscrow
+        expr: max(bountyflow_reconciliation_foreign_escrows) > 0
+        for: 5m
+        labels:
+          severity: page
+          component: reconciliation
+        annotations:
+          summary: "{{ $value }} escrow ids are occupied by an escrow BountyFlow did not create"
+          description: >-
+            An on-chain escrow at one of our ids does not match any creation we prepared (foreign_escrow_detected
+            in the logs). Never reconcile these: reconciling would adopt an escrow with an attacker's token,
+            arbiter or deadline.
+          runbook_url: docs/runbooks/reconciliation-mismatch.md
+
+      - alert: BountyFlowReconciliationAuditFailing
+        expr: max(bountyflow_reconciliation_last_run_failed) == 1
+        for: 30m
+        labels:
+          severity: ticket
+          component: reconciliation
+        annotations:
+          summary: "The last reconciliation audit could not reach the chain"
+          description: >-
+            The audit stopped early with a ChainUnavailable error, so drift is currently unmonitored. Usually a
+            symptom of an RPC problem rather than a reconciliation problem.
+          runbook_url: docs/runbooks/rpc-outage.md
+
+      - alert: BountyFlowReconciliationAuditStale
+        expr: (time() - max(bountyflow_reconciliation_last_run_timestamp_seconds)) > 3600
+        for: 15m
+        labels:
+          severity: ticket
+          component: reconciliation
+        annotations:
+          summary: "No reconciliation audit for {{ $value | humanizeDuration }}"
+          description: >-
+            The reconciliation-audit job runs every 600s. Nothing is comparing chain state with the database
+            right now.
+          runbook_url: docs/runbooks/reconciliation-mismatch.md
+
+  - name: bountyflow-worker
+    interval: 30s
+    rules:
+      # Job staleness is grouped by the job's own interval. The jobs and intervals are defined in
+      # backend/worker/jobs/*.py; see docs/runbooks/on-call.md for the table.
+      - alert: BountyFlowWorkerJobStale
+        expr: |
+          (time() - bountyflow_worker_job_last_success_timestamp_seconds{
+            job=~"tx-reconciliation|review-clock|data-exports|attestation-pipeline|asset-operations|github-pr-recheck|bounty-lifecycle"
+          }) > 600
+        for: 5m
+        labels:
+          severity: page
+          component: worker
+          cadence: fast
+        annotations:
+          summary: "Job {{ $labels.job }} has not succeeded for {{ $value | humanizeDuration }}"
+          description: >-
+            This job runs every 10–60 seconds. tx-reconciliation is the one that turns submitted transactions
+            into confirmed payments, so treat its staleness as money-affecting.
+          runbook_url: docs/runbooks/on-call.md
+
+      - alert: BountyFlowWorkerJobStale
+        expr: |
+          (time() - bountyflow_worker_job_last_success_timestamp_seconds{
+            job=~"account-deletion|saved-search-digests|reconciliation-audit|attestation-backfill"
+          }) > 1800
+        for: 10m
+        labels:
+          severity: ticket
+          component: worker
+          cadence: medium
+        annotations:
+          summary: "Job {{ $labels.job }} has not succeeded for {{ $value | humanizeDuration }}"
+          description: "This job runs every 300–600 seconds and has missed several cycles."
+          runbook_url: docs/runbooks/on-call.md
+
+      - alert: BountyFlowWorkerJobStale
+        expr: |
+          (time() - bountyflow_worker_job_last_success_timestamp_seconds{
+            job=~"skill-graph|attestation-reconciliation"
+          }) > 5400
+        for: 15m
+        labels:
+          severity: ticket
+          component: worker
+          cadence: slow
+        annotations:
+          summary: "Job {{ $labels.job }} has not succeeded for {{ $value | humanizeDuration }}"
+          description: "This job runs every 1800 seconds and has missed at least two cycles."
+          runbook_url: docs/runbooks/on-call.md
+
+      - alert: BountyFlowWorkerJobStale
+        expr: |
+          (time() - bountyflow_worker_job_last_success_timestamp_seconds{job="sanctions-list-refresh"}) > 43200
+        for: 30m
+        labels:
+          severity: ticket
+          component: worker
+          cadence: sanctions
+        annotations:
+          summary: "Job sanctions-list-refresh has not succeeded for {{ $value | humanizeDuration }}"
+          description: >-
+            The job runs every SANCTIONS_LIST_REFRESH_SECONDS (21600 by default). Screening keeps working on the
+            entries already loaded — the sync fails static — but the list is going stale.
+          runbook_url: docs/runbooks/on-call.md
+
+      - alert: BountyFlowWorkerJobFailing
+        expr: bountyflow_worker_job_consecutive_failures >= 3
+        for: 10m
+        labels:
+          severity: ticket
+          component: worker
+        annotations:
+          summary: "Job {{ $labels.job }} failed {{ $value }} runs in a row"
+          description: >-
+            The counter resets to 0 on the first success. Look for periodic_job_failed with job={{ $labels.job }}
+            in the worker logs.
+          runbook_url: docs/runbooks/on-call.md
+
+      - alert: BountyFlowWorkerJobFailingHard
+        expr: bountyflow_worker_job_consecutive_failures >= 20
+        for: 10m
+        labels:
+          severity: page
+          component: worker
+        annotations:
+          summary: "Job {{ $labels.job }} failed {{ $value }} runs in a row"
+          description: "The job is not recovering on its own. Something it depends on is broken."
+          runbook_url: docs/runbooks/on-call.md
+
+      - alert: BountyFlowWorkerHeartbeatStale
+        expr: bountyflow_worker_heartbeat_age_seconds > 60
+        for: 3m
+        labels:
+          severity: ticket
+          component: worker
+        annotations:
+          summary: "Worker {{ $labels.worker }} last beat {{ $value | humanizeDuration }} ago"
+          description: >-
+            Workers write a heartbeat to Redis every 10s with a 30s TTL. An age above 60s means the worker is
+            blocked or its Redis writes are failing; once the key expires the worker disappears from this metric
+            and BountyFlowNoWorkersAlive takes over.
+          runbook_url: docs/runbooks/on-call.md
+
+      - alert: BountyFlowNoWorkersAlive
+        expr: max(bountyflow_workers_alive) == 0
+        for: 2m
+        labels:
+          severity: page
+          component: worker
+        annotations:
+          summary: "No worker has a recent heartbeat"
+          description: >-
+            Nothing is relaying the outbox, consuming Kafka, verifying transactions or running periodic jobs. The
+            API still serves reads and still prepares transactions; nothing settles.
+          runbook_url: docs/runbooks/on-call.md
+
+  - name: bountyflow-dependencies
+    interval: 30s
+    rules:
+      - alert: BountyFlowDependencyDown
+        expr: bountyflow_dependency_up{dependency="database"} == 0
+        for: 2m
+        labels:
+          severity: page
+          component: database
+        annotations:
+          summary: "PostgreSQL health check is failing"
+          description: >-
+            PostgreSQL is the source of truth; /health/ready answers 503 without it and the API cannot serve.
+          runbook_url: docs/runbooks/postgres-backup-restore.md
+
+      - alert: BountyFlowDependencyDown
+        expr: bountyflow_dependency_up{dependency="redis"} == 0
+        for: 5m
+        labels:
+          severity: page
+          component: redis
+        annotations:
+          summary: "Redis health check is failing"
+          description: >-
+            Caches, rate limits, wallet challenges, job locks and worker heartbeats are gone. No financial state
+            is lost. Periodic jobs fail closed (they skip rather than run unguarded), so settlement stops.
+          runbook_url: docs/runbooks/postgres-backup-restore.md
+
+      - alert: BountyFlowDependencyDown
+        expr: bountyflow_dependency_up{dependency="soroban_rpc"} == 0
+        for: 10m
+        labels:
+          severity: page
+          component: blockchain
+        annotations:
+          summary: "Soroban RPC health check is failing"
+          description: >-
+            Prepare, submit and verification all fail (502 blockchain_error). The database stays consistent and
+            the sweep re-verifies pending transactions once the RPC is back.
+          runbook_url: docs/runbooks/rpc-outage.md
+
+      - alert: BountyFlowDependencyDown
+        expr: bountyflow_dependency_up{dependency="kafka"} == 0
+        for: 15m
+        labels:
+          severity: ticket
+          component: kafka
+        annotations:
+          summary: "Kafka health check is failing"
+          description: >-
+            The outbox buffers everything, so no event is lost, but notifications and emails stop until Kafka is
+            back. Watch bountyflow_outbox_backlog.
+          runbook_url: docs/runbooks/kafka-lag-and-dlq.md
+
+      - alert: BountyFlowMetricsCollectorFailing
+        expr: bountyflow_metrics_collector_up == 0
+        for: 15m
+        labels:
+          severity: ticket
+          component: observability
+        annotations:
+          summary: "Metrics collector {{ $labels.collector }} is failing"
+          description: >-
+            Every gauge that collector produces is missing from the scrape, so the alerts built on them are
+            silently not firing. Look for metrics_collector_failed with collector={{ $labels.collector }} in the
+            API logs.
+          runbook_url: docs/runbooks/on-call.md
+
+  - name: bountyflow-sponsor
+    interval: 1m
+    rules:
+      - alert: BountyFlowSponsorBalanceLow
+        expr: |
+          max(bountyflow_sponsor_balance_xlm) < max(bountyflow_sponsor_low_balance_threshold_xlm)
+        for: 15m
+        labels:
+          severity: ticket
+          component: sponsor
+        annotations:
+          summary: "Fee sponsor balance is {{ $value }} XLM"
+          description: >-
+            Below SPONSOR_LOW_BALANCE_XLM. Sponsoring still works; top the account up before it reaches
+            SPONSOR_MIN_BALANCE_XLM and stops.
+          runbook_url: docs/runbooks/on-call.md
+
+      - alert: BountyFlowSponsorStopped
+        expr: |
+          max(bountyflow_sponsor_balance_xlm) < max(bountyflow_sponsor_min_balance_xlm)
+        for: 5m
+        labels:
+          severity: page
+          component: sponsor
+        annotations:
+          summary: "Fee sponsor balance is {{ $value }} XLM — sponsoring has stopped"
+          description: >-
+            Below SPONSOR_MIN_BALANCE_XLM. Fee bumps are refused (users pay their own fee, which is a degraded
+            but working path) and passkey smart wallets cannot transact at all, because the sponsor is their only
+            transaction source.
+          runbook_url: docs/runbooks/on-call.md
+
+  - name: bountyflow-reputation
+    interval: 1m
+    rules:
+      - alert: BountyFlowAttestationPipelineStuck
+        expr: max(bountyflow_attestation_oldest_pending_age_seconds) > 3600
+        for: 15m
+        labels:
+          severity: ticket
+          component: reputation
+        annotations:
+          summary: "Oldest queued attestation is {{ $value | humanizeDuration }} old"
+          description: >-
+            The attestation-pipeline job runs every 10s. A completion that has waited an hour means the pipeline
+            is failing, the attester key is wrong for the registry, or the attester account is unfunded.
+          runbook_url: docs/runbooks/secret-rotation.md
+
+      - alert: BountyFlowAttestationsFailed
+        expr: max(bountyflow_attestations{status="FAILED"}) > 0
+        for: 30m
+        labels:
+          severity: ticket
+          component: reputation
+        annotations:
+          summary: "{{ $value }} attestations failed permanently"
+          description: >-
+            The contract refused them or retries were exhausted. Those completions have no public on-chain
+            record.
+          runbook_url: docs/runbooks/on-call.md
+
+      - alert: BountyFlowAttestationReconciliationMismatch
+        expr: max(bountyflow_attestation_reconciliation_mismatches) > 0
+        for: 30m
+        labels:
+          severity: ticket
+          component: reputation
+        annotations:
+          summary: "{{ $value }} attestations disagree with the registry"
+          description: >-
+            The attestation-reconciliation job found rows whose database view differs from the contract. The
+            registry holds no funds, so this is a reputation problem, not a money problem — but a mismatched
+            record stops being shown as completed on-chain.
+          runbook_url: docs/runbooks/reconciliation-mismatch.md
+
+      - alert: BountyFlowAttestationReconciliationMissing
+        expr: max(bountyflow_attestation_reconciliation_missing) > 0
+        for: 30m
+        labels:
+          severity: ticket
+          component: reputation
+        annotations:
+          summary: "{{ $value }} attestations are in the database but not in the registry"
+          description: >-
+            We recorded an attestation the contract does not have. Check whether the attester key still matches
+            the registry's `attester()`.
+          runbook_url: docs/runbooks/secret-rotation.md
+
+  - name: bountyflow-github
+    interval: 1m
+    rules:
+      - alert: BountyFlowGitHubRateLimited
+        expr: max(bountyflow_github_rate_limited) == 1
+        for: 30m
+        labels:
+          severity: ticket
+          component: github
+        annotations:
+          summary: "GitHub API is rate-limiting us"
+          description: >-
+            Pull request verification is paused while the backoff runs
+            (bountyflow_github_backoff_seconds). Without GITHUB_TOKEN the limit is 60 requests an hour per IP;
+            a fine-grained token with no repository permissions raises it to 5,000.
+          runbook_url: docs/runbooks/secret-rotation.md
+
+  - name: bountyflow-compliance
+    interval: 1m
+    rules:
+      - alert: BountyFlowDataExportsFailing
+        expr: max(bountyflow_data_exports_failed) > 0
+        for: 30m
+        labels:
+          severity: ticket
+          component: compliance
+        annotations:
+          summary: "{{ $value }} data exports failed after all attempts"
+          description: >-
+            Users asked for their data and did not get it. This is a regulatory commitment with a clock on it.
+          runbook_url: docs/runbooks/on-call.md
+
+      - alert: BountyFlowDataExportsBacklog
+        expr: max(bountyflow_data_exports_pending) > 20
+        for: 30m
+        labels:
+          severity: ticket
+          component: compliance
+        annotations:
+          summary: "{{ $value }} data exports are waiting to be built"
+          description: >-
+            The data-exports job runs every 10s. A standing backlog means the job is failing or the worker is
+            down.
+          runbook_url: docs/runbooks/on-call.md
+
+      - alert: BountyFlowAccountDeletionsOverdue
+        expr: max(bountyflow_account_deletions_overdue) > 0
+        for: 1h
+        labels:
+          severity: ticket
+          component: compliance
+        annotations:
+          summary: "{{ $value }} account deletions are more than a day past their scheduled date"
+          description: >-
+            The account-deletion job runs every 300s and only acts after the grace period
+            (ACCOUNT_DELETION_GRACE_DAYS). Overdue rows mean the job is not completing them.
+          runbook_url: docs/runbooks/on-call.md
+
+      - alert: BountyFlowSanctionsListError
+        expr: max(bountyflow_sanctions_list_error) == 1
+        for: 30m
+        labels:
+          severity: ticket
+          component: compliance
+        annotations:
+          summary: "The last sanctions list sync failed"
+          description: >-
+            The sync fails static: the entries already loaded are kept and screening keeps blocking on them. New
+            additions and removals are not being picked up.
+          runbook_url: docs/runbooks/on-call.md
+
+      - alert: BountyFlowSanctionsListStale
+        expr: max(bountyflow_sanctions_list_age_seconds) > 86400
+        for: 30m
+        labels:
+          severity: ticket
+          component: compliance
+        annotations:
+          summary: "Sanctions list last loaded {{ $value | humanizeDuration }} ago"
+          description: >-
+            The default refresh is every 6 hours (SANCTIONS_LIST_REFRESH_SECONDS). A day-old list means the
+            refresh has been failing for some time.
+          runbook_url: docs/runbooks/on-call.md
+
+      - alert: BountyFlowSanctionsListNotConfigured
+        expr: max(bountyflow_sanctions_list_configured) == 0
+        for: 1h
+        labels:
+          severity: ticket
+          component: compliance
+        annotations:
+          summary: "No sanctions list source is configured"
+          description: >-
+            Neither SANCTIONS_LIST_PATH nor SANCTIONS_LIST_URL is set, so only manually added screening_entries
+            are matched. Mainnet refuses to start in this state; this alert catches staging drift.
+          runbook_url: docs/runbooks/mainnet-launch-checklist.md

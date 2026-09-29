@@ -34,6 +34,10 @@ ARBITER = Keypair.from_raw_ed25519_seed(hashlib.sha256(b"bountyflow-test-arbiter
 # Every keypair a test links as a wallet, so helpers can sign on its behalf.
 KEYRING: dict[str, Keypair] = {ARBITER.public_key: ARBITER}
 
+# Deterministic test-only fee sponsor (the real sponsor secret lives only in the root .env).
+SPONSOR = Keypair.from_raw_ed25519_seed(hashlib.sha256(b"bountyflow-test-sponsor").digest())
+WEB_AUTH_CONTRACT = "CB3GXQ2BW2AHSIWUITLVBKODKPUHIK5DLEPWIIWTKLTKLA6TE24PLSZX"
+
 API_ENV = {
     "APP_ENV": "test",
     "BLOCKCHAIN_MODE": "testnet",
@@ -42,6 +46,14 @@ API_ENV = {
     "SOROBAN_CONTRACT_ID": "CDX6FN2MIGLHCMUJOU6C7FYP3QTNDL6BVIPEG4B5HAUEPU7NI4SFY4CY",
     "STELLAR_NATIVE_ASSET_CONTRACT_ID": "CDLZFC3SYJYDZT7K67VZ75HPJVIEUVNIXF47ZG2FB2RMQQVU2HHGCYSC",
     "STELLAR_ARBITER_ADDRESS": ARBITER.public_key,
+    # Escrow v2: one arbiter (whatever the local .env configures) and the production review-window bounds.
+    "STELLAR_ARBITER_ADDRESSES": "",
+    "STELLAR_ARBITER_THRESHOLD": "1",
+    "SOROBAN_CONTRACT_VERSION": "2",
+    "ESCROW_MIN_REVIEW_WINDOW_SECONDS": "86400",
+    "ESCROW_DEFAULT_REVIEW_WINDOW_SECONDS": "604800",
+    "STELLAR_SPONSOR_SECRET": SPONSOR.secret,
+    "WEB_AUTH_CONTRACT_ID": WEB_AUTH_CONTRACT,
     "KAFKA_ENABLED": "false",
     "EMAIL_BACKEND": "console",
     "RUN_MIGRATIONS_ON_STARTUP": "false",

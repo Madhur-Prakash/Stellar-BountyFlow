@@ -29,7 +29,7 @@ from sqlalchemy.dialects.postgresql import insert as pg_insert
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.blockchain import soroban
+from app.blockchain import soroban, sponsorship
 from app.blockchain.config import get_network
 from app.blockchain.reconciliation import apply_snapshot, matches_prepared_creation
 from app.blockchain.soroban import ContractCall, ContractError, EscrowSnapshot
@@ -40,7 +40,7 @@ from app.blockchain.transactions import (
     PreparedCall,
     get_adapter,
 )
-from app.blockchain.verification import EnvelopeMismatch, verify_signed_envelope
+from app.blockchain.verification import EnvelopeMismatch
 from app.cache import keys
 from app.cache.invalidation import invalidate_bounty, invalidate_profile, invalidate_public_stats
 from app.cache.redis import get_redis
@@ -54,19 +54,22 @@ from app.core.exceptions import (
     ValidationFailed,
 )
 from app.core.logging import get_logger
-from app.core.money import ZERO, display_xlm, fmt, parse_amount, to_stroops
+from app.core.money import ZERO, display_amount, fmt, parse_amount, to_stroops
 from app.core.rbac import Permission, has_permission
-from app.core.schemas import Page, PageParams, native_asset
+from app.core.schemas import Page, PageParams, asset_from_identifier
 from app.core.security import utcnow
 from app.messaging.events import EventType
 from app.messaging.outbox import add_event
 from app.modules.admin import audit
 from app.modules.applications.models import AssignmentStatus, BountyAssignment
+from app.modules.assets import checks as asset_checks
 from app.modules.bounties import repository as bounty_repo
 from app.modules.bounties import service as bounty_service
 from app.modules.bounties import state_machine as sm
 from app.modules.bounties.models import Bounty, BountyStatus
+from app.modules.compliance import screening
 from app.modules.disputes.models import Dispute, DisputeResolution, DisputeStatus
+from app.modules.escrow import chain as escrow_chain
 from app.modules.payments.models import (
     BlockchainTransaction,
     BountyEscrow,
@@ -116,8 +119,8 @@ async def _get_or_create_escrow(session: AsyncSession, bounty: Bounty) -> Bounty
             contract_id=network.contract_id,
             network=network.network,
             onchain_bounty_id=soroban.new_onchain_bounty_id(bounty.id).hex(),  # unpredictable (SEC-02)
-            asset_identifier="native",
-            asset_contract_id=network.native_asset_contract_id,
+            asset_identifier=bounty.reward_asset_identifier,
+            asset_contract_id=network.sac_contract_id(bounty.reward_asset_identifier),
             reward_per_position=bounty.reward_amount,
             positions=bounty.positions_available,
             required_amount=bounty.total_reward,
@@ -126,6 +129,7 @@ async def _get_or_create_escrow(session: AsyncSession, bounty: Bounty) -> Bounty
             refunded_amount=ZERO,
             arbiter_address=network.arbiter_address,
             state=EscrowState.NOT_CREATED,
+            **(await escrow_chain.new_row_values()),
         )
         .on_conflict_do_nothing()
     )
@@ -136,6 +140,15 @@ async def _get_or_create_escrow(session: AsyncSession, bounty: Bounty) -> Bounty
 
 def _bid(escrow: BountyEscrow) -> bytes:
     return bytes.fromhex(escrow.onchain_bounty_id)
+
+
+def _asset_code(escrow: BountyEscrow) -> str:
+    return asset_from_identifier(escrow.asset_identifier).code
+
+
+def _money(amount: Decimal | None, escrow: BountyEscrow) -> str:
+    """Human amount in the escrow's asset, e.g. "150 XLM" or "25 USDC"."""
+    return display_amount(amount, _asset_code(escrow))
 
 
 async def _require_wallet(session: AsyncSession, user: User, address: str) -> str:
@@ -220,6 +233,7 @@ class _Plan:
         self.submission_id = submission_id
         self.assignment_id = assignment_id
         self.dispute_id = dispute_id
+        self.metadata: dict[str, Any] = {}  # extra verification_metadata (escrow v2: batch legs, feedback)
 
 
 async def _in_flight(session: AsyncSession, bounty_id: uuid.UUID, types: tuple[TxType, ...]) -> bool:
@@ -242,19 +256,20 @@ _UNVERIFIED_ESCROW = (
 async def _escrow_is_authentic(session: AsyncSession, escrow: BountyEscrow, snapshot: EscrowSnapshot) -> bool:
     """SEC-01: an on-chain escrow is trusted only if its immutable terms equal a ``create_escrow`` that BountyFlow
     itself prepared for this bounty and escrow id (the contract lets anyone create any escrow at any id)."""
-    prepared: list[dict[str, Any] | None] = list(
-        (
-            await session.scalars(
-                select(BlockchainTransaction.verification_metadata).where(
-                    BlockchainTransaction.bounty_id == escrow.bounty_id,
-                    BlockchainTransaction.transaction_type == TxType.ESCROW_CREATE,
-                )
+    prepared = (
+        await session.execute(
+            select(BlockchainTransaction.contract_id, BlockchainTransaction.verification_metadata).where(
+                BlockchainTransaction.bounty_id == escrow.bounty_id,
+                BlockchainTransaction.transaction_type == TxType.ESCROW_CREATE,
             )
-        ).all()
-    )
+        )
+    ).all()
+    # The creation must also have been prepared for the contract this escrow lives on (escrow v2: several
+    # deployments hold escrows at the same time).
     return any(
-        matches_prepared_creation(snapshot, escrow.onchain_bounty_id, (meta or {}).get("args") or {})
-        for meta in prepared
+        (contract_id is None or escrow.contract_id is None or contract_id == escrow.contract_id)
+        and matches_prepared_creation(snapshot, escrow.onchain_bounty_id, (meta or {}).get("args") or {})
+        for contract_id, meta in prepared
     )
 
 
@@ -263,7 +278,7 @@ async def _read_trusted_snapshot(
 ) -> tuple[EscrowSnapshot | None, bool]:
     """Reads the escrow from chain. Returns ``(snapshot, trusted)``; an untrusted (foreign) snapshot must never be
     applied to the database or used to settle anything."""
-    snapshot = await get_adapter().read_escrow(_bid(escrow))
+    snapshot = await get_adapter().read_escrow(_bid(escrow), escrow.contract_id)
     if snapshot is None:
         return None, True
     return snapshot, await _escrow_is_authentic(session, escrow, snapshot)
@@ -323,9 +338,14 @@ async def _plan(session: AsyncSession, user: User, bounty: Bounty, req: PrepareR
         wallet = await _require_wallet(session, user, req.wallet_address)
 
     escrow = await _get_or_create_escrow(session, bounty)
+    if action == ChainAction.FUND:
+        await escrow_chain.adopt_configured_contract(session, bounty, escrow)
     if not await _sync_escrow_from_chain(session, escrow):
         await _recover_from_foreign_escrow(session, user, bounty, escrow, action)
     bid = _bid(escrow)
+
+    if action in escrow_chain.V2_ACTIONS:
+        return await escrow_chain.plan(session, user, bounty, req, escrow, wallet)
 
     if action == ChainAction.FUND:
         _require_owner(bounty, user)
@@ -340,33 +360,41 @@ async def _plan(session: AsyncSession, user: User, bounty: Bounty, req: PrepareR
         if wallet == network.arbiter_address:
             raise ValidationFailed("The arbiter wallet cannot fund bounties.")
         required = bounty.total_reward
+        if (
+            escrow.state == EscrowState.NOT_CREATED
+            and escrow.asset_identifier != bounty.reward_asset_identifier
+        ):
+            # Nothing exists on-chain yet, so the escrow simply follows the bounty's (draft-time) reward asset.
+            escrow.asset_identifier = bounty.reward_asset_identifier
+            escrow.asset_contract_id = network.sac_contract_id(bounty.reward_asset_identifier)
         if escrow.state == EscrowState.NOT_CREATED:
             deposit = parse_amount(req.amount) if req.amount else required
             if deposit > required:
                 raise ValidationFailed("The deposit cannot exceed the total reward.")
-            call = soroban.create_escrow(
-                wallet,
-                bid,
-                network.native_asset_contract_id or "",
-                to_stroops(bounty.reward_amount),
-                bounty.positions_available,
-                network.arbiter_address,
-                _escrow_deadline(bounty),
-                to_stroops(deposit),
+            # create_escrow, or create_escrow_v2 for milestones, a review window or several arbiters.
+            call = await escrow_chain.creation_call(
+                session,
+                bounty,
+                escrow,
+                requester=wallet,
+                token=escrow.asset_contract_id or network.sac_contract_id(escrow.asset_identifier),
+                reward_stroops=to_stroops(bounty.reward_amount),
+                deadline=_escrow_deadline(bounty),
+                deposit_stroops=to_stroops(deposit),
             )
-            desc = f"Create the escrow and deposit {display_xlm(deposit)} for “{bounty.title}”."
+            desc = f"Create the escrow and deposit {_money(deposit, escrow)} for “{bounty.title}”."
             return _Plan(call, TxType.ESCROW_CREATE, desc, amount=deposit, destination=network.contract_id)
         if escrow.state == EscrowState.AWAITING_FUNDING:
             _require_requester_wallet(escrow, wallet)
             remaining = escrow.required_amount - escrow.funded_amount
             amount = parse_amount(req.amount) if req.amount else remaining
             if amount > remaining:
-                raise ValidationFailed(f"Only {display_xlm(remaining)} remains to be funded.")
+                raise ValidationFailed(f"Only {_money(remaining, escrow)} remains to be funded.")
             call = soroban.fund(wallet, bid, to_stroops(amount))
             return _Plan(
                 call,
                 TxType.ESCROW_FUND,
-                f"Deposit {display_xlm(amount)} into the escrow.",
+                f"Deposit {_money(amount, escrow)} into the escrow.",
                 amount=amount,
                 destination=network.contract_id,
             )
@@ -426,6 +454,7 @@ async def _plan(session: AsyncSession, user: User, bounty: Bounty, req: PrepareR
     if action == ChainAction.PAYOUT:
         _require_owner(bounty, user)
         _require_requester_wallet(escrow, wallet)
+        await escrow_chain.guard_payout(session, bounty)
         if bounty.status == BountyStatus.DISPUTED:
             raise InvalidStateTransition("Payouts are frozen while a dispute is open.")
         submission = await session.get(BountySubmission, req.submission_id) if req.submission_id else None
@@ -452,7 +481,7 @@ async def _plan(session: AsyncSession, user: User, bounty: Bounty, req: PrepareR
         return _Plan(
             call,
             TxType.PAYOUT,
-            f"Release {display_xlm(bounty.reward_amount)} to the contributor.",
+            f"Release {_money(bounty.reward_amount, escrow)} to the contributor.",
             amount=bounty.reward_amount,
             destination=contributor,
             submission_id=submission.id,
@@ -508,7 +537,7 @@ async def _plan(session: AsyncSession, user: User, bounty: Bounty, req: PrepareR
         return _Plan(
             soroban.refund(wallet, bid),
             TxType.REFUND,
-            f"Refund {display_xlm(refundable)} to your wallet.",
+            f"Refund {_money(refundable, escrow)} to your wallet.",
             amount=refundable,
             destination=wallet,
         )
@@ -537,7 +566,7 @@ async def _plan(session: AsyncSession, user: User, bounty: Bounty, req: PrepareR
         onchain = (
             await _assigned_address(session, disputed) if disputed and disputed.onchain_assigned else None
         )
-        if not onchain or await get_adapter().read_assignment(bid, onchain) != "Assigned":
+        if not onchain or await get_adapter().read_assignment(bid, onchain, escrow.contract_id) != "Assigned":
             raise InvalidStateTransition(
                 "The disputed contributor is not assigned on-chain, so the arbiter could never release a frozen "
                 "escrow. The dispute will be resolved off-chain by a moderator instead."
@@ -564,6 +593,7 @@ async def _plan(session: AsyncSession, user: User, bounty: Bounty, req: PrepareR
             raise InvalidStateTransition(
                 "The escrow is not frozen on-chain; no on-chain resolution is required."
             )
+        escrow_chain.guard_resolve(escrow)
         if escrow.arbiter_address and wallet != escrow.arbiter_address:
             raise ValidationFailed("Sign with the escrow's arbiter wallet.", code="wrong_wallet")
         assignment = await session.scalar(
@@ -652,6 +682,32 @@ async def prepare_action(
         raise NotFound("Bounty not found.")
     try:
         plan = await _plan(session, user, bounty, req)
+        # Sanctions screening of the signing wallet, of any account the action pays or binds, and of every
+        # leg of a batch payout (it settles atomically, so one sanctioned payee blocks the whole batch).
+        await screening.enforce(
+            user_id=user.id,
+            addresses=screening.chain_addresses(req.wallet_address, plan.destination, plan.metadata),
+            context=screening.chain_context(req.action.value),
+            bounty_id=bounty.id,
+        )
+        # Asset guards: a funding wallet without the asset, or a contributor wallet that cannot receive it
+        # (no trustline), would fail on-chain; refuse it now with a specific message.
+        escrow = await bounty_repo.get_escrow(session, bounty.id)
+        # Every call goes to the contract this bounty's escrow lives on (v1 escrows stay on the v1 deployment).
+        plan.call = soroban.on_contract(plan.call, escrow.contract_id if escrow else None)
+        asset_identifier = escrow.asset_identifier if escrow else bounty.reward_asset_identifier
+        await asset_checks.check_before_prepare(
+            session,
+            bounty,
+            asset_identifier,
+            plan.tx_type,
+            source=req.wallet_address,
+            amount=plan.amount,
+            destination=plan.destination,
+            assignment_id=plan.assignment_id,
+            actor_id=user.id,
+            legs=plan.metadata.get("legs"),  # a batch pays atomically: every leg is checked before signing
+        )
         prepared = await get_adapter().prepare(plan.call, req.wallet_address)
     except ContractError as exc:
         await session.rollback()
@@ -684,11 +740,11 @@ async def prepare_action(
         transaction_type=plan.tx_type,
         network=network.network,
         amount=plan.amount,
-        asset_identifier="native" if plan.amount is not None else None,
+        asset_identifier=asset_identifier if plan.amount is not None else None,
         status=TxStatus.SIGNATURE_REQUIRED,
         source_address=req.wallet_address,
         destination_address=plan.destination,
-        contract_id=network.contract_id,
+        contract_id=plan.call.contract_id or network.contract_id,
         function_name=plan.call.function,
         unsigned_xdr=prepared.unsigned_xdr,
         expires_at=prepared.expires_at,
@@ -696,7 +752,7 @@ async def prepare_action(
         submission_id=plan.submission_id,
         assignment_id=plan.assignment_id,
         dispute_id=plan.dispute_id,
-        verification_metadata={"action": req.action.value, "args": plan.call.native},
+        verification_metadata={"action": req.action.value, "args": plan.call.native, **plan.metadata},
     )
     try:
         async with session.begin_nested():  # the payment record below references this row
@@ -712,8 +768,11 @@ async def prepare_action(
             .where(PaymentRecord.submission_id == plan.submission_id)
             .values(blockchain_transaction_id=tx.id)
         )
+    await escrow_chain.after_prepare(session, tx)
     await session.commit()
     await session.refresh(tx)
+    # A preview: the binding decision is taken again at submission (daily caps, sponsor balance).
+    fee_sponsored = (await sponsorship.evaluate(session, tx)).sponsored
     return PreparedTransactionOut(
         transaction=serialize_tx(tx),
         unsigned_xdr=prepared.unsigned_xdr,
@@ -723,10 +782,11 @@ async def prepare_action(
             action=req.action,
             description=plan.description,
             amount=plan.amount,
-            asset=native_asset() if plan.amount is not None else None,
+            asset=asset_from_identifier(asset_identifier) if plan.amount is not None else None,
             fee_estimate_stroops=str(prepared.fee_stroops) if prepared.fee_stroops is not None else None,
-            contract_id=network.contract_id,
+            contract_id=plan.call.contract_id or network.contract_id,
             function_name=plan.call.function,
+            fee_sponsored=fee_sponsored,
         ),
         expires_at=prepared.expires_at,
     )
@@ -802,12 +862,9 @@ async def submit_transaction(
                 "This transaction was prepared for a different network. Please prepare it again."
             )
         try:
-            verify_signed_envelope(
-                signed_xdr,
-                expected_hash=tx.transaction_hash,
-                expected_source=tx.source_address or "",
-                network_passphrase=network.passphrase,
-            )
+            # Checks the signed envelope against what was prepared; an eligible one is fee-bumped by the platform
+            # sponsor, and a smart wallet's signed authorization is relayed (app/blockchain/sponsorship.py).
+            submission = await sponsorship.prepare_submission(session, tx, signed_xdr)
         except EnvelopeMismatch as exc:
             raise ValidationFailed(str(exc), code="signature_invalid") from exc
         if not landed_earlier and tx.transaction_type == TxType.DISPUTE_RAISE and tx.dispute_id:
@@ -823,7 +880,7 @@ async def submit_transaction(
                 )
         if not landed_earlier:
             try:
-                submitted_hash = await get_adapter().submit(signed_xdr, tx.transaction_hash)
+                submitted_hash = await get_adapter().submit(submission.xdr, tx.transaction_hash)
             except ChainRejected as exc:
                 # A re-send of a transaction that already reached the network is rejected (e.g. txBAD_SEQ) —
                 # that is not a failure of the transaction itself. Ask the network before recording FAILED.
@@ -837,6 +894,7 @@ async def submit_transaction(
                     tx.failure_reason = str(exc)
                     tx.verification_metadata = {**tx.verification_metadata, "result_code": exc.code}
                     await _on_failure(session, tx)
+                    await sponsorship.settle(session, tx)
                     await session.commit()
                     await _emit_after(session, tx)
                     return serialize_tx(tx)
@@ -903,6 +961,7 @@ async def _record_submitted(
             .where(PaymentRecord.submission_id == tx.submission_id)
             .values(payment_status=PaymentStatus.SUBMITTED, blockchain_transaction_id=tx.id)
         )
+    await escrow_chain.on_submitted(session, tx)
     audit.record(
         session,
         actor_id=actor_id,
@@ -970,13 +1029,22 @@ async def verify_transaction(session: AsyncSession, tx_id: uuid.UUID) -> TxStatu
     if not await _acquire(lock, ttl=60):
         return None
     try:
+        # Network I/O first, with no row lock held (the Redis lock serialises verifications of one transaction):
+        # the outcome and, for a success, the contract state it is settled from. The row is locked afterwards and
+        # its status checked again, and everything verified is written in this one transaction.
+        peek = await _load_tx(session, tx_id)
+        if peek.status != TxStatus.SUBMITTED or not peek.transaction_hash:
+            current = peek.status
+            await session.rollback()
+            return current
+        adapter = get_adapter()
+        outcome = await adapter.get_outcome(peek.transaction_hash)
+        settlement = await _read_settlement_state(session, peek) if outcome.status == "SUCCESS" else None
         tx = await _load_tx(session, tx_id, for_update=True)
         current = tx.status
         if current != TxStatus.SUBMITTED or not tx.transaction_hash:
             await session.rollback()  # expires `tx`; use the captured status
             return current
-        adapter = get_adapter()
-        outcome = await adapter.get_outcome(tx.transaction_hash)
         tx.verification_attempts += 1
         if outcome.status == "PENDING":
             # Known to the network but not settled yet: only SUCCESS may ever be recorded as CONFIRMED.
@@ -988,6 +1056,7 @@ async def verify_transaction(session: AsyncSession, tx_id: uuid.UUID) -> TxStatu
                 tx.status = TxStatus.EXPIRED
                 tx.failure_reason = "The network never included this transaction before it expired."
                 await _on_failure(session, tx)
+                await sponsorship.settle(session, tx, outcome)
                 add_event(
                     session,
                     event_type=EventType.TX_FAILED,
@@ -1004,6 +1073,7 @@ async def verify_transaction(session: AsyncSession, tx_id: uuid.UUID) -> TxStatu
             tx.ledger_sequence = outcome.ledger
             tx.verification_metadata = {**tx.verification_metadata, "result_code": outcome.result_code}
             await _on_failure(session, tx)
+            await sponsorship.settle(session, tx, outcome)
             audit.record(
                 session,
                 actor_id=tx.user_id,
@@ -1031,7 +1101,8 @@ async def verify_transaction(session: AsyncSession, tx_id: uuid.UUID) -> TxStatu
             **tx.verification_metadata,
             "verified_at": utcnow().isoformat(),
         }
-        await _on_success(session, tx)
+        await _on_success(session, tx, settlement)
+        await sponsorship.settle(session, tx, outcome)
         audit.record(
             session,
             actor_id=tx.user_id,
@@ -1062,6 +1133,7 @@ async def verify_transaction(session: AsyncSession, tx_id: uuid.UUID) -> TxStatu
 
 
 async def _on_failure(session: AsyncSession, tx: BlockchainTransaction) -> None:
+    await escrow_chain.on_failure(session, tx)
     if tx.transaction_type in (TxType.ESCROW_CREATE, TxType.ESCROW_FUND) and tx.bounty_id:
         bounty = await bounty_repo.get(session, tx.bounty_id, for_update=True)
         if bounty is not None and bounty.status == BountyStatus.FUNDING_PENDING:
@@ -1093,36 +1165,76 @@ async def _on_failure(session: AsyncSession, tx: BlockchainTransaction) -> None:
                     "contributor_id": payment.contributor_id,
                     "title": bounty.title,
                     "amount": fmt(payment.amount),
+                    "asset": payment.asset_identifier,
+                    "asset_code": asset_from_identifier(payment.asset_identifier).code,
                     "transaction_id": tx.id,
                 },
             )
 
 
-async def _on_success(session: AsyncSession, tx: BlockchainTransaction) -> None:
+class _SettlementState:
+    """Contract state a confirmed transaction is settled from, read before any row lock is taken."""
+
+    def __init__(
+        self,
+        snapshot: EscrowSnapshot | None,
+        trusted: bool,
+        destination_state: str | None,
+        v2: escrow_chain.SettlementReads | None,
+    ) -> None:
+        self.snapshot = snapshot
+        self.trusted = trusted
+        self.destination_state = destination_state
+        self.v2 = v2
+
+
+async def _read_settlement_state(session: AsyncSession, tx: BlockchainTransaction) -> _SettlementState | None:
     if tx.bounty_id is None:
+        return None
+    escrow = await bounty_repo.get_escrow(session, tx.bounty_id)
+    if escrow is None:
+        return None
+    snapshot, trusted = await _read_trusted_snapshot(session, escrow)
+    destination_state = None
+    if tx.destination_address and tx.transaction_type in (
+        TxType.ASSIGN,
+        TxType.PAYOUT,
+        TxType.DISPUTE_RESOLVE,
+    ):
+        destination_state = await get_adapter().read_assignment(
+            _bid(escrow), tx.destination_address, escrow.contract_id
+        )
+    v2 = await escrow_chain.read_for_settlement(escrow, tx) if trusted else None
+    return _SettlementState(snapshot, trusted, destination_state, v2)
+
+
+async def _on_success(
+    session: AsyncSession, tx: BlockchainTransaction, settlement: _SettlementState | None
+) -> None:
+    if tx.bounty_id is None or settlement is None:
         return
+    # Lock order: bounty, then escrow, then dependents. The chain was read before (no lock across network I/O).
     bounty = await bounty_repo.get(session, tx.bounty_id, for_update=True)
     escrow = await bounty_repo.get_escrow(session, tx.bounty_id, for_update=True)
     if bounty is None or escrow is None:
         return
-    adapter = get_adapter()
-    snapshot, trusted = await _read_trusted_snapshot(session, escrow)
-    if not trusted:
+    snapshot = settlement.snapshot
+    if not settlement.trusted:
         # SEC-01: nothing is ever settled from a foreign escrow (payouts, funding and refunds stay untouched).
         logger.error("confirmed_transaction_on_foreign_escrow", tx_id=str(tx.id), bounty_id=str(bounty.id))
         return
     changed = apply_snapshot(escrow, snapshot)
     if changed:
         logger.info("escrow_reconciled", bounty_id=str(bounty.id), fields=changed, state=escrow.state.value)
+    await escrow_chain.after_snapshot(session, bounty, snapshot, tx)
 
+    state = settlement.destination_state
     if tx.transaction_type == TxType.ASSIGN and tx.assignment_id and tx.destination_address:
-        state = await adapter.read_assignment(_bid(escrow), tx.destination_address)
         assignment = await session.get(BountyAssignment, tx.assignment_id, with_for_update=True)
         if assignment is not None and state in ("Assigned", "Paid"):
             assignment.onchain_assigned = True
 
     elif tx.transaction_type == TxType.PAYOUT and tx.submission_id and tx.destination_address:
-        state = await adapter.read_assignment(_bid(escrow), tx.destination_address)
         if state == "Paid":
             await _settle_payout(session, bounty, tx)
         else:
@@ -1136,7 +1248,6 @@ async def _on_success(session: AsyncSession, tx: BlockchainTransaction) -> None:
             assignment.onchain_assigned = False
 
     elif tx.transaction_type == TxType.DISPUTE_RESOLVE and tx.assignment_id and tx.destination_address:
-        state = await adapter.read_assignment(_bid(escrow), tx.destination_address)
         assignment = await session.get(BountyAssignment, tx.assignment_id, with_for_update=True)
         if state == "Paid":
             await _settle_payout(session, bounty, tx)
@@ -1146,8 +1257,12 @@ async def _on_success(session: AsyncSession, tx: BlockchainTransaction) -> None:
             assignment.released_at = utcnow()
             assignment.onchain_assigned = False
             await _review_disputed_submission(session, tx, approved=False)
-        if bounty.status == BountyStatus.DISPUTED:
+        # A multi-arbiter escrow stays Disputed until enough arbiters approved; only then does work resume.
+        if bounty.status == BountyStatus.DISPUTED and escrow.state != EscrowState.DISPUTED:
             await _restore_after_dispute(session, bounty, escrow)
+
+    elif tx.transaction_type in escrow_chain.V2_TX_TYPES:
+        await escrow_chain.on_success(session, bounty, escrow, snapshot, tx, settlement.v2)
 
     await _apply_escrow_to_bounty(session, bounty, escrow, tx)
 
@@ -1177,7 +1292,7 @@ async def _settle_payout(session: AsyncSession, bounty: Bounty, tx: BlockchainTr
                 contributor_id=assignment.contributor_id,
                 submission_id=submission.id,
                 amount=bounty.reward_amount,
-                asset_identifier="native",
+                asset_identifier=tx.asset_identifier or bounty.reward_asset_identifier,
                 payment_status=PaymentStatus.CREATED,
             )
             session.add(payment)
@@ -1198,6 +1313,7 @@ async def _settle_payout(session: AsyncSession, bounty: Bounty, tx: BlockchainTr
         bounty_id=bounty.id,
         metadata={
             "amount": fmt(bounty.reward_amount),
+            "asset_code": asset_from_identifier(tx.asset_identifier or bounty.reward_asset_identifier).code,
             "hash": tx.transaction_hash,
             "contributor": contributor.username if contributor else None,
         },
@@ -1213,6 +1329,8 @@ async def _settle_payout(session: AsyncSession, bounty: Bounty, tx: BlockchainTr
             "contributor_id": assignment.contributor_id,
             "title": bounty.title,
             "amount": fmt(bounty.reward_amount),
+            "asset": tx.asset_identifier or bounty.reward_asset_identifier,
+            "asset_code": asset_from_identifier(tx.asset_identifier or bounty.reward_asset_identifier).code,
             "transaction_id": tx.id,
         },
     )
@@ -1286,6 +1404,8 @@ async def _apply_escrow_to_bounty(
                 "requester_id": bounty.requester_id,
                 "title": bounty.title,
                 "amount": fmt(refund),
+                "asset": escrow.asset_identifier,
+                "asset_code": _asset_code(escrow),
                 "transaction_id": tx.id,
             },
         )
@@ -1298,7 +1418,7 @@ async def _apply_escrow_to_bounty(
                 actor_id=tx.user_id,
                 event_type=EventType.BOUNTY_COMPLETED,
             )
-    elif tx.transaction_type in (TxType.PAYOUT, TxType.DISPUTE_RESOLVE):
+    elif tx.transaction_type in (TxType.PAYOUT, TxType.DISPUTE_RESOLVE, *escrow_chain.RECOMPUTE_TX_TYPES):
         await session.flush()
         await bounty_service.recompute_operational_status(session, bounty, tx.user_id)
 
@@ -1335,6 +1455,8 @@ async def sweep_pending_transactions(session: AsyncSession, limit: int = 50) -> 
             continue
         tx.status = TxStatus.EXPIRED
         tx.failure_reason = "Expired before it was signed."
+        await sponsorship.settle(session, tx)
+        await escrow_chain.on_expired(session, tx)
         if tx.transaction_type == TxType.PAYOUT and tx.submission_id:
             await session.execute(
                 update(PaymentRecord)
@@ -1380,6 +1502,9 @@ async def reconcile_bounty(session: AsyncSession, bounty_id: uuid.UUID) -> None:
         await session.rollback()
         raise Conflict(_UNVERIFIED_ESCROW, code="escrow_unverified")
     apply_snapshot(escrow, snapshot)
+    bounty = await bounty_repo.get(session, bounty_id)
+    if bounty is not None:
+        await escrow_chain.after_snapshot(session, bounty, snapshot, None)
     await session.commit()
 
 

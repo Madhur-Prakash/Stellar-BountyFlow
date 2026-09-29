@@ -7,17 +7,19 @@ from datetime import date, datetime, timedelta
 from decimal import Decimal
 from typing import Any
 
-from sqlalchemy import Select, and_, distinct, func, select
+from sqlalchemy import Select, and_, distinct, func, literal_column, select
 from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.blockchain.config import get_network
 from app.cache import keys
 from app.cache.redis import cached_json
+from app.core.schemas import asset_amounts, asset_from_identifier
 from app.core.security import utcnow
 from app.modules.analytics import rules
 from app.modules.analytics.models import DailyMetric
 from app.modules.analytics.schemas import (
+    AssetSeries,
     ContributorAnalytics,
     DailyPoint,
     MonthlyAmount,
@@ -52,6 +54,39 @@ ZERO = Decimal(0)
 
 def _dec(value: Any) -> Decimal:
     return Decimal(value) if value is not None else ZERO
+
+
+NATIVE = "native"
+VOLUME_PREFIX = "payout_volume:"  # daily metric name of one asset's payout volume ("payout_volume" is XLM)
+
+
+def _asset(column: Any) -> Any:
+    """Asset identifier column, with rows recorded before reward assets existed (NULL) counted as XLM."""
+    return func.coalesce(column, literal_column("'native'"))  # a literal, so SELECT and GROUP BY match
+
+
+def _by_asset(rows: Any) -> dict[str, Decimal]:
+    totals: dict[str, Decimal] = {}
+    for identifier, amount in rows:
+        key = identifier or NATIVE
+        totals[key] = totals.get(key, ZERO) + _dec(amount)
+    return totals
+
+
+def _series(rows: Any, today: date) -> list[AssetSeries]:
+    """(month, asset, amount) rows -> one dense monthly series per asset, XLM first."""
+    per_asset: dict[str, list[tuple[str, Decimal]]] = {}
+    for month, identifier, amount in rows:
+        per_asset.setdefault(identifier or NATIVE, []).append((month, _dec(amount)))
+    series = [
+        AssetSeries(
+            asset=asset_from_identifier(identifier),
+            total=sum((a for _, a in points), ZERO),
+            months=[MonthlyAmount(**m) for m in rules.fill_months(points, today)],
+        )
+        for identifier, points in per_asset.items()
+    ]
+    return sorted(series, key=lambda s: (s.asset.identifier != NATIVE, s.asset.code, s.asset.identifier))
 
 
 def _utc_month(column: Any) -> Any:
@@ -113,9 +148,13 @@ async def _transaction_metrics(session: AsyncSession, network: str) -> dict[str,
             select(func.count(distinct(live.c.transaction_hash)), func.count(distinct(live.c.source_address)))
         )
     ).one()
-    # One amount per unique hash: a retried verification can never double-count volume.
+    # One amount per unique hash: a retried verification can never double-count volume. Grouped per asset.
     payouts = (
-        select(BlockchainTransaction.transaction_hash, func.max(BlockchainTransaction.amount).label("amount"))
+        select(
+            BlockchainTransaction.transaction_hash,
+            func.max(BlockchainTransaction.amount).label("amount"),
+            func.max(_asset(BlockchainTransaction.asset_identifier)).label("asset"),
+        )
         .outerjoin(Bounty, Bounty.id == BlockchainTransaction.bounty_id)
         .where(
             rules.live_transaction(network),
@@ -125,14 +164,26 @@ async def _transaction_metrics(session: AsyncSession, network: str) -> dict[str,
         .group_by(BlockchainTransaction.transaction_hash)
         .subquery()
     )
-    volume = await session.scalar(select(func.coalesce(func.sum(payouts.c.amount), 0)))
+    volume = _by_asset(
+        (
+            await session.execute(
+                select(payouts.c.asset, func.sum(payouts.c.amount)).group_by(payouts.c.asset)
+            )
+        ).all()
+    )
     failed = await _count(
         session,
         select(func.count(distinct(BlockchainTransaction.id)))
         .outerjoin(Bounty, Bounty.id == BlockchainTransaction.bounty_id)
         .where(rules.failed_transaction(network), rules.visible_bounty_tx()),
     )
-    return {"successful": row[0], "wallets": row[1], "volume": _dec(volume), "failed": failed}
+    return {
+        "successful": row[0],
+        "wallets": row[1],
+        "volume": volume.get(NATIVE, ZERO),
+        "volume_by_asset": asset_amounts(dict(volume)),
+        "failed": failed,
+    }
 
 
 # --- Public --------------------------------------------------------------------------------------
@@ -152,6 +203,7 @@ async def compute_public_stats(session: AsyncSession) -> PublicStats:
         funded_bounties=bounties["funded"],
         completed_bounties=bounties["completed"],
         verified_payout_volume=tx["volume"],
+        payout_volume_by_asset=tx["volume_by_asset"],
         successful_transactions=tx["successful"],
         unique_transacting_wallets=tx["wallets"],
         methodology=rules.public_methodology(net.network),
@@ -178,20 +230,30 @@ async def requester_analytics(session: AsyncSession, user: User) -> RequesterAna
             .group_by(Bounty.status)
         )
     ).all()
-    escrowed = await session.scalar(
-        select(func.coalesce(func.sum(BountyEscrow.funded_amount), 0))
-        .join(Bounty, Bounty.id == BountyEscrow.bounty_id)
-        .where(Bounty.requester_id == user.id, Bounty.network == network)
+    escrowed = _by_asset(
+        (
+            await session.execute(
+                select(_asset(BountyEscrow.asset_identifier), func.sum(BountyEscrow.funded_amount))
+                .join(Bounty, Bounty.id == BountyEscrow.bounty_id)
+                .where(Bounty.requester_id == user.id, Bounty.network == network)
+                .group_by(_asset(BountyEscrow.asset_identifier))
+            )
+        ).all()
     )
     paid_filter = and_(
         Bounty.requester_id == user.id,
         PaymentRecord.payment_status == PaymentStatus.CONFIRMED,
         rules.network_payment(network),
     )
-    paid = await session.scalar(
-        select(func.coalesce(func.sum(PaymentRecord.amount), 0))
-        .join(Bounty, Bounty.id == PaymentRecord.bounty_id)
-        .where(paid_filter)
+    paid = _by_asset(
+        (
+            await session.execute(
+                select(_asset(PaymentRecord.asset_identifier), func.sum(PaymentRecord.amount))
+                .join(Bounty, Bounty.id == PaymentRecord.bounty_id)
+                .where(paid_filter)
+                .group_by(_asset(PaymentRecord.asset_identifier))
+            )
+        ).all()
     )
     applications = await _count(
         session,
@@ -216,25 +278,33 @@ async def requester_analytics(session: AsyncSession, user: User) -> RequesterAna
     settled = func.coalesce(PaymentRecord.settled_at, PaymentRecord.created_at)
     month_rows = (
         await session.execute(
-            select(_utc_month(settled).label("month"), func.sum(PaymentRecord.amount))
+            select(
+                _utc_month(settled).label("month"),
+                _asset(PaymentRecord.asset_identifier).label("asset"),
+                func.sum(PaymentRecord.amount),
+            )
             .join(Bounty, Bounty.id == PaymentRecord.bounty_id)
             .where(paid_filter, settled >= _months_start(today))
-            .group_by("month")
+            .group_by("month", "asset")
         )
     ).all()
     return RequesterAnalytics(
         bounties_by_status=rules.zero_filled(
             [s.value for s in BountyStatus], {s.value: c for s, c in status_rows}
         ),
-        total_escrowed=_dec(escrowed),
-        total_paid=_dec(paid),
+        total_escrowed=escrowed.get(NATIVE, ZERO),
+        total_paid=paid.get(NATIVE, ZERO),
         applications_received=applications,
         avg_time_to_first_application_hours=round(float(avg_seconds) / 3600, 2)
         if avg_seconds is not None
         else None,
         spending_by_month=[
-            MonthlyAmount(**m) for m in rules.fill_months(((r[0], r[1]) for r in month_rows), today)
+            MonthlyAmount(**m)
+            for m in rules.fill_months(((r[0], r[2]) for r in month_rows if r[1] == NATIVE), today)
         ],
+        escrowed_by_asset=asset_amounts(dict(escrowed)),
+        paid_by_asset=asset_amounts(dict(paid)),
+        spending_by_asset=_series(month_rows, today),
     )
 
 
@@ -260,15 +330,25 @@ async def contributor_analytics(session: AsyncSession, user: User) -> Contributo
         PaymentRecord.payment_status == PaymentStatus.CONFIRMED,
         rules.network_payment(network),
     )
-    earned = await session.scalar(
-        select(func.coalesce(func.sum(PaymentRecord.amount), 0)).where(earned_filter)
+    earned = _by_asset(
+        (
+            await session.execute(
+                select(_asset(PaymentRecord.asset_identifier), func.sum(PaymentRecord.amount))
+                .where(earned_filter)
+                .group_by(_asset(PaymentRecord.asset_identifier))
+            )
+        ).all()
     )
     settled = func.coalesce(PaymentRecord.settled_at, PaymentRecord.created_at)
     month_rows = (
         await session.execute(
-            select(_utc_month(settled).label("month"), func.sum(PaymentRecord.amount))
+            select(
+                _utc_month(settled).label("month"),
+                _asset(PaymentRecord.asset_identifier).label("asset"),
+                func.sum(PaymentRecord.amount),
+            )
             .where(earned_filter, settled >= _months_start(today))
-            .group_by("month")
+            .group_by("month", "asset")
         )
     ).all()
     completed = await _count(
@@ -284,11 +364,14 @@ async def contributor_analytics(session: AsyncSession, user: User) -> Contributo
         submissions_by_status=rules.zero_filled(
             [s.value for s in SubmissionStatus], {s.value: c for s, c in sub_rows}
         ),
-        total_earned=_dec(earned),
+        total_earned=earned.get(NATIVE, ZERO),
         earnings_by_month=[
-            MonthlyAmount(**m) for m in rules.fill_months(((r[0], r[1]) for r in month_rows), today)
+            MonthlyAmount(**m)
+            for m in rules.fill_months(((r[0], r[2]) for r in month_rows if r[1] == NATIVE), today)
         ],
         completed_count=completed,
+        earned_by_asset=asset_amounts(dict(earned)),
+        earnings_by_asset=_series(month_rows, today),
     )
 
 
@@ -390,6 +473,7 @@ async def platform_analytics(session: AsyncSession) -> PlatformAnalytics:
             successful_transactions=tx["successful"],
             failed_transactions=tx["failed"],
             verified_payout_volume=tx["volume"],
+            payout_volume_by_asset=tx["volume_by_asset"],
         ),
         engagement=PlatformEngagement(
             repeat_contributors=repeat,
@@ -420,7 +504,13 @@ async def daily_series(session: AsyncSession, end: date, days: int = rules.SERIE
 
 def build_daily_point(day: date, metrics: dict[str, Decimal]) -> DailyPoint:
     counts = {m: int(metrics.get(m, ZERO)) for m in rules.DAILY_METRICS if m != "payout_volume"}
-    return DailyPoint(day=day, payout_volume=metrics.get("payout_volume", ZERO), **counts)
+    by_asset = {
+        name.removeprefix(VOLUME_PREFIX): v for name, v in metrics.items() if name.startswith(VOLUME_PREFIX)
+    }
+    native = metrics.get("payout_volume", ZERO)
+    if native:
+        by_asset[NATIVE] = native
+    return DailyPoint(day=day, payout_volume=native, payout_volume_by_asset=by_asset, **counts)
 
 
 # --- Daily metric recomputation (analytics worker) -------------------------------------------------
@@ -478,7 +568,11 @@ async def compute_daily_metrics(session: AsyncSession, day: date) -> dict[str, D
         .where(Bounty.is_hidden.is_(False), within(BountySubmission.created_at)),
     )
     payouts = (
-        select(BlockchainTransaction.transaction_hash, func.max(BlockchainTransaction.amount).label("amount"))
+        select(
+            BlockchainTransaction.transaction_hash,
+            func.max(BlockchainTransaction.amount).label("amount"),
+            func.max(_asset(BlockchainTransaction.asset_identifier)).label("asset"),
+        )
         .outerjoin(Bounty, Bounty.id == BlockchainTransaction.bounty_id)
         .where(
             rules.live_transaction(network),
@@ -489,11 +583,18 @@ async def compute_daily_metrics(session: AsyncSession, day: date) -> dict[str, D
         .group_by(BlockchainTransaction.transaction_hash)
         .subquery()
     )
-    payout_row = (
+    payout_rows = (
         await session.execute(
-            select(func.count(payouts.c.transaction_hash), func.coalesce(func.sum(payouts.c.amount), 0))
+            select(
+                payouts.c.asset, func.count(payouts.c.transaction_hash), func.sum(payouts.c.amount)
+            ).group_by(payouts.c.asset)
         )
-    ).one()
+    ).all()
+    payout_count = sum(int(count or 0) for _, count, _ in payout_rows)
+    volumes = _by_asset((asset, amount) for asset, _, amount in payout_rows)
+    per_asset = {
+        f"{VOLUME_PREFIX}{identifier}": v for identifier, v in volumes.items() if identifier != NATIVE
+    }
     return {
         "registrations": Decimal(registrations),
         "bounties_published": Decimal(bounty_row[0]),
@@ -501,8 +602,9 @@ async def compute_daily_metrics(session: AsyncSession, day: date) -> dict[str, D
         "bounties_completed": Decimal(bounty_row[1]),
         "applications": Decimal(applications),
         "submissions": Decimal(submissions),
-        "payouts_confirmed_count": Decimal(payout_row[0]),
-        "payout_volume": _dec(payout_row[1]),
+        "payouts_confirmed_count": Decimal(payout_count),
+        "payout_volume": volumes.get(NATIVE, ZERO),
+        **per_asset,
     }
 
 

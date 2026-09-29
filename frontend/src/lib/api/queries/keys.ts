@@ -1,5 +1,6 @@
 import type {
   AdminBountiesParams,
+  AdminDeletionParams,
   AdminDisputesParams,
   AdminReportsParams,
   AdminTransactionsParams,
@@ -11,6 +12,9 @@ import type {
   NotificationListParams,
   PageParams,
   PaymentsParams,
+  QuestionListParams,
+  ScreeningDecisionParams,
+  ScreeningEntryParams,
   SubmissionListParams,
 } from '../types'
 
@@ -36,8 +40,26 @@ export const qk = {
     stats: (username: string) => ['users', username, 'stats'] as const,
   },
 
+  reputation: {
+    all: ['reputation'] as const,
+    summary: (username: string) => ['reputation', 'user', username, 'summary'] as const,
+    attestations: (username: string, p: PageParams = {}) =>
+      ['reputation', 'user', username, 'attestations', p] as const,
+    attestation: (ref: string) => ['reputation', 'attestation', ref] as const,
+    mine: (p: PageParams = {}) => ['reputation-me', 'attestations', p] as const,
+    myCounts: ['reputation-me', 'counts'] as const,
+  },
+
+  credentials: {
+    all: ['credentials'] as const,
+    issuer: ['credentials', 'issuer'] as const,
+    mine: ['credentials', 'mine'] as const,
+  },
+
   wallets: {
     all: ['wallets'] as const,
+    options: ['wallets', 'options'] as const,
+    passkey: ['wallets', 'passkey'] as const,
   },
 
   bounties: {
@@ -64,6 +86,19 @@ export const qk = {
     all: ['submissions'] as const,
     mine: (p: SubmissionListParams = {}) => ['submissions', 'mine', p] as const,
     detail: (id: string) => ['submissions', 'detail', id] as const,
+    pullRequests: (id: string) => ['submissions', 'detail', id, 'pull-requests'] as const,
+  },
+
+  qa: {
+    all: ['qa'] as const,
+    threads: (bountyRef: string, p: QuestionListParams = {}) => ['qa', bountyRef, p] as const,
+  },
+
+  github: {
+    all: ['github'] as const,
+    config: ['github', 'config'] as const,
+    account: ['github', 'account'] as const,
+    publicAccount: (username: string) => ['github', 'public', username] as const,
   },
 
   transactions: {
@@ -94,6 +129,60 @@ export const qk = {
 
   dashboard: ['dashboard'] as const,
 
+  privacy: {
+    all: ['privacy'] as const,
+    exports: ['privacy', 'exports'] as const,
+    deletion: ['privacy', 'deletion'] as const,
+  },
+
+  legal: {
+    all: ['legal'] as const,
+    status: ['legal', 'status'] as const,
+  },
+
+  compliance: {
+    all: ['admin', 'compliance'] as const,
+    deletions: (p: AdminDeletionParams = {}) => ['admin', 'compliance', 'deletions', p] as const,
+    screeningStatus: ['admin', 'compliance', 'screening', 'status'] as const,
+    screeningEntries: (p: ScreeningEntryParams = {}) =>
+      ['admin', 'compliance', 'screening', 'entries', p] as const,
+    screeningDecisions: (p: ScreeningDecisionParams = {}) =>
+      ['admin', 'compliance', 'screening', 'decisions', p] as const,
+    legalVersions: ['admin', 'compliance', 'legal'] as const,
+  },
+
+  assets: {
+    all: ['assets'] as const,
+    registry: ['assets', 'registry'] as const,
+    /** The signed-in user's wallets and their trustlines (private). */
+    wallets: ['asset-wallets'] as const,
+    operation: (id: string) => ['asset-wallets', 'operation', id] as const,
+    bountyTrustlines: (bountyId: string) => ['bounties', 'detail', bountyId, 'trustlines'] as const,
+    fundingReadiness: (bountyId: string, address: string) =>
+      ['bounties', 'detail', bountyId, 'funding-readiness', address] as const,
+    admin: ['admin', 'assets'] as const,
+  },
+
+  savedSearches: {
+    all: ['saved-searches'] as const,
+    list: ['saved-searches', 'list'] as const,
+    detail: (id: string) => ['saved-searches', 'detail', id] as const,
+  },
+
+  recommendations: {
+    all: ['recommendations'] as const,
+    list: (p: BountyListParams = {}) => ['recommendations', 'list', p] as const,
+  },
+
+  skills: {
+    related: (skills: string[]) => ['skills', 'related', skills] as const,
+  },
+
+  escrow: {
+    config: ['escrow', 'config'] as const,
+    arbitration: (disputeId: string) => ['disputes', 'detail', disputeId, 'arbitration'] as const,
+  },
+
   disputes: {
     all: ['disputes'] as const,
     mine: ['disputes', 'mine'] as const,
@@ -109,12 +198,15 @@ export const qk = {
     disputes: (p: AdminDisputesParams = {}) => ['admin', 'disputes', p] as const,
     transactions: (p: AdminTransactionsParams = {}) => ['admin', 'transactions', p] as const,
     auditLogs: (p: AuditLogParams = {}) => ['admin', 'audit-logs', p] as const,
+    sponsorship: ['admin', 'sponsorship'] as const,
   },
 }
 
 /** Domains that hold per-user private data; dropped from the cache on logout. */
 export const PRIVATE_QUERY_ROOTS = [
   'auth',
+  'reputation-me',
+  'credentials',
   'wallets',
   'applications',
   'submissions',
@@ -122,6 +214,13 @@ export const PRIVATE_QUERY_ROOTS = [
   'payments',
   'notifications',
   'dashboard',
+  'saved-searches',
+  'asset-wallets',
+  'privacy',
+  'legal',
+  'recommendations',
+  'qa',
+  'github',
   'disputes',
   'admin',
 ] as const

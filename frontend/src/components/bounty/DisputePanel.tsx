@@ -3,6 +3,7 @@ import { useId, useState, type ReactNode } from 'react'
 import { toast } from 'sonner'
 
 import { ChainActionButton } from '@/components/chain/ChainActionButton'
+import { ArbitrationProgress } from '@/components/escrow/Arbitration'
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -27,7 +28,9 @@ import { useAddDisputeEvidence, useMyDisputes, useRaiseDispute } from '@/lib/api
 import { usePublicProfile } from '@/lib/api/queries/users'
 import { useWallets } from '@/lib/api/queries/wallets'
 import type { BountyDetail, Dispute } from '@/lib/api/types'
+import { needsArbiterVotes } from '@/lib/escrow'
 import { DISPUTE_STATUS_LABELS, formatRelative } from '@/lib/format'
+import { formatAmount } from '@/lib/money'
 
 /** Bounty statuses in which the API accepts a new dispute. */
 const DISPUTABLE_STATUSES = new Set(['IN_PROGRESS', 'UNDER_REVIEW', 'CANCEL_REQUESTED'])
@@ -36,6 +39,7 @@ const OPEN = new Set(['OPEN', 'UNDER_REVIEW'])
 const RESOLUTION_LABELS: Record<string, string> = {
   RELEASE_TO_CONTRIBUTOR: 'Release the reward to the contributor',
   REFUND_TO_REQUESTER: 'Refund the requester',
+  SPLIT: 'Split the reward',
   DISMISSED: 'Dismissed',
 }
 
@@ -331,16 +335,34 @@ export function DisputePanel({ bounty }: { bounty: BountyDetail }) {
                 <span className="font-medium">
                   {RESOLUTION_LABELS[latest.resolution] ?? latest.resolution}
                 </span>
+                {latest.resolution === 'SPLIT' && latest.contributor_amount && (
+                  <span className="text-muted-foreground">
+                    {' '}
+                    ({formatAmount(latest.contributor_amount)} to the contributor)
+                  </span>
+                )}
               </p>
             )}
-            {latest.requires_onchain_execution && (
-              <Alert variant="info">
-                <AlertTitle>Waiting for the arbiter</AlertTitle>
-                <AlertDescription>
-                  The escrow’s arbiter wallet must sign the decision before any funds move.
-                </AlertDescription>
-              </Alert>
-            )}
+            {latest.requires_onchain_execution &&
+              (needsArbiterVotes(latest) ? (
+                <Alert variant="info">
+                  <AlertTitle>Waiting for the arbiters</AlertTitle>
+                  <AlertDescription>
+                    <p>
+                      Funds move once {latest.arbiter_threshold ?? 1} of the escrow’s arbiters approve the
+                      decision.
+                    </p>
+                    <ArbitrationProgress disputeId={latest.id} className="mt-2 w-full" />
+                  </AlertDescription>
+                </Alert>
+              ) : (
+                <Alert variant="info">
+                  <AlertTitle>Waiting for the arbiter</AlertTitle>
+                  <AlertDescription>
+                    The escrow’s arbiter wallet must sign the decision before any funds move.
+                  </AlertDescription>
+                </Alert>
+              ))}
             {active && (
               <div className="flex flex-wrap gap-2">
                 <AddEvidenceButton dispute={active} />

@@ -42,7 +42,7 @@ export function makeBounty(overrides: Partial<BountySummary> = {}): BountySummar
     tags: ['backend'],
     required_skills: ['rust', 'soroban', 'postgres'],
     reward_amount: '1250.5000000',
-    reward_asset: { code: 'XLM', issuer: null, type: 'native', contract_id: null },
+    reward_asset: { code: 'XLM', issuer: null, type: 'native', contract_id: null, identifier: 'native', decimals: 7 },
     total_reward: '2501.0000000',
     network: 'testnet',
     status: 'FUNDED',

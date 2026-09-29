@@ -8,6 +8,7 @@ import {
   FileCheck2,
   GitPullRequest,
   LayoutDashboard,
+  LockKeyhole,
   PlusCircle,
   Search,
   Settings2,
@@ -18,6 +19,7 @@ import { useState } from 'react'
 import { Link, useNavigate } from 'react-router'
 
 import { UserAvatar } from '@/components/common/UserAvatar'
+import { LegalNotice } from '@/features/app/privacy/LegalGate'
 import { SidebarMenu, SidebarMenuButton, SidebarMenuItem, useSidebar } from '@/components/ui/sidebar'
 import { useMe } from '@/lib/api/queries/auth'
 import { useUnreadNotificationCount } from '@/lib/api/queries/notifications'
@@ -62,6 +64,7 @@ const APP_NAV: ShellNavGroup[] = [
     items: [
       { label: 'Profile', to: '/app/profile', icon: User },
       { label: 'Settings', to: '/app/settings', icon: Settings2 },
+      { label: 'Privacy', to: '/app/privacy', icon: LockKeyhole },
     ],
   },
 ]
@@ -138,6 +141,12 @@ export function AppLayout() {
     ? [...nav, { label: 'Staff', items: [{ label: 'Admin console', to: '/admin', icon: ShieldCheck }] }]
     : nav
   return (
-    <AppShell areaLabel="Workspace" groups={groups} search={<MarketplaceSearch />} footer={<SignedInAs />} />
+    <AppShell
+      areaLabel="Workspace"
+      groups={groups}
+      search={<MarketplaceSearch />}
+      footer={<SignedInAs />}
+      notice={<LegalNotice />}
+    />
   )
 }

@@ -45,10 +45,13 @@ async def create_notification(
     link: str | None = None,
     payload: dict[str, Any] | None = None,
     source_event_id: uuid.UUID | None = None,
+    send_email: bool = True,
 ) -> Notification | None:
     """Create an in-app notification unless the recipient disabled this type in-app, or the same source
     event already produced one for them (redelivery). Stages ``notification.created`` in the outbox so the
-    email worker can decide on email delivery. Does not commit: the caller owns the transaction."""
+    email worker can decide on email delivery; ``send_email=False`` skips that when the caller sends its own
+    email (saved-search alerts, which carry unsubscribe links). Does not commit: the caller owns the
+    transaction."""
     preference = await repo.get_preference(session, user_id)
     if not prefs.allows_in_app(preference.types if preference else None, notification_type):
         return None
@@ -67,6 +70,8 @@ async def create_notification(
             "notification_duplicate_skipped", user_id=str(user_id), source_event_id=str(source_event_id)
         )
         return None
+    if not send_email:
+        return notification
     add_event(
         session,
         event_type=EventType.NOTIFICATION_CREATED,

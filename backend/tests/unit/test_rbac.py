@@ -39,7 +39,7 @@ MODERATION = {
     Permission.ANALYTICS_PLATFORM,
     Permission.SYSTEM_HEALTH,
 }
-ADMINISTRATION = {Permission.USER_MANAGE, Permission.USER_ASSIGN_ROLE}
+ADMINISTRATION = {Permission.USER_MANAGE, Permission.USER_ASSIGN_ROLE, Permission.ASSET_MANAGE}
 
 
 def make_user(role: Role, *, active: bool = True) -> User:

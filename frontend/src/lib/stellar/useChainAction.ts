@@ -66,12 +66,12 @@ function classifyText(text: string | null | undefined): ChainErrorKind | null {
 
 const KIND_MESSAGES: Record<ChainErrorKind, string> = {
   user_rejected: 'You rejected the request in your wallet. Nothing was submitted.',
-  insufficient_balance: 'The wallet does not have enough XLM to cover this amount plus network fees.',
+  insufficient_balance: 'The wallet does not have enough funds to cover this amount plus network fees.',
   network_mismatch:
     'Your wallet is on a different Stellar network than BountyFlow. Switch networks and retry.',
   expired: 'This prepared transaction expired before it was submitted. Start again to get a fresh one.',
   contract_error: 'The escrow contract rejected this transaction.',
-  wallet_not_installed: 'Freighter is not installed. Install it to sign on-chain actions.',
+  wallet_not_installed: 'This wallet is not installed in this browser. Choose another one to sign with.',
   wallet_required: 'Connect a Stellar wallet to continue.',
   timeout: 'The network has not confirmed the transaction yet. It may still settle; check back shortly.',
   api_error: 'The BountyFlow API could not complete this step.',
@@ -99,6 +99,19 @@ export function mapChainError(e: unknown): ChainActionError {
         kind: 'contract_error',
         message: errorMessage(e),
         detail: e.contractError ? `Contract error: ${e.contractError}` : requestDetail,
+      }
+    }
+    // Asset guards name the asset and the wallet; their message is the one to show.
+    if (
+      e.code === 'trustline_missing' ||
+      e.code === 'trustline_unauthorized' ||
+      e.code === 'insufficient_balance' ||
+      e.code === 'asset_not_supported'
+    ) {
+      return {
+        kind: e.code === 'insufficient_balance' ? 'insufficient_balance' : 'api_error',
+        message: e.message,
+        detail: requestDetail,
       }
     }
     if (e.code === 'wallet_not_verified' || e.code === 'wrong_wallet') {

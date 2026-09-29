@@ -116,6 +116,8 @@ def marketplace_query(filters: MarketplaceFilters) -> tuple[Select[Bounty], Sele
         conditions.append(deadline <= filters.deadline_before)
     if filters.deadline_after is not None:
         conditions.append(deadline >= filters.deadline_after)
+    if filters.asset:
+        conditions.append(Bounty.reward_asset_identifier.in_(filters.asset))
     if filters.funded_only:
         conditions.append(
             exists().where(

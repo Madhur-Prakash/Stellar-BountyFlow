@@ -1,0 +1,82 @@
+# BountyFlow local observability: Prometheus + Grafana, as an overlay on the main compose file.
+#
+#   docker compose -f docker-compose.yml -f docker-compose.observability.yml up -d prometheus grafana
+#   docker compose -f docker-compose.yml -f docker-compose.observability.yml down
+#
+# Prometheus  http://127.0.0.1:9090      Grafana  http://127.0.0.1:3001  (admin / the password below)
+#
+# The API needs METRICS_TOKEN set in .env, and needs restarting after you set it. Without a token, GET /metrics
+# answers only direct loopback requests and Prometheus — a different container — gets a 404, which looks exactly
+# like the endpoint not existing. Generate one with:
+#
+#   python -c "import secrets; print(secrets.token_urlsafe(32))"
+#
+# The same value is read here at compose time and written into a tmpfs inside the Prometheus container, so the
+# token never lands on disk and never appears in the Prometheus UI.
+#
+# Both services join the bountyflow project's default network, which is why the scrape target is `api:8000`.
+# Ports are bound to 127.0.0.1 like the rest of the stack; nothing is exposed publicly.
+
+services:
+  prometheus:
+    image: prom/prometheus:v3.1.0
+    restart: unless-stopped
+    user: nobody
+    # Writes METRICS_TOKEN to a tmpfs file before starting, so bearer_token_file has something to read.
+    # $$METRICS_TOKEN is escaped: compose must leave it for the container's shell.
+    entrypoint:
+      - /bin/sh
+      - -c
+      - |
+        umask 077
+        printf '%s' "$${METRICS_TOKEN}" > /etc/prometheus-secrets/metrics-token
+        exec /bin/prometheus \
+          --config.file=/etc/prometheus/prometheus.yml \
+          --storage.tsdb.path=/prometheus \
+          --storage.tsdb.retention.time=15d \
+          --web.enable-lifecycle
+    environment:
+      METRICS_TOKEN: ${METRICS_TOKEN:?set METRICS_TOKEN in .env, then restart the api container}
+    volumes:
+      - ./deploy/prometheus:/etc/prometheus:ro
+      - prometheus-data:/prometheus
+    tmpfs:
+      - /etc/prometheus-secrets:mode=0700,uid=65534,gid=65534
+    ports:
+      - "127.0.0.1:${PROMETHEUS_HOST_PORT:-9090}:9090"
+    healthcheck:
+      test: ["CMD", "wget", "-q", "--spider", "http://localhost:9090/-/healthy"]
+      interval: 15s
+      timeout: 5s
+      retries: 10
+
+  grafana:
+    image: grafana/grafana-oss:11.5.1
+    restart: unless-stopped
+    depends_on:
+      prometheus:
+        condition: service_healthy
+    environment:
+      GF_SECURITY_ADMIN_USER: ${GRAFANA_ADMIN_USER:-admin}
+      GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_ADMIN_PASSWORD:-bountyflow-local-grafana}
+      GF_USERS_ALLOW_SIGN_UP: "false"
+      GF_AUTH_ANONYMOUS_ENABLED: "false"
+      GF_ANALYTICS_REPORTING_ENABLED: "false"
+      GF_ANALYTICS_CHECK_FOR_UPDATES: "false"
+      # The uid the Prometheus datasource is provisioned with, so the dashboard's ${DS_PROMETHEUS} resolves.
+      DS_PROMETHEUS: PROMETHEUS
+    volumes:
+      - ./deploy/grafana/provisioning:/etc/grafana/provisioning:ro
+      - ./deploy/grafana/bountyflow-dashboard.json:/var/lib/grafana/dashboards/bountyflow-dashboard.json:ro
+      - grafana-data:/var/lib/grafana
+    ports:
+      - "127.0.0.1:${GRAFANA_HOST_PORT:-3001}:3000"
+    healthcheck:
+      test: ["CMD-SHELL", "wget -q --spider http://localhost:3000/api/health || exit 1"]
+      interval: 15s
+      timeout: 5s
+      retries: 10
+
+volumes:
+  prometheus-data:
+  grafana-data:

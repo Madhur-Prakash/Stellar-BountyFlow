@@ -11,7 +11,7 @@ from sqlalchemy import func, select
 
 from app.core.rate_limit import hit
 from app.core.rbac import Permission
-from app.core.schemas import APIModel, OptionalMoney, Page, PageParams
+from app.core.schemas import APIModel, Asset, OptionalMoney, Page, PageParams, asset_from_identifier
 from app.dependencies import CurrentUser, OptionalUser, SessionDep, require_permission
 from app.modules.applications.models import AssignmentStatus, BountyAssignment
 from app.modules.bounties import service as bounty_service
@@ -66,6 +66,7 @@ class Contribution(APIModel):
     bounty: BountySummary
     completed_at: datetime
     amount: OptionalMoney
+    asset: Asset | None = None
     transaction_hash: str | None
 
 
@@ -119,6 +120,7 @@ async def contributions(
             bounty=summary,
             completed_at=assignment.completed_at or assignment.assigned_at,
             amount=payment.amount if payment else None,
+            asset=asset_from_identifier(payment.asset_identifier) if payment else None,
             transaction_hash=tx.transaction_hash if tx else None,
         )
         for (assignment, _bounty, payment, tx), summary in zip(rows, summaries, strict=True)
@@ -139,7 +141,7 @@ async def wallet_challenge(
     data: WalletChallengeRequest, user: Annotated[User, Depends(require_permission(Permission.WALLET_MANAGE))]
 ) -> WalletChallengeResponse:
     await hit("wallet:challenge", str(user.id), 20, 300)
-    return await service.create_wallet_challenge(user, data.public_address)
+    return await service.create_wallet_challenge(user, data.public_address, data.method)
 
 
 @router.post("/wallets/verify", response_model=WalletOut, tags=["wallets"])
@@ -149,7 +151,7 @@ async def wallet_verify(
     user: Annotated[User, Depends(require_permission(Permission.WALLET_MANAGE))],
 ) -> WalletOut:
     await hit("wallet:verify", str(user.id), 20, 300)
-    return await service.verify_wallet(session, user, data.public_address, data.signed_challenge_xdr)
+    return await service.verify_wallet(session, user, data)
 
 
 @router.get("/wallets", response_model=list[WalletOut], tags=["wallets"])

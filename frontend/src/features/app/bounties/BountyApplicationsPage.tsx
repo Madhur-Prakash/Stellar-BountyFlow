@@ -27,7 +27,11 @@ import { usePublicProfile } from '@/lib/api/queries/users'
 import type { Application, ApplicationStatus } from '@/lib/api/types'
 import { formatRelative } from '@/lib/format'
 
+import { ApplicantTrustlineBadge } from '../assets/ApplicantTrustlineBadge'
 import { ManageBountyNav, ManageStats } from './ManageBountyNav'
+
+/** Accept errors about the contributor's wallet, shown on the card rather than as a toast. */
+const RECEIVE_ERRORS = new Set(['contributor_wallet_missing', 'trustline_missing', 'trustline_unauthorized'])
 
 /** Whether this accepted contributor is already assigned in the escrow contract. */
 function useAssignedOnchain(app: Application, assignees: Set<string>, enabled: boolean): boolean | null {
@@ -78,7 +82,14 @@ function ApplicationCard({
             </div>
           </div>
         </Link>
-        <ApplicationStatusBadge status={app.status} />
+        <div className="flex flex-wrap items-center gap-1.5">
+          <ApplicantTrustlineBadge
+            bountyId={app.bounty_id}
+            contributorId={app.contributor.id}
+            enabled={app.status === 'PENDING' || app.status === 'ACCEPTED'}
+          />
+          <ApplicationStatusBadge status={app.status} />
+        </div>
       </div>
 
       <div className="space-y-3 px-5 pt-3 pb-4">
@@ -170,7 +181,7 @@ function ApplicationCard({
         open={dialog === 'accept'}
         onOpenChange={(o) => !o && setDialog(null)}
         title={`Accept ${app.contributor.display_name}?`}
-        description="They’ll be assigned to a position and notified. The contributor must have a verified wallet."
+        description="They’ll be assigned to a position and notified. The contributor must have a verified wallet that can receive the reward asset."
         label="Note to the contributor"
         required={false}
         confirmLabel="Accept"
@@ -184,7 +195,7 @@ function ApplicationCard({
                 toast.success('Applicant accepted')
               },
               onError: (e) => {
-                if (isApiError(e) && e.code === 'contributor_wallet_missing') setWalletError(errorMessage(e))
+                if (isApiError(e) && RECEIVE_ERRORS.has(String(e.code))) setWalletError(errorMessage(e))
                 else toast.error(errorMessage(e))
               },
             },

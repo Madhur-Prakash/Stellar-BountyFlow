@@ -7,7 +7,7 @@ import { formatAmount } from '@/lib/money'
 import { cn } from '@/lib/utils'
 
 import { BookmarkButton } from './BookmarkButton'
-import { applicantsLabel, bountyHref, openPositionsOf } from './bounty-display'
+import { applicantsLabel, bountyHref, openPositionsOf, questionsLabel } from './bounty-display'
 import { BountyBadges } from './BountyCard'
 import { DeadlineCountdown } from './DeadlineCountdown'
 import { MetaList } from './MetaList'
@@ -65,6 +65,9 @@ export function BountyRow({
             <span>{CATEGORY_LABELS[bounty.category]}</span>
             <span>{DIFFICULTY_LABELS[bounty.difficulty]}</span>
             <span className="tabular-nums">{applicantsLabel(bounty.applications_count)}</span>
+            {!!bounty.questions_count && (
+              <span className="tabular-nums">{questionsLabel(bounty.questions_count)}</span>
+            )}
             {showRequester && <span className="truncate">{bounty.requester.display_name}</span>}
           </MetaList>
         </div>

@@ -13,6 +13,7 @@ from __future__ import annotations
 
 import uuid
 from collections.abc import Sequence
+from decimal import Decimal
 
 from sqlalchemy import func, or_, select
 from sqlalchemy.exc import IntegrityError
@@ -33,6 +34,7 @@ from app.modules.bounties.models import Bounty, BountyStatus
 from app.modules.bounties.schemas import ActivityBounty
 from app.modules.disputes.models import Dispute, DisputeEvidence, DisputeResolution, DisputeStatus
 from app.modules.disputes.schemas import DisputeCreate, DisputeOut, EvidenceCreate, EvidenceOut
+from app.modules.escrow import views as escrow_views
 from app.modules.payments.models import BountyEscrow, EscrowState, PaymentRecord, PaymentStatus
 from app.modules.submissions.models import BountySubmission, SubmissionStatus
 from app.modules.users.models import User
@@ -75,7 +77,9 @@ def serialize(d: Dispute, escrow: BountyEscrow | None, contributor: User | None)
 async def _out(session: AsyncSession, d: Dispute) -> DisputeOut:
     escrow = await bounty_repo.get_escrow(session, d.bounty_id)
     contributor = await session.get(User, d.contributor_id) if d.contributor_id else None
-    return serialize(d, escrow, contributor)
+    out = serialize(d, escrow, contributor)
+    await escrow_views.decorate_disputes(session, [(d, out)])
+    return out
 
 
 async def _outs(session: AsyncSession, disputes: Sequence[Dispute]) -> list[DisputeOut]:
@@ -87,12 +91,14 @@ async def _outs(session: AsyncSession, disputes: Sequence[Dispute]) -> list[Disp
         if contributor_ids
         else {}
     )
-    return [
+    outs = [
         serialize(
             d, escrows.get(d.bounty_id), contributors.get(d.contributor_id) if d.contributor_id else None
         )
         for d in disputes
     ]
+    await escrow_views.decorate_disputes(session, list(zip(disputes, outs, strict=True)), escrows)
+    return outs
 
 
 def _payload(d: Dispute, bounty: Bounty) -> dict[str, object]:
@@ -319,7 +325,12 @@ async def assign_self(session: AsyncSession, moderator: User, dispute_id: uuid.U
 
 
 async def resolve(
-    session: AsyncSession, moderator: User, dispute_id: uuid.UUID, resolution: DisputeResolution, note: str
+    session: AsyncSession,
+    moderator: User,
+    dispute_id: uuid.UUID,
+    resolution: DisputeResolution,
+    note: str,
+    contributor_amount: Decimal | None = None,
 ) -> DisputeOut:
     ensure_permission(moderator, Permission.DISPUTE_RESOLVE)
     bounty_id = (await _load(session, dispute_id)).bounty_id
@@ -336,8 +347,14 @@ async def resolve(
             "The escrow is frozen on-chain, so the arbiter must route it: choose release to the contributor or "
             "refund to the requester."
         )
+    split = (
+        await escrow_views.check_split(session, bounty, escrow, contributor_amount)
+        if resolution == DisputeResolution.SPLIT
+        else None
+    )
     now = utcnow()
     d.resolution = resolution
+    d.contributor_amount = split
     d.resolution_note = note.strip()
     d.resolved_by_id = moderator.id
     d.resolved_at = now
@@ -406,7 +423,7 @@ async def _apply_offchain_resolution(
                     contributor_id=submission.contributor_id,
                     submission_id=submission.id,
                     amount=bounty.reward_amount,
-                    asset_identifier="native",
+                    asset_identifier=bounty.reward_asset_identifier,
                     payment_status=PaymentStatus.CREATED,
                 )
             )

@@ -4,12 +4,13 @@ from __future__ import annotations
 
 import uuid
 from datetime import datetime
+from decimal import Decimal
 from enum import StrEnum
 
 from sqlalchemy import ForeignKey, Index, String, Text
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
-from app.db.base import Base, CreatedAt, UUIDPrimaryKey
+from app.db.base import MONEY, Base, CreatedAt, UUIDPrimaryKey
 from app.db.types import str_enum
 from app.modules.bounties.models import Bounty
 from app.modules.users.models import User
@@ -26,6 +27,7 @@ class DisputeResolution(StrEnum):
     RELEASE_TO_CONTRIBUTOR = "RELEASE_TO_CONTRIBUTOR"
     REFUND_TO_REQUESTER = "REFUND_TO_REQUESTER"
     DISMISSED = "DISMISSED"
+    SPLIT = "SPLIT"  # escrow v2: `contributor_amount` to the contributor, the rest of the position back
 
 
 class Dispute(UUIDPrimaryKey, CreatedAt, Base):
@@ -59,6 +61,8 @@ class Dispute(UUIDPrimaryKey, CreatedAt, Base):
     resolved_by_id: Mapped[uuid.UUID | None] = mapped_column(ForeignKey("users.id", ondelete="SET NULL"))
     resolved_at: Mapped[datetime | None]
     status_before: Mapped[str | None] = mapped_column(String(32))
+    # SPLIT resolutions: what the contributor receives (the rest of their position returns to the requester).
+    contributor_amount: Mapped[Decimal | None] = mapped_column(MONEY)
 
     bounty: Mapped[Bounty] = relationship(lazy="joined", innerjoin=True)
     raised_by: Mapped[User] = relationship(foreign_keys=[raised_by_id], lazy="joined", innerjoin=True)

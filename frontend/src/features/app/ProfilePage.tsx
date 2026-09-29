@@ -1,17 +1,14 @@
 import { zodResolver } from '@hookform/resolvers/zod'
-import { ExternalLink, LoaderCircle, ShieldCheck, Trash2, Wallet } from 'lucide-react'
+import { ExternalLink, LoaderCircle } from 'lucide-react'
 import { useState } from 'react'
 import { useForm } from 'react-hook-form'
 import { Link } from 'react-router'
 import { toast } from 'sonner'
 import { z } from 'zod'
 
-import { WalletButton } from '@/components/chain/WalletButton'
-import { MonoValue } from '@/components/common/MonoValue'
 import { EmptyState } from '@/components/layout/EmptyState'
 import { LoadingState } from '@/components/layout/LoadingState'
 import { PageHeader } from '@/components/layout/PageHeader'
-import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card'
 import { Checkbox } from '@/components/ui/checkbox'
@@ -29,18 +26,17 @@ import { Separator } from '@/components/ui/separator'
 import { Textarea } from '@/components/ui/textarea'
 import { FormErrorAlert } from '@/features/auth/AuthCard'
 import { USERNAME_RE } from '@/features/auth/schemas'
-import { errorMessage } from '@/lib/api/client'
 import { useMe } from '@/lib/api/queries/auth'
-import { usePublicConfig } from '@/lib/api/queries/config'
 import { useUpdateMe } from '@/lib/api/queries/users'
-import { useRemoveWallet, useWallets } from '@/lib/api/queries/wallets'
 import type { Me } from '@/lib/api/types'
-import { formatDate } from '@/lib/format'
 import { applyApiErrors } from '@/lib/form-errors'
-import { accountExplorerUrl, networkDisplayName } from '@/lib/stellar/explorer'
+
+import { WalletAssetsCard } from './assets/WalletAssetsCard'
+import { MyReputationSection } from '@/features/reputation/MyReputationSection'
 
 import { AccountLayout } from './AccountNav'
-import { CardQuery } from './workspace-ui'
+import { LinkedWalletsCard } from './wallets/LinkedWalletsCard'
+import { PasskeyWalletCard } from './wallets/PasskeyWalletCard'
 
 const optionalHttps = z
   .string()
@@ -214,82 +210,6 @@ function ProfileForm({ me }: { me: Me }) {
   )
 }
 
-function WalletsCard() {
-  const query = useWallets()
-  const remove = useRemoveWallet()
-  const { data: config } = usePublicConfig()
-  return (
-    <section id="wallets" aria-labelledby="wallets-h">
-      <Card className="gap-0">
-        <CardHeader className="pb-5">
-          <CardTitle>
-            <h2 id="wallets-h">Linked wallets</h2>
-          </CardTitle>
-          <CardDescription>
-            Payouts go only to a wallet you’ve verified. Verifying signs a one-time proof; nothing is
-            submitted to the network.
-          </CardDescription>
-        </CardHeader>
-        <div className="border-t">
-          <CardQuery
-            query={query}
-            skeleton="app-profile-wallets"
-            rows={1}
-            isEmpty={(d) => d.length === 0}
-            empty={{
-              icon: Wallet,
-              title: 'No wallets linked',
-              description: 'Connect Freighter, then choose “Verify ownership” in the wallet menu.',
-            }}
-          >
-            {(wallets) => (
-              <ul className="divide-y">
-                {wallets.map((w) => (
-                  <li
-                    key={w.id}
-                    className="flex flex-col gap-2 px-5 py-3.5 sm:flex-row sm:items-center sm:justify-between"
-                  >
-                    <div className="min-w-0 space-y-1.5">
-                      <MonoValue
-                        value={w.public_address}
-                        label="wallet address"
-                        href={accountExplorerUrl(config, w.public_address)}
-                      />
-                      <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
-                        <Badge variant="success">
-                          <ShieldCheck aria-hidden /> Ownership verified by signature
-                        </Badge>
-                        {networkDisplayName(w.network)}, verified {formatDate(w.verified_at)}
-                      </div>
-                    </div>
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      className="self-start text-destructive hover:text-destructive sm:self-center"
-                      disabled={remove.isPending}
-                      onClick={() =>
-                        remove.mutate(w.id, {
-                          onSuccess: () => toast.success('Wallet unlinked'),
-                          onError: (e) => toast.error(errorMessage(e)),
-                        })
-                      }
-                    >
-                      <Trash2 /> Unlink
-                    </Button>
-                  </li>
-                ))}
-              </ul>
-            )}
-          </CardQuery>
-        </div>
-        <CardFooter className="px-5 py-3">
-          <WalletButton />
-        </CardFooter>
-      </Card>
-    </section>
-  )
-}
-
 export default function ProfilePage() {
   const { data: me, isPending } = useMe()
   if (isPending) return <LoadingState label="Loading profile" />
@@ -319,7 +239,10 @@ export default function ProfilePage() {
             <ProfileForm me={me} />
           </Card>
         </section>
-        <WalletsCard />
+        <LinkedWalletsCard />
+        <PasskeyWalletCard />
+        <WalletAssetsCard />
+        <MyReputationSection username={me.username} />
       </AccountLayout>
     </div>
   )

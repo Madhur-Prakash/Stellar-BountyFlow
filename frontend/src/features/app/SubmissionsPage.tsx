@@ -4,6 +4,8 @@ import { Link } from 'react-router'
 
 import { SubmitWorkButton } from '@/components/bounty/SubmitWorkDialog'
 import { PaymentStatusBadge, SubmissionStatusBadge } from '@/components/bounty/WorkStatusBadges'
+import { ContributorChainActions } from '@/components/escrow/ContributorChainActions'
+import { ReviewClock } from '@/components/escrow/ReviewClock'
 import { PageHeader } from '@/components/layout/PageHeader'
 import { PaginationBar } from '@/components/layout/PaginationBar'
 import { Button } from '@/components/ui/button'
@@ -19,12 +21,19 @@ const ALL = '__all__'
 
 function BountyLink({ s }: { s: Submission }) {
   return (
-    <Link
-      to={`/bounties/${s.bounty.slug || s.bounty.id}`}
-      className="line-clamp-2 font-medium hover:underline"
-    >
-      {s.bounty.title}
-    </Link>
+    <div className="min-w-0">
+      <Link
+        to={`/bounties/${s.bounty.slug || s.bounty.id}`}
+        className="line-clamp-2 font-medium hover:underline"
+      >
+        {s.bounty.title}
+      </Link>
+      {s.milestone && (
+        <div className="text-xs text-muted-foreground">
+          Milestone {s.milestone.position + 1}: {s.milestone.title}
+        </div>
+      )}
+    </div>
   )
 }
 
@@ -46,6 +55,15 @@ function Revise({ s }: { s: Submission }) {
       size="sm"
       variant="outline"
     />
+  )
+}
+
+function Actions({ s }: { s: Submission }) {
+  return (
+    <div className="flex flex-wrap justify-end gap-2">
+      <ContributorChainActions submission={s} />
+      <Revise s={s} />
+    </div>
   )
 }
 
@@ -120,7 +138,14 @@ export default function SubmissionsPage() {
                   {
                     key: 'status',
                     header: 'Review',
-                    cell: (s) => <SubmissionStatusBadge status={s.status} />,
+                    cell: (s) => (
+                      <div className="flex flex-col items-start gap-1">
+                        <SubmissionStatusBadge status={s.status} />
+                        {s.onchain_review && (
+                          <ReviewClock review={s.onchain_review} perspective="contributor" compact />
+                        )}
+                      </div>
+                    ),
                   },
                   {
                     key: 'payment',
@@ -152,7 +177,7 @@ export default function SubmissionsPage() {
                     key: 'actions',
                     header: <span className="sr-only">Actions</span>,
                     className: 'w-px text-right',
-                    cell: (s) => <Revise s={s} />,
+                    cell: (s) => <Actions s={s} />,
                   },
                 ]}
                 renderMobile={(s) => (
@@ -171,11 +196,10 @@ export default function SubmissionsPage() {
                     {s.review_feedback && (
                       <p className="line-clamp-3 text-sm text-muted-foreground">{s.review_feedback}</p>
                     )}
-                    {s.status === 'REVISION_REQUESTED' && (
-                      <div className="pt-1">
-                        <Revise s={s} />
-                      </div>
-                    )}
+                    {s.onchain_review && <ReviewClock review={s.onchain_review} perspective="contributor" />}
+                    <div className="pt-1">
+                      <Actions s={s} />
+                    </div>
                   </div>
                 )}
               />

@@ -24,11 +24,14 @@ import {
   FormLabel,
   FormMessage,
 } from '@/components/ui/form'
+import { isPullRequestUrl } from '@/components/github/pr-display'
 import { Input } from '@/components/ui/input'
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Textarea } from '@/components/ui/textarea'
 import { errorMessage, isApiError } from '@/lib/api/client'
 import { useCreateSubmission, useUpdateSubmission } from '@/lib/api/queries/submissions'
-import type { Submission } from '@/lib/api/types'
+import { MAX_PULL_REQUESTS, type Milestone, type Submission } from '@/lib/api/types'
+import { formatAmount } from '@/lib/money'
 
 const splitLines = (v: string) =>
   v
@@ -46,6 +49,8 @@ const isHttpUrl = (s: string) => {
 }
 
 const schema = z.object({
+  /** Milestone bounties: the milestone this work is for. */
+  milestone_id: z.string(),
   description: z
     .string()
     .trim()
@@ -59,6 +64,13 @@ const schema = z.object({
     .string()
     .refine((v) => splitLines(v).length <= 10, 'Add at most 10 links.')
     .refine((v) => splitLines(v).every(isHttpUrl), 'Each line must be a full http(s) URL.'),
+  pull_request_urls: z
+    .string()
+    .refine((v) => splitLines(v).length <= MAX_PULL_REQUESTS, `Link at most ${MAX_PULL_REQUESTS} pull requests.`)
+    .refine(
+      (v) => splitLines(v).every(isPullRequestUrl),
+      'Each line must be a GitHub pull request URL, like https://github.com/owner/repo/pull/123.',
+    ),
 })
 
 type Values = z.infer<typeof schema>
@@ -74,6 +86,8 @@ export default function SubmitWorkDialogBody({
   bountyId,
   bountyTitle,
   submission,
+  milestones = [],
+  assetCode,
 }: {
   open: boolean
   onOpenChange: (open: boolean) => void
@@ -81,8 +95,12 @@ export default function SubmitWorkDialogBody({
   bountyTitle: string
   /** Present in revise mode. */
   submission?: Submission | null
+  /** Milestone bounties: the open milestones this contributor can still deliver. */
+  milestones?: Milestone[]
+  assetCode?: string
 }) {
   const revising = !!submission
+  const pickMilestone = !revising && milestones.length > 0
   const create = useCreateSubmission(bountyId)
   const update = useUpdateSubmission()
   const pending = create.isPending || update.isPending
@@ -91,9 +109,11 @@ export default function SubmitWorkDialogBody({
   const form = useForm<Values>({
     resolver: zodResolver(schema),
     values: {
+      milestone_id: milestones.length === 1 ? milestones[0].id : '',
       description: submission?.description ?? '',
       evidence_url: submission?.evidence_url ?? '',
       evidence_links: (submission?.evidence_links ?? []).join('\n'),
+      pull_request_urls: (submission?.pull_requests ?? []).map((pr) => pr.url).join('\n'),
     },
     resetOptions: { keepDirtyValues: true },
   })
@@ -101,10 +121,16 @@ export default function SubmitWorkDialogBody({
   const onSubmit = form.handleSubmit((values) => {
     if (pending) return
     setFormError(null)
+    if (pickMilestone && !values.milestone_id) {
+      form.setError('milestone_id', { message: 'Choose the milestone this work is for.' })
+      return
+    }
     const body = {
+      ...(pickMilestone ? { milestone_id: values.milestone_id } : {}),
       description: values.description,
       evidence_url: values.evidence_url || null,
       evidence_links: splitLines(values.evidence_links),
+      pull_request_urls: splitLines(values.pull_request_urls),
     }
     const onError = (e: unknown) => {
       if (isApiError(e) && e.code === 'validation_error') {
@@ -129,7 +155,11 @@ export default function SubmitWorkDialogBody({
       <DialogContent className="sm:max-w-xl">
         <DialogHeader>
           <DialogTitle>{revising ? 'Send a revised version' : 'Submit your work'}</DialogTitle>
-          <DialogDescription className="line-clamp-2">{bountyTitle}</DialogDescription>
+          <DialogDescription className="line-clamp-2">
+            {revising && submission?.milestone
+              ? `${bountyTitle}, milestone ${submission.milestone.position + 1}: ${submission.milestone.title}`
+              : bountyTitle}
+          </DialogDescription>
         </DialogHeader>
         {revising && submission?.review_feedback && (
           <Alert variant="info">
@@ -141,6 +171,34 @@ export default function SubmitWorkDialogBody({
         )}
         <Form {...form}>
           <form onSubmit={onSubmit} className="space-y-4" noValidate>
+            {pickMilestone && (
+              <FormField
+                control={form.control}
+                name="milestone_id"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Milestone</FormLabel>
+                    <Select value={field.value} onValueChange={field.onChange}>
+                      <FormControl>
+                        <SelectTrigger className="w-full">
+                          <SelectValue placeholder="Choose a milestone" />
+                        </SelectTrigger>
+                      </FormControl>
+                      <SelectContent>
+                        {milestones.map((m) => (
+                          <SelectItem key={m.id} value={m.id}>
+                            {m.position + 1}. {m.title} ({formatAmount(m.amount)}
+                            {assetCode ? ` ${assetCode}` : ''})
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    <FormDescription>Approving this work pays that milestone.</FormDescription>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+            )}
             <FormField
               control={form.control}
               name="description"
@@ -187,6 +245,28 @@ export default function SubmitWorkDialogBody({
                     <Textarea rows={3} className="font-mono text-sm" placeholder="https://…" {...field} />
                   </FormControl>
                   <FormDescription>One URL per line, up to 10.</FormDescription>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+            <FormField
+              control={form.control}
+              name="pull_request_urls"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Pull requests (optional)</FormLabel>
+                  <FormControl>
+                    <Textarea
+                      rows={2}
+                      className="font-mono text-sm"
+                      placeholder="https://github.com/owner/repo/pull/123"
+                      {...field}
+                    />
+                  </FormControl>
+                  <FormDescription>
+                    One per line, up to {MAX_PULL_REQUESTS}. Each is checked with GitHub: the repository, that you
+                    opened it, its state and its checks.
+                  </FormDescription>
                   <FormMessage />
                 </FormItem>
               )}

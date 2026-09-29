@@ -5,10 +5,11 @@ from __future__ import annotations
 import re
 import uuid
 from datetime import datetime
+from typing import Literal
 
-from pydantic import Field, field_validator
+from pydantic import Field, computed_field, field_validator
 
-from app.core.schemas import APIModel, Money, UrlStr
+from app.core.schemas import APIModel, AssetAmount, Money, UrlStr
 from app.modules.users.models import Role
 
 USERNAME_RE = re.compile(r"^[a-z0-9_-]{3,30}$")
@@ -107,6 +108,15 @@ class WalletOut(APIModel):
     verification_status: str
     verified_at: datetime
     created_at: datetime
+    # The wallet app the ownership proof was signed with, and how: sep10, sep53 or sep45.
+    wallet_app: str | None = None
+    proof_method: str | None = None
+    is_primary: bool = False
+
+    @computed_field  # type: ignore[prop-decorator]
+    @property
+    def kind(self) -> Literal["account", "contract"]:
+        return "contract" if self.public_address.startswith("C") else "account"
 
 
 class PublicWallet(APIModel):
@@ -122,8 +132,11 @@ class UserStats(APIModel):
     applications_submitted: int
     acceptance_rate: float | None
     approval_rate: float | None
-    total_rewards_received: Money  # payouts confirmed on-chain
-    total_rewards_paid: Money
+    total_rewards_received: Money  # XLM payouts confirmed on-chain
+    total_rewards_paid: Money  # XLM
+    # Every asset, never added across assets (XLM, USDC, ...).
+    rewards_received_by_asset: list[AssetAmount] = []
+    rewards_paid_by_asset: list[AssetAmount] = []
 
 
 class PublicProfile(APIModel):
@@ -141,16 +154,29 @@ class PublicProfile(APIModel):
     stats: UserStats
 
 
+# Wallet apps a proof may be recorded for (the frontend's wallet ids; "passkey" is a BountyFlow smart wallet).
+WALLET_APP_RE = r"^[a-z0-9][a-z0-9_.-]{1,31}$"
+
+
 class WalletChallengeRequest(APIModel):
     public_address: str = Field(min_length=56, max_length=56)
+    # sep10: sign a challenge transaction (default for G... addresses); sep53: sign a message;
+    # sep45: authorize a contract call (contract accounts, C..., the default for them).
+    method: Literal["sep10", "sep53", "sep45"] | None = None
 
 
 class WalletChallengeResponse(APIModel):
-    challenge_xdr: str
+    method: Literal["sep10", "sep53", "sep45"] = "sep10"
+    challenge_xdr: str | None = None
+    message: str | None = None
+    authorization_entries: str | None = None
     network_passphrase: str
     expires_at: datetime
 
 
 class WalletVerifyRequest(APIModel):
     public_address: str = Field(min_length=56, max_length=56)
-    signed_challenge_xdr: str = Field(min_length=1, max_length=20_000)
+    signed_challenge_xdr: str | None = Field(default=None, min_length=1, max_length=20_000)
+    signed_message: str | None = Field(default=None, min_length=1, max_length=200)
+    signed_authorization_entries: str | None = Field(default=None, min_length=1, max_length=20_000)
+    wallet_app: str | None = Field(default=None, pattern=WALLET_APP_RE)

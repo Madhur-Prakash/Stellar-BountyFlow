@@ -6,7 +6,7 @@ import uuid
 from datetime import datetime
 from enum import StrEnum
 
-from sqlalchemy import ForeignKey, Integer, String, Text, UniqueConstraint
+from sqlalchemy import ForeignKey, Index, Integer, String, Text, UniqueConstraint, text
 from sqlalchemy.dialects.postgresql import ARRAY
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
@@ -24,8 +24,24 @@ class SubmissionStatus(StrEnum):
     REJECTED = "REJECTED"
 
 
+class OnchainReviewState(StrEnum):
+    """The contract's `Review` of this submission (see app/modules/escrow/review_clock.py)."""
+
+    PENDING = "PENDING"  # the review window is running
+    CHANGES_REQUESTED = "CHANGES_REQUESTED"
+    REJECTED = "REJECTED"
+    PAID = "PAID"  # paid on-chain (by the requester or by a claim) after it was recorded
+
+
 class BountySubmission(UUIDPrimaryKey, Timestamps, Base):
     __tablename__ = "bounty_submissions"
+    __table_args__ = (
+        Index(
+            "ix_bounty_submissions_claimable",
+            "claimable_at",
+            postgresql_where=text("onchain_state = 'PENDING' AND claim_notified_at IS NULL"),
+        ),
+    )
 
     bounty_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("bounties.id", ondelete="CASCADE"), index=True)
     contributor_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), index=True)
@@ -42,6 +58,17 @@ class BountySubmission(UUIDPrimaryKey, Timestamps, Base):
     review_feedback: Mapped[str | None] = mapped_column(Text)
     reviewer_id: Mapped[uuid.UUID | None] = mapped_column(ForeignKey("users.id", ondelete="SET NULL"))
     reviewed_at: Mapped[datetime | None]
+    # Escrow v2: the milestone this work is for, and the mirror of its on-chain review clock (`submit_work`).
+    # onchain_state / claimable_at are only written from verified contract state.
+    milestone_id: Mapped[uuid.UUID | None] = mapped_column(
+        ForeignKey("bounty_milestones.id", ondelete="SET NULL"), index=True
+    )
+    onchain_state: Mapped[OnchainReviewState | None] = mapped_column(
+        str_enum(OnchainReviewState, "onchain_review_state")
+    )
+    onchain_submitted_at: Mapped[datetime | None]
+    claimable_at: Mapped[datetime | None]
+    claim_notified_at: Mapped[datetime | None]
 
     bounty: Mapped[Bounty] = relationship(lazy="joined", innerjoin=True)
     contributor: Mapped[User] = relationship(foreign_keys=[contributor_id], lazy="joined", innerjoin=True)

@@ -34,9 +34,13 @@ CSRF_EXEMPT = {
     ("post", "/auth/forgot-password"),
     ("post", "/auth/reset-password"),
     ("post", "/auth/verify-email"),
+    ("post", "/saved-searches/unsubscribe"),  # authorised by the signed token from the alert email
+    ("post", "/credentials/verify"),  # public, cookie-free and side-effect free
+    ("post", "/github/webhook"),  # server-to-server, authenticated by its HMAC-SHA256 signature
 }
 
 PUBLIC = CSRF_EXEMPT | {
+    ("get", "/skills/related"),
     ("post", "/auth/logout"),
     ("get", "/config/public"),
     ("get", "/bounties"),
@@ -51,6 +55,18 @@ PUBLIC = CSRF_EXEMPT | {
     ("get", "/users/{username}/contributions"),
     ("get", "/users/{username}/stats"),
     ("get", "/analytics/public"),
+    ("get", "/legal/versions"),
+    ("get", "/users/{username}/reputation"),
+    ("get", "/users/{username}/attestations"),
+    ("get", "/attestations/{attestation_ref}"),
+    ("get", "/credentials/issuer"),
+    ("get", "/credentials/status/revocation"),
+    ("get", "/bounties/{bounty_ref}/questions"),
+    ("get", "/github/config"),
+    ("get", "/users/{username}/github"),
+    ("get", "/escrow/config"),
+    ("get", "/bounties/{bounty_id}/milestones"),
+    ("get", "/assets"),  # the reward asset registry: shown on the marketplace filter to anyone
 }
 
 STAFF_ONLY_EXTRA = {

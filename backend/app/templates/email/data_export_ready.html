@@ -1,0 +1,19 @@
+{% extends "base.html" %}
+{% block preheader %}Your {{ app_name }} data export is ready to download.{% endblock %}
+{% block eyebrow %}Privacy{% endblock %}
+{% block heading %}Your data export is ready{% endblock %}
+{% block content %}
+<p style="margin:0 0 16px 0; font-size:16px; line-height:24px; color:#1B2437;">
+  The copy of your {{ app_name }} data you asked for is ready. It is a JSON file with your profile, bounties,
+  applications, submissions, payments, wallets, notifications and account activity.
+</p>
+<p style="margin:0 0 16px 0; font-size:16px; line-height:24px; color:#1B2437;">
+  Sign in and download it from your privacy settings before {{ expires_at }}.
+</p>
+{% endblock %}
+{% block after_action %}
+<p style="margin:0; font-size:14px; line-height:22px; color:#5B6784;">
+  If you did not ask for this export, change your password and review your active sessions.
+</p>
+{% endblock %}
+{% block footer %}You are receiving this email because a data export was requested for your {{ app_name }} account.{% endblock %}

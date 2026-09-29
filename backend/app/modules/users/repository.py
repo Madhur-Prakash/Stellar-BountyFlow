@@ -3,11 +3,13 @@
 from __future__ import annotations
 
 import uuid
+from collections.abc import Sequence
 from decimal import Decimal
 
-from sqlalchemy import Select, and_, func, select
+from sqlalchemy import Select, and_, func, literal_column, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.schemas import asset_amounts
 from app.modules.applications.models import (
     ApplicationStatus,
     AssignmentStatus,
@@ -86,9 +88,30 @@ async def primary_wallet(session: AsyncSession, user_id: uuid.UUID, network: str
             Wallet.network == network,
             Wallet.verification_status == WalletVerificationStatus.VERIFIED,
         )
-        .order_by(Wallet.verified_at.desc())
+        # An explicit payout choice first, otherwise the most recently verified wallet.
+        .order_by(Wallet.is_primary.desc(), Wallet.verified_at.desc())
         .limit(1)
     )
+
+
+async def primary_wallets(
+    session: AsyncSession, user_ids: Sequence[uuid.UUID], network: str
+) -> dict[uuid.UUID, Wallet]:
+    """``primary_wallet`` for several users in one query (DISTINCT ON keeps the same choice per user), so a list
+    view never asks per row."""
+    if not user_ids:
+        return {}
+    rows = await session.scalars(
+        select(Wallet)
+        .where(
+            Wallet.user_id.in_(user_ids),
+            Wallet.network == network,
+            Wallet.verification_status == WalletVerificationStatus.VERIFIED,
+        )
+        .distinct(Wallet.user_id)
+        .order_by(Wallet.user_id, Wallet.is_primary.desc(), Wallet.verified_at.desc())
+    )
+    return {wallet.user_id: wallet for wallet in rows.all()}
 
 
 async def has_taken_first_action(session: AsyncSession, user_id: uuid.UUID) -> bool:
@@ -139,15 +162,25 @@ async def compute_stats(session: AsyncSession, user_id: uuid.UUID) -> dict[str, 
         )
     ).one()
     confirmed = PaymentRecord.payment_status == PaymentStatus.CONFIRMED
-    received = await session.scalar(
-        select(func.coalesce(func.sum(PaymentRecord.amount), 0)).where(
-            PaymentRecord.contributor_id == user_id, confirmed
-        )
+    asset = func.coalesce(PaymentRecord.asset_identifier, literal_column("'native'"))
+    received = dict(
+        (
+            await session.execute(
+                select(asset, func.sum(PaymentRecord.amount))
+                .where(PaymentRecord.contributor_id == user_id, confirmed)
+                .group_by(asset)
+            )
+        ).all()
     )
-    paid = await session.scalar(
-        select(func.coalesce(func.sum(PaymentRecord.amount), 0))
-        .join(Bounty, Bounty.id == PaymentRecord.bounty_id)
-        .where(and_(Bounty.requester_id == user_id, confirmed))
+    paid = dict(
+        (
+            await session.execute(
+                select(asset, func.sum(PaymentRecord.amount))
+                .join(Bounty, Bounty.id == PaymentRecord.bounty_id)
+                .where(and_(Bounty.requester_id == user_id, confirmed))
+                .group_by(asset)
+            )
+        ).all()
     )
     total_apps, accepted, decided = app_row
     approved, reviewed = sub_row
@@ -158,6 +191,8 @@ async def compute_stats(session: AsyncSession, user_id: uuid.UUID) -> dict[str, 
         "applications_submitted": total_apps,
         "acceptance_rate": round(accepted / decided, 4) if decided else None,
         "approval_rate": round(approved / reviewed, 4) if reviewed else None,
-        "total_rewards_received": Decimal(received or 0),
-        "total_rewards_paid": Decimal(paid or 0),
+        "total_rewards_received": Decimal(received.get("native") or 0),
+        "total_rewards_paid": Decimal(paid.get("native") or 0),
+        "rewards_received_by_asset": asset_amounts(received),
+        "rewards_paid_by_asset": asset_amounts(paid),
     }

@@ -28,6 +28,7 @@ import { networkDisplayName } from '@/lib/stellar/explorer'
 import { cn } from '@/lib/utils'
 
 import { HealthBadge } from './admin-shared'
+import { SponsorshipCard } from './SponsorshipCard'
 
 type Area = {
   to: string
@@ -281,6 +282,7 @@ function OverviewContent({ data, me }: { data: AdminOverview; me: Me | null | un
         <ServicesCard data={data} />
         <AdminAreas me={me} />
       </div>
+      <SponsorshipCard />
     </div>
   )
 }

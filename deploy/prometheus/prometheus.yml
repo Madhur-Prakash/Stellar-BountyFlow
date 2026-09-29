@@ -1,0 +1,48 @@
+# Prometheus configuration for BountyFlow.
+#
+# The API serves GET /metrics at the origin root, outside /api/v1, and answers only:
+#   * requests with `Authorization: Bearer <METRICS_TOKEN>`, or
+#   * direct loopback requests when no METRICS_TOKEN is configured.
+# Anything else gets 404, so a missing or wrong token looks like a missing endpoint, not a 401.
+#
+# The token is read from a file so it never appears in this config or in the Prometheus UI. With the bundled
+# docker-compose.observability.yml that file is created from the METRICS_TOKEN environment variable.
+#
+#   docker compose -f docker-compose.yml -f docker-compose.observability.yml up -d prometheus grafana
+#
+# Check this file with: promtool check config deploy/prometheus/prometheus.yml
+
+global:
+  scrape_interval: 15s
+  scrape_timeout: 10s
+  evaluation_interval: 15s
+  external_labels:
+    deployment: bountyflow
+
+rule_files:
+  - /etc/prometheus/alerts.yml
+
+alerting:
+  alertmanagers:
+    # No Alertmanager ships with the local stack. Point this at yours (and see
+    # docs/runbooks/on-call.md for who each severity pages).
+    - static_configs:
+        - targets: []
+
+scrape_configs:
+  - job_name: bountyflow-api
+    metrics_path: /metrics
+    scheme: http
+    # METRICS_TOKEN. Prometheus re-reads the file on every scrape, so rotating the token is a file write plus an
+    # API restart — no Prometheus reload needed. See docs/runbooks/secret-rotation.md.
+    bearer_token_file: /etc/prometheus-secrets/metrics-token
+    static_configs:
+      - targets:
+          - api:8000
+        labels:
+          service: bountyflow-api
+
+  - job_name: prometheus
+    static_configs:
+      - targets:
+          - localhost:9090

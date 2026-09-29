@@ -13,6 +13,7 @@ from pydantic import Field, field_validator, model_validator
 from app.core.schemas import APIModel, Asset, Money, MoneyInput, UrlStr, UserSummary
 from app.modules.applications.models import ApplicationStatus
 from app.modules.bounties.models import BountyStatus, Category, Difficulty, Visibility
+from app.modules.escrow.schemas import MilestoneInput, MilestoneOut
 from app.modules.users.schemas import normalize_tags
 
 
@@ -63,6 +64,8 @@ class _BountyContent(APIModel):
     acceptance_criteria: str | None = Field(default=None, max_length=5000)
     repository_url: UrlStr | None = None
     links: list[Link] = Field(default_factory=list, max_length=10)
+    # Approval then needs a merged pull request, verified through GitHub, from the contributor.
+    require_merged_pr: bool = False
     visibility: Visibility = Visibility.PUBLIC
 
     @field_validator("tags")
@@ -88,8 +91,13 @@ class _BountyContent(APIModel):
 
 class BountyCreate(_BountyContent):
     reward_amount: MoneyInput
-    reward_asset: Literal["XLM"] = "XLM"
+    # "native"/"XLM" or an enabled registry asset ("CODE:ISSUER", or its code when unambiguous).
+    reward_asset: str | None = Field(default=None, max_length=80)
     positions_available: int = Field(default=1, ge=1, le=100)
+    # Escrow v2: seconds the requester has to answer recorded work (None = the server default), and an optional
+    # split of a single-position reward into milestones that add up to it.
+    review_window_seconds: int | None = Field(default=None, ge=60, le=2_592_000)
+    milestones: list[MilestoneInput] = Field(default_factory=list, max_length=20)
 
     @model_validator(mode="after")
     def _deadlines(self) -> BountyCreate:
@@ -116,6 +124,7 @@ class BountyUpdate(APIModel):
     tags: list[str] | None = None
     required_skills: list[str] | None = None
     reward_amount: MoneyInput | None = None
+    reward_asset: str | None = Field(default=None, max_length=80)
     positions_available: int | None = Field(default=None, ge=1, le=100)
     application_deadline: datetime | None = None
     completion_deadline: datetime | None = None
@@ -124,7 +133,10 @@ class BountyUpdate(APIModel):
     acceptance_criteria: str | None = Field(default=None, max_length=5000)
     repository_url: UrlStr | None = None
     links: list[Link] | None = Field(default=None, max_length=10)
+    require_merged_pr: bool | None = None
     visibility: Visibility | None = None
+    review_window_seconds: int | None = Field(default=None, ge=60, le=2_592_000)
+    milestones: list[MilestoneInput] | None = Field(default=None, max_length=20)
 
     _tags = field_validator("tags")(classmethod(lambda cls, v: normalize_tags(v, max_items=10) if v else v))
     _skills = field_validator("required_skills")(
@@ -166,6 +178,11 @@ class EscrowView(APIModel):
     state: str
     last_reconciled_at: datetime | None
     explorer_url: str | None = None
+    # Escrow v2: the deployment this escrow lives on and its dispute terms.
+    contract_version: int = 1
+    arbiter_addresses: list[str] = Field(default_factory=list)
+    arbiter_threshold: int = 1
+    review_window_seconds: int | None = None
 
 
 class BountySummary(APIModel):
@@ -194,6 +211,7 @@ class BountySummary(APIModel):
     is_hidden: bool = False  # true only for moderator-hidden bounties (visible to owners and staff)
     created_at: datetime
     published_at: datetime | None
+    questions_count: int = 0  # visible Q&A questions (modules/qa)
 
 
 class ViewerApplication(APIModel):
@@ -217,11 +235,14 @@ class BountyDetail(BountySummary):
     submission_requirements: str | None
     acceptance_criteria: str | None
     repository_url: str | None
+    require_merged_pr: bool = False
     links: list[Link]
     visibility: Visibility
     escrow: EscrowView | None
     cancel_reason: str | None = None
     viewer: Viewer | None = None
+    milestones: list[MilestoneOut] = Field(default_factory=list)
+    review_window_seconds: int | None = None
 
 
 class ActivityBounty(APIModel):
@@ -254,6 +275,7 @@ class MarketplaceFilters(APIModel):
     deadline_before: datetime | None = None
     deadline_after: datetime | None = None
     funded_only: bool = False
+    asset: list[str] | None = None  # reward asset identifiers ("native", "CODE:ISSUER")
     sort: SortOption | None = None
 
     @field_validator("q")

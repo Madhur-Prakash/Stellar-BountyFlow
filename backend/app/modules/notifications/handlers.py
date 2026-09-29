@@ -9,6 +9,7 @@ from __future__ import annotations
 import uuid
 from collections.abc import Callable, Iterable
 from dataclasses import dataclass, field
+from datetime import datetime
 from typing import Any
 
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -57,6 +58,7 @@ def bounty_submissions_link(bounty_id: Any) -> str:
 MY_APPLICATIONS_LINK = "/app/applications"
 MY_SUBMISSIONS_LINK = "/app/submissions"
 MY_PAYMENTS_LINK = "/app/payments"
+WALLET_ASSETS_LINK = "/app/profile#assets"
 
 
 # --- Helpers ------------------------------------------------------------------------------
@@ -99,6 +101,7 @@ _PAYLOAD_KEYS = (
     "dispute_id",
     "transaction_id",
     "amount",
+    "asset_code",
     "status",
     "version",
     "resolution",
@@ -419,6 +422,225 @@ def _refund_confirmed(p: dict[str, Any]) -> Iterable[NotificationSpec | None]:
         f"{_amount(p)} from the escrow of {_quote(p['title'])} was refunded to your wallet.",
         MY_PAYMENTS_LINK,
     )
+
+
+@_builder(EventType.ASSET_TRUSTLINE_REQUIRED)
+def _trustline_required(p: dict[str, Any]) -> Iterable[NotificationSpec | None]:
+    code = p.get("asset_code") or "the reward asset"
+    step = "be paid" if p.get("stage") == "payout" else "be selected"
+    yield _spec(
+        p["contributor_id"],
+        NotificationType.SYSTEM,
+        f"Add a {code} trustline",
+        f"{_quote(p['title'])} pays in {code}. Add a {code} trustline to your wallet so you can {step}.",
+        WALLET_ASSETS_LINK,
+    )
+
+
+# --- Bounty Q&A -------------------------------------------------------------------------------------
+
+
+def _qa_link(p: dict[str, Any]) -> str:
+    return str(p.get("link") or public_bounty_link(p["bounty_id"]))
+
+
+@_builder(EventType.QA_QUESTION_CREATED)
+def _question_created(p: dict[str, Any]) -> Iterable[NotificationSpec | None]:
+    yield _spec(
+        p["requester_id"],
+        NotificationType.QUESTION_RECEIVED,
+        "New question",
+        f"Someone asked a question about {_quote(p['title'])}.",
+        _qa_link(p),
+    )
+
+
+@_builder(EventType.QA_REPLY_CREATED)
+def _reply_created(p: dict[str, Any]) -> Iterable[NotificationSpec | None]:
+    by_requester = bool(p.get("is_requester_answer"))
+    for recipient in [p.get("asker_id"), *_uuids(p.get("participant_ids"))]:
+        yield _spec(
+            recipient,
+            NotificationType.QUESTION_REPLY,
+            "The requester answered" if by_requester else "New reply",
+            (
+                f"The requester replied in a question thread on {_quote(p['title'])}."
+                if by_requester
+                else f"There is a new reply in a question thread on {_quote(p['title'])}."
+            ),
+            _qa_link(p),
+        )
+
+
+@_builder(EventType.QA_REPLY_ACCEPTED)
+def _reply_accepted(p: dict[str, Any]) -> Iterable[NotificationSpec | None]:
+    yield _spec(
+        p.get("author_id"),
+        NotificationType.ANSWER_ACCEPTED,
+        "Your answer was accepted",
+        f"The requester accepted your reply as the answer on {_quote(p['title'])}.",
+        _qa_link(p),
+    )
+    yield _spec(
+        p.get("asker_id"),
+        NotificationType.ANSWER_ACCEPTED,
+        "Your question has an answer",
+        f"The requester accepted an answer to your question on {_quote(p['title'])}.",
+        _qa_link(p),
+    )
+
+
+@_builder(EventType.QA_POST_HIDDEN)
+def _post_hidden(p: dict[str, Any]) -> Iterable[NotificationSpec | None]:
+    yield _spec(
+        p.get("author_id"),
+        NotificationType.SYSTEM,
+        "Your post was hidden",
+        f"A moderator hid your post on {_quote(p['title'])}.",
+        _qa_link(p),
+    )
+
+
+# --- GitHub pull requests ---------------------------------------------------------------------------
+
+
+@_builder(EventType.SUBMISSION_PULL_REQUEST_UPDATED)
+def _pull_request_updated(p: dict[str, Any]) -> Iterable[NotificationSpec | None]:
+    label = f"{p.get('repository')}#{p.get('number')}"
+    if p.get("state") == "MERGED":
+        yield _spec(
+            p["requester_id"],
+            NotificationType.PULL_REQUEST_UPDATE,
+            "Pull request merged",
+            f"{label}, linked to a submission for {_quote(p['title'])}, was merged.",
+            bounty_submissions_link(p["bounty_id"]),
+        )
+        yield _spec(
+            p["contributor_id"],
+            NotificationType.PULL_REQUEST_UPDATE,
+            "Pull request merged",
+            f"Your pull request {label} for {_quote(p['title'])} was merged.",
+            MY_SUBMISSIONS_LINK,
+        )
+    elif p.get("state") == "CLOSED":
+        yield _spec(
+            p["contributor_id"],
+            NotificationType.PULL_REQUEST_UPDATE,
+            "Pull request closed",
+            f"Your pull request {label} for {_quote(p['title'])} was closed without being merged.",
+            MY_SUBMISSIONS_LINK,
+        )
+        yield _spec(
+            p["requester_id"],
+            NotificationType.PULL_REQUEST_UPDATE,
+            "Pull request closed",
+            f"{label}, linked to a submission for {_quote(p['title'])}, was closed without being merged.",
+            bounty_submissions_link(p["bounty_id"]),
+        )
+
+
+# --- On-chain attestations ------------------------------------------------------------------
+
+MY_REPUTATION_LINK = "/app/profile#reputation"
+
+
+@_builder(EventType.ATTESTATION_CONFIRMED)
+def _attestation_confirmed(p: dict[str, Any]) -> Iterable[NotificationSpec | None]:
+    yield _spec(
+        p["contributor_id"],
+        NotificationType.SYSTEM,
+        "Completion recorded on-chain",
+        f"Your completion of {_quote(p['title'])} is now attested on-chain. You can download a credential for it.",
+        MY_REPUTATION_LINK,
+    )
+
+
+@_builder(EventType.ATTESTATION_REVOKED)
+def _attestation_revoked(p: dict[str, Any]) -> Iterable[NotificationSpec | None]:
+    yield _spec(
+        p["contributor_id"],
+        NotificationType.SYSTEM,
+        "Attestation revoked",
+        f"The on-chain attestation of your completion of {_quote(p['title'])} was revoked.",
+        MY_REPUTATION_LINK,
+    )
+
+
+# --- Escrow v2: review clock, milestones and arbiter approvals -------------------------------------
+
+
+def _when(value: Any) -> str:
+    """``2026-10-06T12:00:00+00:00`` -> ``6 Oct 2026, 12:00 UTC``."""
+    try:
+        moment = datetime.fromisoformat(str(value))
+    except ValueError:
+        return "the end of the review window"
+    return f"{moment.day} {moment:%b %Y, %H:%M} UTC"
+
+
+@_builder(EventType.SUBMISSION_ONCHAIN_RECORDED)
+def _submission_onchain(p: dict[str, Any]) -> Iterable[NotificationSpec | None]:
+    yield _spec(
+        p["requester_id"],
+        NotificationType.SUBMISSION_RECEIVED,
+        "Review window started",
+        f"Work for {_quote(p['title'])} is recorded on-chain. Answer it before {_when(p.get('claimable_at'))}, "
+        "or the contributor can claim the payment.",
+        bounty_submissions_link(p["bounty_id"]),
+    )
+
+
+@_builder(EventType.SUBMISSION_CLAIM_AVAILABLE)
+def _claim_available(p: dict[str, Any]) -> Iterable[NotificationSpec | None]:
+    yield _spec(
+        p["contributor_id"],
+        NotificationType.CLAIM_AVAILABLE,
+        "Payment ready to claim",
+        f"The review window for your work on {_quote(p['title'])} passed without an answer. You can claim the "
+        "payment now.",
+        MY_SUBMISSIONS_LINK,
+    )
+    yield _spec(
+        p["requester_id"],
+        NotificationType.CLAIM_AVAILABLE,
+        "Review window passed",
+        f"The review window for work on {_quote(p['title'])} passed. The contributor can now claim the payment; "
+        "you can still pay it yourself.",
+        bounty_submissions_link(p["bounty_id"]),
+    )
+
+
+@_builder(EventType.MILESTONE_PAID)
+def _milestone_paid(p: dict[str, Any]) -> Iterable[NotificationSpec | None]:
+    amount = _amount(p)
+    milestone = _quote(p.get("milestone_title"))
+    yield _spec(
+        p.get("contributor_id"),
+        NotificationType.MILESTONE_PAID,
+        "Milestone paid",
+        f"You received {amount} for the milestone {milestone} of {_quote(p['title'])}.",
+        MY_PAYMENTS_LINK,
+    )
+    yield _spec(
+        p["requester_id"],
+        NotificationType.MILESTONE_PAID,
+        "Milestone payout confirmed",
+        f"The {amount} payout for the milestone {milestone} of {_quote(p['title'])} is confirmed.",
+        bounty_submissions_link(p["bounty_id"]),
+    )
+
+
+@_builder(EventType.DISPUTE_VOTE_RECORDED)
+def _dispute_vote(p: dict[str, Any]) -> Iterable[NotificationSpec | None]:
+    approvals, threshold = int(p.get("approvals") or 0), int(p.get("threshold") or 1)
+    if approvals >= threshold:
+        title = "Dispute decision executed"
+        message = f"The arbiters' decision on {_quote(p['title'])} was executed on-chain."
+    else:
+        title = "Arbiter approval recorded"
+        message = f"{approvals} of {threshold} arbiter approvals are recorded for the dispute on {_quote(p['title'])}."
+    for party in (p.get("requester_id"), p.get("contributor_id")):
+        yield _spec(party, NotificationType.ARBITER_VOTE, title, message, manage_bounty_link(p["bounty_id"]))
 
 
 HANDLED_EVENT_TYPES: tuple[str, ...] = tuple(_BUILDERS)

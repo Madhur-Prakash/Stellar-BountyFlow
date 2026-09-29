@@ -18,6 +18,7 @@ from app.core.middleware import (
 )
 from app.core.security import CSRF_HEADER
 from app.lifespan import lifespan
+from app.modules.ops.middleware import MetricsMiddleware
 
 
 def create_app() -> FastAPI:
@@ -52,6 +53,7 @@ def create_app() -> FastAPI:
     )
     app.add_middleware(BodySizeLimitMiddleware, max_bytes=settings.max_request_body_bytes)
     app.add_middleware(RequestContextMiddleware)
+    app.add_middleware(MetricsMiddleware)  # outermost: measures the whole request
     app.include_router(build_router())
     return app
 

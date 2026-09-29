@@ -1,0 +1,36 @@
+{% extends "base.html" %}
+{% block preheader %}{{ bounty.title }}{% endblock %}
+{% block eyebrow %}Saved search{% endblock %}
+{% block heading %}A new bounty matches your saved search{% endblock %}
+{% block content %}
+<p style="margin:0 0 16px 0; font-size:16px; line-height:24px; color:#1B2437;">
+  {% if searches|length == 1 %}It matches &ldquo;{{ searches[0].name }}&rdquo;.{% else %}It matches {{ searches|length }} of your saved searches.{% endif %}
+</p>
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="margin:8px 0 16px 0; background-color:#F6F8FC; border:1px solid #E3E8F2; border-radius:8px;">
+  <tr>
+    <td style="padding:16px 16px 4px 16px; font-size:16px; line-height:22px; font-weight:600;">
+      <a href="{{ bounty.url }}" style="color:#0B1631; text-decoration:none;">{{ bounty.title }}</a>
+    </td>
+  </tr>
+  <tr>
+    <td style="padding:0 16px 12px 16px; font-size:14px; line-height:20px; color:#5B6784;">{{ bounty.summary }}</td>
+  </tr>
+  <tr>
+    <td style="padding:10px 16px; border-top:1px solid #E3E8F2; font-size:13px; line-height:20px; color:#5B6784;">
+      Reward <strong style="color:#0B1631;">{{ bounty.reward }}</strong>{% if bounty.closes %} &nbsp;&nbsp; Applications close <strong style="color:#0B1631;">{{ bounty.closes }}</strong>{% endif %}
+      {% if bounty.skills %}<br>Skills: {{ bounty.skills }}{% endif %}
+    </td>
+  </tr>
+</table>
+{% endblock %}
+{% block after_action %}
+<p style="margin:0; font-size:13px; line-height:20px; color:#5B6784;">
+  {% for search in searches %}
+  Alerts for &ldquo;{{ search.name }}&rdquo;: <a href="{{ search.unsubscribe_url }}" style="color:#4C7DFF;">unsubscribe</a>{% if not loop.last %}<br>{% endif %}
+  {% endfor %}
+</p>
+{% endblock %}
+{% block footer %}
+You are receiving this email because you saved a search on BountyFlow with email alerts.
+Manage your <a href="{{ manage_url }}" style="color:#4C7DFF;">saved searches</a> or your <a href="{{ preferences_url }}" style="color:#4C7DFF;">notification settings</a>.
+{% endblock %}

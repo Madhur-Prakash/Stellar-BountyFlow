@@ -22,4 +22,17 @@ pub enum Error {
     AssignmentsOutstanding = 14,
     Overflow = 15,
     InvalidArbiter = 16,
+    // --- v2 ---
+    InvalidThreshold = 17,
+    InvalidReviewWindow = 18,
+    InvalidMilestones = 19,
+    InvalidMilestone = 20,
+    MilestoneAlreadyPaid = 21,
+    ReviewPending = 22,
+    NoPendingReview = 23,
+    ReviewWindowOpen = 24,
+    ReviewWindowElapsed = 25,
+    WorkRejected = 26,
+    InvalidResolution = 27,
+    InvalidBatch = 28,
 }

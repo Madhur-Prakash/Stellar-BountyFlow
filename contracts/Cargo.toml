@@ -1,6 +1,6 @@
 [workspace]
 resolver = "2"
-members = ["bounty_escrow"]
+members = ["bounty_escrow", "attestations", "web_auth"]
 
 [workspace.package]
 version = "0.1.0"

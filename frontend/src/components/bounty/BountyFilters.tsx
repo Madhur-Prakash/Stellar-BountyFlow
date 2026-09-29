@@ -15,6 +15,7 @@ import {
   type DeadlineWindow,
   type MarketplaceFilters,
 } from '@/features/public/marketplace/marketplace-params'
+import { useRewardAssets } from '@/lib/api/queries/assets'
 import { CATEGORIES, DIFFICULTIES, type BountyStatus, type Category, type Difficulty } from '@/lib/api/types'
 import { BOUNTY_STATUS_LABELS, CATEGORY_LABELS, DIFFICULTY_LABELS } from '@/lib/format'
 import { compareAmounts, isValidAmount } from '@/lib/money'
@@ -98,10 +99,13 @@ function SkillsInput({ skills, onChange }: { skills: string[]; onChange: (skills
 function RewardRange({
   min,
   max,
+  unit,
   onChange,
 }: {
   min: string
   max: string
+  /** Asset code of the selected reward asset; the range applies to it. */
+  unit: string | null
   onChange: (range: { minReward: string; maxReward: string }) => void
 }) {
   const id = useId()
@@ -122,7 +126,7 @@ function RewardRange({
   }
 
   return (
-    <Section title="Reward per position (XLM)">
+    <Section title={unit ? `Reward per position (${unit})` : 'Reward per position'}>
       <div className="grid grid-cols-2 gap-2">
         <div className="space-y-1.5">
           <Label htmlFor={`${id}-min`} className="text-xs font-normal text-muted-foreground">
@@ -168,6 +172,38 @@ function RewardRange({
   )
 }
 
+function RewardAssetFilter({
+  id,
+  value,
+  onChange,
+}: {
+  id: string
+  value: string | null
+  onChange: (asset: string | null) => void
+}) {
+  const { data: assets = [] } = useRewardAssets()
+  return (
+    <Section title="Reward asset" htmlFor={id}>
+      <Select value={value ?? ALL} onValueChange={(v) => onChange(v === ALL ? null : v)}>
+        <SelectTrigger id={id} className="w-full">
+          <SelectValue />
+        </SelectTrigger>
+        <SelectContent>
+          <SelectItem value={ALL}>All assets</SelectItem>
+          {value && !assets.some((a) => a.asset.identifier === value) && (
+            <SelectItem value={value}>{value === 'native' ? 'XLM' : value.split(':')[0]}</SelectItem>
+          )}
+          {assets.map((a) => (
+            <SelectItem key={a.id} value={a.asset.identifier}>
+              {a.asset.code}
+            </SelectItem>
+          ))}
+        </SelectContent>
+      </Select>
+    </Section>
+  )
+}
+
 /**
  * Marketplace filter panel. Controlled: every change is pushed to the URL by
  * the page, so filtered views are shareable and survive reloads.
@@ -186,6 +222,10 @@ export function BountyFilters({
 }) {
   const baseId = useId()
   const count = activeFilterCount(filters)
+  const { data: assets } = useRewardAssets()
+  const assetUnit = filters.asset
+    ? (assets?.find((a) => a.asset.identifier === filters.asset)?.asset.code ?? null)
+    : null
   const set = (patch: Partial<MarketplaceFilters>) => onChange({ ...patch, page: 1 })
   // Text inputs keep local drafts; remount them when their committed value changes externally.
   const rangeKey = `${filters.minReward}|${filters.maxReward}`
@@ -271,7 +311,19 @@ export function BountyFilters({
           </Select>
         </Section>
 
-        <RewardRange key={rangeKey} min={filters.minReward} max={filters.maxReward} onChange={set} />
+        <RewardAssetFilter
+          id={`${baseId}-asset`}
+          value={filters.asset}
+          onChange={(asset) => set({ asset })}
+        />
+
+        <RewardRange
+          key={rangeKey}
+          min={filters.minReward}
+          max={filters.maxReward}
+          unit={assetUnit}
+          onChange={set}
+        />
 
         <SkillsInput skills={filters.skills} onChange={(skills) => set({ skills })} />
 

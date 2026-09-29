@@ -2,8 +2,11 @@
 
 from __future__ import annotations
 
+from pydantic import Field
+
 from app.core.schemas import APIModel
 from app.modules.bounties.schemas import ActivityItem, BountySummary
+from app.modules.discovery.schemas import RecommendationReason
 
 
 class Dashboard(APIModel):
@@ -17,3 +20,5 @@ class Dashboard(APIModel):
     recent_completed: list[BountySummary]
     recent_activity: list[ActivityItem]
     recommendations: list[BountySummary]
+    # Why each recommendation was chosen (the skills it matches), keyed by bounty id.
+    recommendation_reasons: dict[str, RecommendationReason] = Field(default_factory=dict)

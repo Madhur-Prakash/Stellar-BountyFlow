@@ -1,0 +1,20 @@
+{% extends "base.html" %}
+{% block preheader %}Your {{ app_name }} account is scheduled for deletion on {{ scheduled_for }}.{% endblock %}
+{% block eyebrow %}Privacy{% endblock %}
+{% block heading %}Your account is scheduled for deletion{% endblock %}
+{% block content %}
+<p style="margin:0 0 16px 0; font-size:16px; line-height:24px; color:#1B2437;">
+  We received a request to delete your {{ app_name }} account. It will be deleted on {{ scheduled_for }}.
+  Until then you can cancel the request from your privacy settings.
+</p>
+<p style="margin:0 0 16px 0; font-size:16px; line-height:24px; color:#1B2437;">
+  After deletion your profile, email address and content are erased. Payment records and on-chain transactions
+  are kept under a pseudonym, because the law requires financial records to be kept.
+</p>
+{% endblock %}
+{% block after_action %}
+<p style="margin:0; font-size:14px; line-height:22px; color:#5B6784;">
+  If you did not ask for this, cancel the deletion and change your password.
+</p>
+{% endblock %}
+{% block footer %}You are receiving this email because deletion was requested for your {{ app_name }} account.{% endblock %}

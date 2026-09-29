@@ -52,6 +52,13 @@ def apply_snapshot(escrow: BountyEscrow, snapshot: EscrowSnapshot | None) -> lis
         _set("requester_address", snapshot.requester)
         _set("arbiter_address", snapshot.arbiter)
         _set("onchain_deadline", snapshot.deadline)
+        # v2 terms and clocks (a v1 escrow reads as one arbiter, threshold 1).
+        _set("arbiter_addresses", list(snapshot.arbiter_set))
+        _set("arbiter_threshold", snapshot.threshold)
+        if snapshot.review_window:
+            _set("review_window_seconds", snapshot.review_window)
+        _set("dispute_round", snapshot.dispute_round)
+        _set("clock_reset_at", snapshot.clock_reset_at or None)
     escrow.last_reconciled_at = utcnow()
     return changed
 
@@ -68,7 +75,7 @@ def matches_prepared_creation(
     be reconciled into the database (it could hold a worthless token or name an attacker-controlled arbiter).
     """
     try:
-        return (
+        v1_terms = (
             create_args.get("bounty_id") == bounty_id_hex
             and create_args.get("requester") == snapshot.requester
             and create_args.get("token") == snapshot.token
@@ -77,5 +84,19 @@ def matches_prepared_creation(
             and int(create_args["positions"]) == snapshot.positions
             and int(create_args["deadline"]) == snapshot.deadline
         )
+        if not v1_terms:
+            return False
+        # v2 terms: the whole arbiter set, its threshold, the review window and the milestones. A v1-style
+        # `create_escrow` prepared by BountyFlow always means one arbiter, threshold 1 and no milestones.
+        arbiters = tuple(create_args.get("arbiters") or [create_args["arbiter"]])
+        milestones = tuple(int(m) for m in create_args.get("milestones") or [])
+        if (
+            snapshot.arbiter_set != arbiters
+            or snapshot.threshold != int(create_args.get("threshold", 1))
+            or tuple(amount for amount, _ in snapshot.milestones) != milestones
+        ):
+            return False
+        window = create_args.get("review_window")
+        return window is None or snapshot.review_window == int(window)
     except (KeyError, TypeError, ValueError):
         return False

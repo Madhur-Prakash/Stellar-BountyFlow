@@ -30,6 +30,12 @@ CSRF_EXEMPT_SUFFIXES = (
     "/auth/forgot-password",
     "/auth/reset-password",
     "/auth/verify-email",
+    # Authorised by the signed token in the alert email (no session); it can only turn a search's alerts off.
+    "/saved-searches/unsubscribe",
+    # Server-to-server from GitHub, authenticated by the HMAC-SHA256 signature of every delivery (no cookies).
+    "/github/webhook",
+    # Public, cookie-free and side-effect free: checks a pasted credential (anyone may verify one).
+    "/credentials/verify",
 )
 
 

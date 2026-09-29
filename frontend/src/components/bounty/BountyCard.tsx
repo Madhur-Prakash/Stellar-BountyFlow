@@ -6,7 +6,7 @@ import { CATEGORY_LABELS, DIFFICULTY_LABELS } from '@/lib/format'
 import { cn } from '@/lib/utils'
 
 import { BookmarkButton } from './BookmarkButton'
-import { applicantsLabel, bountyHref, openPositionsOf } from './bounty-display'
+import { applicantsLabel, bountyHref, openPositionsOf, questionsLabel } from './bounty-display'
 import { BountyStatusBadge } from './BountyStatusBadge'
 import { DeadlineCountdown } from './DeadlineCountdown'
 import { FundingStatusBadge } from './FundingStatusBadge'
@@ -72,6 +72,9 @@ export function BountyCard({
         <span>{CATEGORY_LABELS[bounty.category]}</span>
         <span>{DIFFICULTY_LABELS[bounty.difficulty]}</span>
         <span className="tabular-nums">{applicantsLabel(bounty.applications_count)}</span>
+        {!!bounty.questions_count && (
+          <span className="tabular-nums">{questionsLabel(bounty.questions_count)}</span>
+        )}
       </MetaList>
 
       <SkillTags skills={bounty.required_skills} max={3} className="mt-3" label="Required skills" />

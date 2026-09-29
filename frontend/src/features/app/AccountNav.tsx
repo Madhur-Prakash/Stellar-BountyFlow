@@ -1,4 +1,17 @@
-import { Bell, Laptop, SunMoon, UserRound, Wallet, type LucideIcon } from 'lucide-react'
+import {
+  Bell,
+  Coins,
+  FileDown,
+  GitBranch,
+  Laptop,
+  Scale,
+  ShieldCheck,
+  SunMoon,
+  UserRound,
+  UserX,
+  Wallet,
+  type LucideIcon,
+} from 'lucide-react'
 import { useEffect, useState, type ReactNode } from 'react'
 import { Link, useLocation } from 'react-router'
 
@@ -15,6 +28,8 @@ const GROUPS: Group[] = [
     sections: [
       { id: 'details', label: 'Public details', icon: UserRound },
       { id: 'wallets', label: 'Wallets', icon: Wallet },
+      { id: 'assets', label: 'Assets', icon: Coins },
+      { id: 'reputation', label: 'Completed on-chain', icon: ShieldCheck },
     ],
   },
   {
@@ -22,8 +37,18 @@ const GROUPS: Group[] = [
     path: '/app/settings',
     sections: [
       { id: 'notifications', label: 'Notifications', icon: Bell },
+      { id: 'github', label: 'GitHub', icon: GitBranch },
       { id: 'sessions', label: 'Sessions', icon: Laptop },
       { id: 'appearance', label: 'Appearance', icon: SunMoon },
+    ],
+  },
+  {
+    label: 'Privacy',
+    path: '/app/privacy',
+    sections: [
+      { id: 'export', label: 'Your data', icon: FileDown },
+      { id: 'legal', label: 'Terms and privacy', icon: Scale },
+      { id: 'delete', label: 'Delete account', icon: UserX },
     ],
   },
 ]

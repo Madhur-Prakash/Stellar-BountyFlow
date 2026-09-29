@@ -7,6 +7,7 @@ import { toast } from 'sonner'
 import { Logo } from '@/components/brand/Logo'
 import { NetworkBadge } from '@/components/chain/NetworkBadge'
 import { WalletButton } from '@/components/chain/WalletButton'
+import { WalletPickerHost } from '@/components/chain/WalletPickerHost'
 import { MAIN_CONTENT_ID, SkipLink } from '@/components/common/SkipLink'
 import { UserAvatar } from '@/components/common/UserAvatar'
 import { Button } from '@/components/ui/button'
@@ -233,11 +234,14 @@ export function AppShell({
   footer,
   areaLabel,
   search,
+  notice,
 }: {
   groups: ShellNavGroup[]
   footer?: ReactNode
   areaLabel: string
   search?: ReactNode
+  /** A notice above the page content (e.g. upcoming terms changes); rendered only when set. */
+  notice?: ReactNode
 }) {
   const { pathname } = useLocation()
   const section = currentSection(groups, pathname)
@@ -293,8 +297,10 @@ export function AppShell({
           <WalletButton className="w-full sm:w-auto" />
         </div>
         <main id={MAIN_CONTENT_ID} tabIndex={-1} className="flex-1 outline-none">
+          {notice}
           <AnimatedOutlet className="mx-auto w-full max-w-384 px-4 py-6 sm:px-6 lg:px-8 lg:py-8" />
         </main>
+        <WalletPickerHost />
       </div>
     </SidebarProvider>
   )

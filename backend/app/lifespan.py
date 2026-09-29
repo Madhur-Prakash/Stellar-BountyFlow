@@ -9,6 +9,7 @@ from fastapi import FastAPI
 
 from app.blockchain.client import close_soroban
 from app.blockchain.config import get_network
+from app.blockchain.horizon import close_horizon
 from app.cache.redis import close_redis
 from app.core.config import get_settings
 from app.core.logging import get_logger, shutdown_logging
@@ -36,6 +37,7 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     finally:
         logger.info("api_stopping")
         await close_soroban()
+        await close_horizon()
         await close_redis()
         await dispose_engine()
         shutdown_logging()

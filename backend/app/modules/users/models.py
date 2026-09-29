@@ -6,7 +6,7 @@ import uuid
 from datetime import datetime
 from enum import StrEnum
 
-from sqlalchemy import Boolean, ForeignKey, Index, String, Text, UniqueConstraint, func
+from sqlalchemy import Boolean, ForeignKey, Index, String, Text, UniqueConstraint, func, text
 from sqlalchemy.dialects.postgresql import ARRAY
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
@@ -66,7 +66,14 @@ class User(UUIDPrimaryKey, Timestamps, Base):
 
 class UserSkill(UUIDPrimaryKey, Base):
     __tablename__ = "user_skills"
-    __table_args__ = (UniqueConstraint("user_id", "skill_name"),)
+    __table_args__ = (
+        UniqueConstraint("user_id", "skill_name"),
+        # Recommendations match on the normalised name, which the plain index cannot serve.
+        Index(
+            "ix_user_skills_normalized",
+            text(r"regexp_replace(lower(btrim(skill_name)), '[\s_-]+', ' ', 'g')"),
+        ),
+    )
 
     user_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), index=True)
     skill_name: Mapped[str] = mapped_column(String(40), nullable=False, index=True)
@@ -98,5 +105,11 @@ class Wallet(UUIDPrimaryKey, CreatedAt, Base):
     verified_at: Mapped[datetime] = mapped_column(server_default=func.now())
     revoked_at: Mapped[datetime | None]
     verification_note: Mapped[str | None] = mapped_column(Text)
+    # The wallet app the ownership proof was signed with (freighter, xbull, albedo, lobstr, hana, passkey, ...)
+    # and the proof itself: sep10 (challenge transaction), sep53 (signed message) or sep45 (contract account).
+    wallet_app: Mapped[str | None] = mapped_column(String(32))
+    proof_method: Mapped[str | None] = mapped_column(String(16))
+    # The wallet payouts go to when a user has several; otherwise the most recently verified one.
+    is_primary: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False, server_default="false")
 
     user: Mapped[User] = relationship(back_populates="wallets")

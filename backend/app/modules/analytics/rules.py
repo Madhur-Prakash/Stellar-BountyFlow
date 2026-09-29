@@ -152,7 +152,9 @@ def public_methodology(network: str) -> dict[str, str]:
         "funded_bounties": "Bounties whose escrow received funds, as recorded after on-chain verification.",
         "completed_bounties": "Bounties in COMPLETED status.",
         "verified_payout_volume": "Sum of confirmed PAYOUT transactions on this network, each "
-        "transaction hash counted once. Denominated in XLM.",
+        "transaction hash counted once. Denominated in XLM; other reward assets are listed separately.",
+        "payout_volume_by_asset": "The same sum grouped per reward asset (XLM, USDC, ...). Amounts of different "
+        "assets are never added together.",
         "successful_transactions": "Distinct confirmed transaction hashes on this network "
         "(wallet ownership challenges are never submitted and are excluded).",
         "unique_transacting_wallets": "Distinct source addresses of those confirmed transactions.",

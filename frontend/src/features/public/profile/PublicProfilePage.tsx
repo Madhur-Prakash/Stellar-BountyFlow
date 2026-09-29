@@ -1,4 +1,4 @@
-import { BriefcaseBusiness, CalendarDays, CheckCircle2, Globe, ShieldCheck } from 'lucide-react'
+import { BriefcaseBusiness, CalendarDays, Check, CheckCircle2, Globe, ShieldCheck } from 'lucide-react'
 import { useState } from 'react'
 import { Link, useParams } from 'react-router'
 
@@ -20,13 +20,16 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { isApiError } from '@/lib/api/client'
 import { usePublicConfig } from '@/lib/api/queries/config'
+import { usePublicGitHubAccount } from '@/lib/api/queries/github'
 import { usePublicProfile, useUserBounties, useUserContributions } from '@/lib/api/queries/users'
 import type { PublicProfile } from '@/lib/api/types'
 import { formatDate, formatNumber, formatPercent } from '@/lib/format'
-import { formatAmount } from '@/lib/money'
+import { AssetTotals } from '@/features/app/assets/AssetTotals'
+import { assetCode, formatAmount } from '@/lib/money'
 import { accountExplorerUrl, networkDisplayName, txExplorerUrl } from '@/lib/stellar/explorer'
 
 import NotFoundPage from '../NotFoundPage'
+import { CompletedOnChain, ReputationCard } from './ReputationPanel'
 
 const safeUrl = (u: string | null) => (u && /^https:\/\//i.test(u) ? u : null)
 
@@ -118,7 +121,7 @@ function Contributions({ username }: { username: string }) {
                 {c.amount && (
                   <span className="text-sm">
                     <span className="amount">{formatAmount(c.amount)}</span>{' '}
-                    <span className="text-xs text-muted-foreground">XLM</span>
+                    <span className="text-xs text-muted-foreground">{assetCode(c.asset)}</span>
                   </span>
                 )}
                 {c.transaction_hash ? (
@@ -173,21 +176,14 @@ export default function PublicProfilePage() {
   )
 }
 
-function Xlm({ amount }: { amount: string }) {
-  return (
-    <>
-      {formatAmount(amount, { maxDecimals: 2 })}{' '}
-      <span className="text-sm font-normal text-muted-foreground">XLM</span>
-    </>
-  )
-}
-
 /** Tabs as pills: the selected one filled, like the marketplace's layout switch. */
 const TAB =
   'rounded-full px-4 data-active:bg-foreground data-active:text-background data-active:shadow-none dark:data-active:border-transparent dark:data-active:bg-foreground dark:data-active:text-background'
 
 function ProfileView({ profile }: { profile: PublicProfile }) {
   const s = profile.stats
+  // A GitHub account this user proved they own (modules/github); it replaces the self-entered link.
+  const verifiedGithub = usePublicGitHubAccount(profile.username).data
   const github = safeUrl(profile.github_url)
   const portfolio = safeUrl(profile.portfolio_url)
   const linkClass =
@@ -217,10 +213,24 @@ function ProfileView({ profile }: { profile: PublicProfile }) {
             <span className="inline-flex min-h-9 items-center gap-1.5 text-muted-foreground">
               <CalendarDays className="size-4" aria-hidden /> Joined {formatDate(profile.joined_at)}
             </span>
-            {github && (
-              <a href={github} target="_blank" rel="noopener noreferrer nofollow me" className={linkClass}>
-                <GithubMark /> GitHub
+            {verifiedGithub ? (
+              <a
+                href={verifiedGithub.profile_url}
+                target="_blank"
+                rel="noopener noreferrer nofollow me"
+                className={linkClass}
+              >
+                <GithubMark /> @{verifiedGithub.login}
+                <Badge variant="info">
+                  <Check aria-hidden /> Verified
+                </Badge>
               </a>
+            ) : (
+              github && (
+                <a href={github} target="_blank" rel="noopener noreferrer nofollow me" className={linkClass}>
+                  <GithubMark /> GitHub
+                </a>
+              )
             )}
             {portfolio && (
               <a href={portfolio} target="_blank" rel="noopener noreferrer nofollow me" className={linkClass}>
@@ -242,19 +252,28 @@ function ProfileView({ profile }: { profile: PublicProfile }) {
           <StatTile label="Applications" value={formatNumber(s.applications_submitted)} />
           <StatTile label="Acceptance rate" value={formatPercent(s.acceptance_rate)} />
           <StatTile label="Approval rate" value={formatPercent(s.approval_rate)} />
-          <StatTile label="Rewards received" value={<Xlm amount={s.total_rewards_received} />} />
-          <StatTile label="Rewards paid" value={<Xlm amount={s.total_rewards_paid} />} />
+          <StatTile
+            label="Rewards received"
+            value={<AssetTotals rows={s.rewards_received_by_asset} fallback={s.total_rewards_received} />}
+          />
+          <StatTile
+            label="Rewards paid"
+            value={<AssetTotals rows={s.rewards_paid_by_asset} fallback={s.total_rewards_paid} />}
+          />
         </StatGrid>
       </section>
 
       <div className="mt-10 grid gap-8 lg:grid-cols-[minmax(0,1fr)_20rem] lg:gap-10">
         <Tabs defaultValue="bounties" className="min-w-0 gap-4">
-          <TabsList className="rounded-full border bg-card p-1">
+          <TabsList className="max-w-full justify-start overflow-x-auto rounded-full border bg-card p-1">
             <TabsTrigger value="bounties" className={TAB}>
               Created bounties
             </TabsTrigger>
             <TabsTrigger value="contributions" className={TAB}>
               Contribution history
+            </TabsTrigger>
+            <TabsTrigger value="onchain" className={TAB}>
+              Completed on-chain
             </TabsTrigger>
           </TabsList>
           <TabsContent value="bounties">
@@ -263,9 +282,13 @@ function ProfileView({ profile }: { profile: PublicProfile }) {
           <TabsContent value="contributions">
             <Contributions username={profile.username} />
           </TabsContent>
+          <TabsContent value="onchain">
+            <CompletedOnChain username={profile.username} />
+          </TabsContent>
         </Tabs>
 
-        <aside aria-label="Profile details" className="lg:pt-14">
+        <aside aria-label="Profile details" className="space-y-6 lg:pt-14">
+          <ReputationCard username={profile.username} />
           <Card className="gap-4">
             <CardHeader>
               <CardTitle className="font-mono text-[0.8125rem] font-normal tracking-[0.01em] text-muted-foreground">

@@ -7,7 +7,7 @@ from datetime import datetime
 
 from pydantic import Field
 
-from app.core.schemas import APIModel, UrlStr, UserSummary
+from app.core.schemas import APIModel, MoneyInput, OptionalMoney, UrlStr, UserSummary
 from app.modules.bounties.schemas import ActivityBounty
 from app.modules.disputes.models import DisputeResolution, DisputeStatus
 
@@ -26,6 +26,8 @@ class EvidenceCreate(APIModel):
 class ResolveRequest(APIModel):
     resolution: DisputeResolution
     note: str = Field(min_length=10, max_length=5000)
+    # SPLIT only: what the contributor receives; the rest of their position returns to the requester.
+    contributor_amount: MoneyInput | None = None
 
 
 class EvidenceOut(APIModel):
@@ -51,3 +53,8 @@ class DisputeOut(APIModel):
     requires_onchain_execution: bool
     created_at: datetime
     resolved_at: datetime | None
+    # Escrow v2: the M-of-N arbiter set of the escrow and the confirmed approvals of the current round.
+    contract_version: int = 1
+    arbiter_threshold: int = 1
+    arbiter_approvals: int = 0
+    contributor_amount: OptionalMoney = None

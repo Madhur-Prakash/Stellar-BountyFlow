@@ -30,6 +30,14 @@ class NotificationType(StrEnum):
     BOUNTY_EXPIRED = "BOUNTY_EXPIRED"
     DISPUTE_UPDATE = "DISPUTE_UPDATE"
     SYSTEM = "SYSTEM"
+    QUESTION_RECEIVED = "QUESTION_RECEIVED"  # a new question on your bounty
+    QUESTION_REPLY = "QUESTION_REPLY"  # a reply or the requester's answer in a thread you are part of
+    ANSWER_ACCEPTED = "ANSWER_ACCEPTED"
+    PULL_REQUEST_UPDATE = "PULL_REQUEST_UPDATE"  # a linked pull request was merged or closed
+    SAVED_SEARCH_MATCH = "SAVED_SEARCH_MATCH"  # a new bounty (or a digest of them) matches a saved search
+    CLAIM_AVAILABLE = "CLAIM_AVAILABLE"  # a review window passed unanswered: the contributor can claim
+    MILESTONE_PAID = "MILESTONE_PAID"  # one milestone of a bounty was paid on-chain
+    ARBITER_VOTE = "ARBITER_VOTE"  # an arbiter approved a dispute resolution on-chain
 
 
 class EmailStatus(StrEnum):

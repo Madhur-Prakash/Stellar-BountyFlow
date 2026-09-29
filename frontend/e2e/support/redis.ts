@@ -50,12 +50,21 @@ const DELETE_BY_PATTERN = `local n = 0
 for _, k in ipairs(redis.call('KEYS', ARGV[1])) do redis.call('DEL', k); n = n + 1 end
 return n`
 
-/** Clears the API's fixed-window rate-limit counters (`bf:v1:rl:*`). */
-export async function resetRateLimits(): Promise<void> {
+/** The Redis database the harness clears, for error messages. */
+export const E2E_REDIS_URL = REDIS_URL
+
+/**
+ * Clears the API's fixed-window rate-limit counters (`bf:v1:rl:*`) and returns how many it removed, or null
+ * when Redis could not be reached.
+ */
+export async function resetRateLimits(): Promise<number | null> {
   try {
-    await command([['EVAL', DELETE_BY_PATTERN, '0', 'bf:v1:rl:*']])
+    const reply = await command([['EVAL', DELETE_BY_PATTERN, '0', 'bf:v1:rl:*']])
+    const cleared = Number(reply.trim().replace(/^:/, ''))
+    return Number.isFinite(cleared) ? cleared : 0
   } catch (e) {
     // The suite still works without it; it only risks 429s on repeated runs.
     console.warn(`[e2e] could not reset rate limits: ${(e as Error).message}`)
+    return null
   }
 }

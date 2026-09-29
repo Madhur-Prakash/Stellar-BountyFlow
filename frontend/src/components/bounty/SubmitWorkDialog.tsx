@@ -2,7 +2,7 @@ import { FileCheck2, RotateCcw } from 'lucide-react'
 import { lazy, Suspense, useRef, useState } from 'react'
 
 import { Button } from '@/components/ui/button'
-import type { Submission } from '@/lib/api/types'
+import type { Milestone, Submission } from '@/lib/api/types'
 
 // The form (zod schema, react-hook-form, dialog) is its own chunk, fetched when the dialog is first wanted.
 const loadBody = () => import('./SubmitWorkDialogBody')
@@ -16,6 +16,9 @@ type SubmitWorkDialogProps = {
   bountyTitle: string
   /** Present in revise mode. */
   submission?: Submission | null
+  /** Milestone bounties: the open milestones this contributor can still deliver. */
+  milestones?: Milestone[]
+  assetCode?: string
 }
 
 /**
@@ -38,6 +41,8 @@ export function SubmitWorkButton({
   bountyId,
   bountyTitle,
   submission,
+  milestones,
+  assetCode,
   className,
   size = 'lg',
   variant = 'default',
@@ -45,6 +50,8 @@ export function SubmitWorkButton({
   bountyId: string
   bountyTitle: string
   submission?: Submission | null
+  milestones?: Milestone[]
+  assetCode?: string
   className?: string
   size?: 'default' | 'sm' | 'lg'
   variant?: 'default' | 'outline'
@@ -76,6 +83,8 @@ export function SubmitWorkButton({
         bountyId={bountyId}
         bountyTitle={bountyTitle}
         submission={submission}
+        milestones={milestones}
+        assetCode={assetCode}
       />
     </>
   )

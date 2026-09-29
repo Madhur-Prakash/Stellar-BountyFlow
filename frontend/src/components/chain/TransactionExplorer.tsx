@@ -8,7 +8,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { usePublicConfig } from '@/lib/api/queries/config'
 import type { BlockchainTransaction, PublicConfig } from '@/lib/api/types'
 import { formatDateTime, formatRelative, TX_TYPE_LABELS } from '@/lib/format'
-import { formatAmount } from '@/lib/money'
+import { assetCode, formatAmount } from '@/lib/money'
 import {
   accountExplorerUrl,
   networkDisplayName,
@@ -28,7 +28,7 @@ function Amount({ tx }: { tx: BlockchainTransaction }) {
   return (
     <span className="amount whitespace-nowrap">
       {formatAmount(tx.amount)}{' '}
-      <span className="font-normal text-muted-foreground">{tx.asset?.code ?? 'XLM'}</span>
+      <span className="font-normal text-muted-foreground">{assetCode(tx.asset)}</span>
     </span>
   )
 }

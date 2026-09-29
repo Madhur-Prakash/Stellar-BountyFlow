@@ -1,0 +1,22 @@
+# Grafana dashboard provisioning: loads deploy/grafana/*.json from disk on every start.
+# Mounted read-only at /etc/grafana/provisioning/dashboards by docker-compose.observability.yml.
+#
+# The dashboard JSON is a Grafana export: its panels reference the datasource as ${DS_PROMETHEUS} and the file
+# declares that input in __inputs. The compose file sets DS_PROMETHEUS=PROMETHEUS on the Grafana container, which
+# is the uid the datasource is provisioned with (deploy/grafana/provisioning/datasources/prometheus.yml).
+# If a panel still shows an unresolved datasource, open Dashboards -> Import and upload
+# deploy/grafana/bountyflow-dashboard.json: the import wizard resolves __inputs itself.
+
+apiVersion: 1
+
+providers:
+  - name: bountyflow
+    orgId: 1
+    folder: BountyFlow
+    type: file
+    disableDeletion: false
+    allowUiUpdates: false
+    updateIntervalSeconds: 30
+    options:
+      path: /var/lib/grafana/dashboards
+      foldersFromFilesStructure: false

@@ -23,7 +23,7 @@ from app.core.exceptions import Conflict, Forbidden, InvalidStateTransition, Not
 from app.core.logging import get_logger
 from app.core.money import ZERO
 from app.core.rbac import Permission, ensure_permission, has_permission
-from app.core.schemas import Page, PageParams, UserSummary, native_asset
+from app.core.schemas import Page, PageParams, UserSummary, asset_from_identifier
 from app.core.security import utcnow
 from app.messaging.events import EventType
 from app.messaging.outbox import add_event
@@ -35,6 +35,7 @@ from app.modules.applications.models import (
     BountyApplication,
     BountyAssignment,
 )
+from app.modules.assets import service as asset_registry
 from app.modules.bounties import repository as repo
 from app.modules.bounties import state_machine as sm
 from app.modules.bounties.models import Bounty, BountyBookmark, BountyStatus
@@ -52,7 +53,9 @@ from app.modules.bounties.schemas import (
     Viewer,
     ViewerApplication,
 )
-from app.modules.payments.models import BountyEscrow, EscrowState
+from app.modules.github.service import ensure_repository_supports_merge_requirement
+from app.modules.payments.models import BountyEscrow, EscrowState, PaymentRecord, PaymentStatus
+from app.modules.qa import repository as qa_repo
 from app.modules.submissions.models import BountySubmission, SubmissionStatus
 from app.modules.users.models import User
 
@@ -88,7 +91,7 @@ def escrow_view(escrow: BountyEscrow | None) -> EscrowView | None:
     return EscrowView(
         contract_id=escrow.contract_id,
         network=escrow.network,
-        asset=native_asset(),
+        asset=asset_from_identifier(escrow.asset_identifier),
         onchain_bounty_id=escrow.onchain_bounty_id,
         required_amount=escrow.required_amount,
         funded_amount=escrow.funded_amount,
@@ -97,6 +100,12 @@ def escrow_view(escrow: BountyEscrow | None) -> EscrowView | None:
         state=escrow.state.value,
         last_reconciled_at=escrow.last_reconciled_at,
         explorer_url=network.contract_url(),
+        contract_version=escrow.contract_version,
+        arbiter_addresses=list(
+            escrow.arbiter_addresses or ([escrow.arbiter_address] if escrow.arbiter_address else [])
+        ),
+        arbiter_threshold=escrow.arbiter_threshold,
+        review_window_seconds=escrow.review_window_seconds,
     )
 
 
@@ -117,7 +126,7 @@ def _summary(bounty: Bounty, escrow: BountyEscrow | None, filled: int, bookmarke
         tags=bounty.tag_names,
         required_skills=bounty.skill_names,
         reward_amount=bounty.reward_amount,
-        reward_asset=native_asset(),
+        reward_asset=asset_from_identifier(bounty.reward_asset_identifier),
         total_reward=bounty.total_reward,
         network=bounty.network,
         status=bounty.status,
@@ -143,7 +152,11 @@ async def summaries(
     filled = await repo.positions_filled(session, ids)
     escrows = await repo.escrows(session, ids)
     marks = await repo.bookmarked_ids(session, viewer.id, ids) if viewer else set()
-    return [_summary(b, escrows.get(b.id), filled.get(b.id, 0), b.id in marks) for b in bounties]
+    items = [_summary(b, escrows.get(b.id), filled.get(b.id, 0), b.id in marks) for b in bounties]
+    questions = await qa_repo.question_counts(session, ids)
+    for item in items:
+        item.questions_count = questions.get(item.id, 0)
+    return items
 
 
 def _base_detail(bounty: Bounty, escrow: BountyEscrow | None, filled: int) -> BountyDetail:
@@ -156,6 +169,7 @@ def _base_detail(bounty: Bounty, escrow: BountyEscrow | None, filled: int) -> Bo
         submission_requirements=bounty.submission_requirements,
         acceptance_criteria=bounty.acceptance_criteria,
         repository_url=bounty.repository_url,
+        require_merged_pr=bounty.require_merged_pr,
         links=[Link.model_validate(link) for link in meta.get("links", [])],
         visibility=bounty.visibility,
         escrow=escrow_view(escrow),
@@ -212,6 +226,17 @@ async def viewer_state(
         and bounty.status in sm.WORK_ACTIVE
         and not has_submission
     )
+    if (
+        assignment is not None
+        and assignment.status == AssignmentStatus.ACTIVE
+        and bounty.status in sm.WORK_ACTIVE
+    ):
+        from app.modules.escrow import views as escrow_views
+
+        # A milestone bounty takes one submission per milestone.
+        milestone_open = await escrow_views.milestone_submit_open(session, bounty, assignment)
+        if milestone_open is not None:
+            can_submit = milestone_open
     return Viewer(
         is_owner=is_owner,
         is_assigned=assignment is not None and assignment.status == AssignmentStatus.ACTIVE,
@@ -227,6 +252,11 @@ async def detail(session: AsyncSession, bounty: Bounty, viewer: User | None) -> 
     filled = (await repo.positions_filled(session, [bounty.id])).get(bounty.id, 0)
     escrow = await repo.get_escrow(session, bounty.id)
     result = _base_detail(bounty, escrow, filled)
+    result.questions_count = (await qa_repo.question_counts(session, [bounty.id])).get(bounty.id, 0)
+    from app.modules.escrow import views as escrow_views  # escrow v2 depends on this module
+
+    for key, value in (await escrow_views.bounty_extras(session, bounty)).items():
+        setattr(result, key, value)
     if viewer is not None:
         result.is_bookmarked = bool(await repo.bookmarked_ids(session, viewer.id, [bounty.id]))
         result.viewer = await viewer_state(session, bounty, viewer, filled)
@@ -344,6 +374,13 @@ async def recompute_operational_status(
             BountySubmission.bounty_id == bounty.id,
             BountyAssignment.status == AssignmentStatus.ACTIVE,
             BountySubmission.status.in_([*PENDING_REVIEW, SubmissionStatus.APPROVED]),
+            # A paid milestone's submission stays APPROVED while the assignment continues (escrow v2).
+            ~select(PaymentRecord.id)
+            .where(
+                PaymentRecord.submission_id == BountySubmission.id,
+                PaymentRecord.payment_status == PaymentStatus.CONFIRMED,
+            )
+            .exists(),
         )
     )
     target = sm.derive_operational_status(active or 0, pending or 0)
@@ -392,6 +429,8 @@ async def _unique_slug(session: AsyncSession, title: str) -> str:
 
 async def create_bounty(session: AsyncSession, user: User, data: BountyCreate) -> BountyDetail:
     ensure_permission(user, Permission.BOUNTY_CREATE)
+    ensure_repository_supports_merge_requirement(data.repository_url, data.require_merged_pr)
+    asset = await asset_registry.resolve_reward_asset(session, data.reward_asset)
     bounty = Bounty(
         id=uuid.uuid4(),
         requester_id=user.id,
@@ -402,7 +441,8 @@ async def create_bounty(session: AsyncSession, user: User, data: BountyCreate) -
         category=data.category,
         difficulty=data.difficulty,
         reward_amount=Decimal(data.reward_amount),
-        reward_asset="XLM",
+        reward_asset=asset.code,
+        reward_asset_identifier=asset.identifier,
         network=get_network().network,
         status=BountyStatus.DRAFT,
         application_deadline=data.application_deadline,
@@ -412,6 +452,7 @@ async def create_bounty(session: AsyncSession, user: User, data: BountyCreate) -
         submission_requirements=data.submission_requirements,
         acceptance_criteria=data.acceptance_criteria,
         repository_url=data.repository_url,
+        require_merged_pr=data.require_merged_pr,
         visibility=data.visibility,
         metadata_={"links": [link.model_dump(mode="json") for link in data.links]},
         tags=[],
@@ -423,6 +464,9 @@ async def create_bounty(session: AsyncSession, user: User, data: BountyCreate) -
     if not user.wants_to_request:
         user.wants_to_request = True
     await session.flush()
+    from app.modules.escrow import views as escrow_views
+
+    await escrow_views.apply_create(session, bounty, data)  # review window and milestones (escrow v2)
     audit.record(
         session,
         actor_id=user.id,
@@ -462,9 +506,13 @@ async def update_bounty(
     if bounty.status not in (BountyStatus.DRAFT, BountyStatus.OPEN) or funded:
         raise InvalidStateTransition("Bounties can only be edited while in draft or open and unfunded.")
     changes = data.model_dump(exclude_unset=True)
-    money_fields = {"reward_amount", "positions_available"} & changes.keys()
+    money_fields = {"reward_amount", "reward_asset", "positions_available"} & changes.keys()
     if money_fields and bounty.status != BountyStatus.DRAFT:
         raise InvalidStateTransition("Reward and positions can only be changed while the bounty is a draft.")
+    if changes.get("reward_asset") is not None:
+        asset = await asset_registry.resolve_reward_asset(session, changes["reward_asset"])
+        bounty.reward_asset = asset.code
+        bounty.reward_asset_identifier = asset.identifier
     for field in (
         "title",
         "short_description",
@@ -475,6 +523,7 @@ async def update_bounty(
         "submission_requirements",
         "acceptance_criteria",
         "repository_url",
+        "require_merged_pr",
         "visibility",
         "application_deadline",
         "completion_deadline",
@@ -490,6 +539,7 @@ async def update_bounty(
                 "difficulty",
                 "visibility",
                 "positions_available",
+                "require_merged_pr",
             ):
                 continue
             setattr(bounty, field, value)
@@ -510,6 +560,10 @@ async def update_bounty(
         if value is not None and value <= now:  # publish enforces this too; an edit must not bypass it
             raise ValidationFailed(f"{field.replace('_', ' ').capitalize()} must be in the future.")
     _validate_deadlines(bounty)
+    from app.modules.escrow import views as escrow_views
+
+    await escrow_views.apply_update(session, bounty, data, set(changes))  # review window and milestones
+    ensure_repository_supports_merge_requirement(bounty.repository_url, bounty.require_merged_pr)
     audit.record(
         session,
         actor_id=user.id,

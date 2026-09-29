@@ -25,16 +25,20 @@ import {
 } from '@/components/ui/sheet'
 import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group'
 import { useDebouncedCallback } from '@/hooks/useDebounce'
+import { useMe } from '@/lib/api/queries/auth'
 import { useBounties } from '@/lib/api/queries/bounties'
+import { useRecommendations } from '@/lib/api/queries/discovery'
 import type { BountySort } from '@/lib/api/types'
 import { formatNumber } from '@/lib/format'
 import { scrollToTop } from '@/lib/scroll'
 import { cn } from '@/lib/utils'
 import { useUiPrefs } from '@/stores/ui-prefs'
 
+import { ForYouResults } from './ForYouResults'
 import {
   DEFAULT_FILTERS,
   FILTER_RESET,
+  FOR_YOU,
   PAGE_SIZE,
   activeFilterCount,
   effectiveSort,
@@ -42,7 +46,11 @@ import {
   serializeFilters,
   toApiParams,
   type MarketplaceFilters,
+  type MarketplaceSort,
 } from './marketplace-params'
+import { SaveSearchButton } from './SaveSearchButton'
+import { SAVED_PARAM } from './saved-search-params'
+import { SavedSearchBar } from './SavedSearchBar'
 
 const SORT_LABELS: Record<BountySort, string> = {
   relevance: 'Best match',
@@ -51,6 +59,12 @@ const SORT_LABELS: Record<BountySort, string> = {
   reward_high: 'Reward: high to low',
   reward_low: 'Reward: low to high',
   popular: 'Most popular',
+}
+
+/** Filters in the URL, keeping the saved search being shown (`?saved=`) across filter changes. */
+function withSaved(sp: URLSearchParams, saved: string | null): URLSearchParams {
+  if (saved) sp.set(SAVED_PARAM, saved)
+  return sp
 }
 
 /** One segment of the grid/list switch: a pill inside the pill, filled when selected. */
@@ -63,13 +77,25 @@ export default function MarketplacePage() {
   const [sheetOpen, setSheetOpen] = useState(false)
   const view = useUiPrefs((s) => s.marketplaceView)
   const setView = useUiPrefs((s) => s.setMarketplaceView)
+  const { data: me } = useMe()
+  const savedId = me ? searchParams.get(SAVED_PARAM) : null
 
   /** Every filter change is written to the URL (replace, so Back leaves the page). */
   const update = useCallback(
     (patch: Partial<MarketplaceFilters>) =>
-      setSearchParams((prev) => serializeFilters({ ...parseFilters(prev), ...patch }), { replace: true }),
+      setSearchParams(
+        (prev) => withSaved(serializeFilters({ ...parseFilters(prev), ...patch }), prev.get(SAVED_PARAM)),
+        { replace: true },
+      ),
     [setSearchParams],
   )
+  const showSaved = (id: string | null) =>
+    setSearchParams((prev) => {
+      const next = new URLSearchParams(prev)
+      if (id) next.set(SAVED_PARAM, id)
+      else next.delete(SAVED_PARAM)
+      return next
+    })
 
   // Search box: local draft, debounced into the URL.
   const [draft, setDraft] = useState(filters.q)
@@ -84,13 +110,19 @@ export default function MarketplacePage() {
   const params = toApiParams(filters)
   const { data, isPending, isError, error, refetch, isPlaceholderData, isFetching } = useBounties(params)
   const count = activeFilterCount(filters)
-  const sort = effectiveSort(filters)
+  const chosen = effectiveSort(filters)
+  // "For you" needs a signed-in user; anyone else sees the default order.
+  const sort: MarketplaceSort =
+    chosen === FOR_YOU && !me ? (filters.q.trim() ? 'relevance' : 'newest') : chosen
+  const forYou = sort === FOR_YOU
+  const recommendations = useRecommendations(params, forYou)
+  const shown = forYou ? recommendations.data : data
   const searching = !!filters.q.trim()
   const narrowed = count > 0 || searching
 
   const clearAll = () => {
     setDraft('')
-    setSearchParams(serializeFilters(DEFAULT_FILTERS), { replace: true })
+    setSearchParams(withSaved(serializeFilters(DEFAULT_FILTERS), savedId), { replace: true })
   }
 
   return (
@@ -194,7 +226,7 @@ export default function MarketplacePage() {
               <Label htmlFor="marketplace-sort" className="sr-only">
                 Sort bounties
               </Label>
-              <Select value={sort} onValueChange={(v) => update({ sort: v as BountySort, page: 1 })}>
+              <Select value={sort} onValueChange={(v) => update({ sort: v as MarketplaceSort, page: 1 })}>
                 <SelectTrigger
                   id="marketplace-sort"
                   className="h-11! min-w-0 flex-1 rounded-full pr-3 pl-4 sm:w-52 sm:flex-none dark:bg-card"
@@ -202,6 +234,7 @@ export default function MarketplacePage() {
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent align="end">
+                  {me && <SelectItem value={FOR_YOU}>For you</SelectItem>}
                   {(Object.keys(SORT_LABELS) as BountySort[])
                     .filter((s) => s !== 'relevance' || searching)
                     .map((s) => (
@@ -230,27 +263,40 @@ export default function MarketplacePage() {
             </div>
           </div>
 
-          <div className="mt-5 mb-3 flex min-h-8 items-center justify-between gap-2">
+          <div className="mt-5 mb-3 flex min-h-8 flex-wrap items-center justify-between gap-2">
             <h2 id="results-heading" className="label-mono" aria-live="polite">
-              {isPending
+              {(forYou ? recommendations.isPending : isPending)
                 ? 'Loading bounties…'
-                : data
-                  ? `${formatNumber(data.total)} ${data.total === 1 ? 'bounty' : 'bounties'}${searching ? ` for “${filters.q}”` : ''}`
+                : shown
+                  ? `${formatNumber(shown.total)} ${forYou ? 'recommended ' : ''}${shown.total === 1 ? 'bounty' : 'bounties'}${searching ? ` for “${filters.q}”` : ''}`
                   : ''}
             </h2>
-            {(narrowed || filters.sort) && (
-              <Button
-                variant="ghost"
-                size="sm"
-                className="-mr-2 rounded-full text-muted-foreground"
-                onClick={clearAll}
-              >
-                Clear all
-              </Button>
-            )}
+            <div className="flex items-center gap-1">
+              {(narrowed || filters.sort) && (
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="rounded-full text-muted-foreground"
+                  onClick={clearAll}
+                >
+                  Clear all
+                </Button>
+              )}
+              {!savedId && <SaveSearchButton filters={filters} onSaved={(s) => showSaved(s.id)} />}
+            </div>
           </div>
 
-          {isError ? (
+          {savedId && <SavedSearchBar searchId={savedId} filters={filters} onClose={() => showSaved(null)} />}
+
+          {forYou ? (
+            <ForYouResults
+              query={recommendations}
+              view={view}
+              narrowed={narrowed}
+              onClear={clearAll}
+              pagination={(page) => <Pagination data={page} onPageChange={(p) => update({ page: p })} />}
+            />
+          ) : isError ? (
             <ErrorState error={error} title="Could not load bounties" onRetry={() => refetch()} />
           ) : !isPending && data.items.length === 0 ? (
             <EmptyState

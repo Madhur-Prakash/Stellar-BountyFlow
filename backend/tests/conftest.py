@@ -71,6 +71,27 @@ async def fake_redis() -> AsyncIterator[fakeredis.aioredis.FakeRedis]:
         cache_redis.set_redis(None)  # type: ignore[arg-type]
 
 
+# --- Horizon and asset contracts (every test) -------------------------------------------------------
+
+
+@pytest.fixture(autouse=True)
+def fake_ledger() -> Iterator[Any]:
+    """Accounts, trustlines and Stellar Asset Contracts without a network (see tests/support/fake_ledger.py).
+    Permissive by default: unknown accounts exist with plenty of XLM and every known asset's trustline."""
+    from app.blockchain import horizon, tokens
+    from app.blockchain.config import get_network
+    from tests.support.fake_ledger import FakeLedger, FakeTokens
+
+    ledger = FakeLedger(get_network())
+    horizon.set_horizon(ledger)
+    tokens.set_tokens(FakeTokens(ledger))
+    try:
+        yield ledger
+    finally:
+        horizon.set_horizon(None)
+        tokens.set_tokens(None)
+
+
 # --- Email -------------------------------------------------------------------------------------------
 
 

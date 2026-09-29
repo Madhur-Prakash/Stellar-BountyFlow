@@ -13,7 +13,7 @@ from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.cache.invalidation import invalidate_profile
-from app.core.exceptions import Conflict, Forbidden, InvalidStateTransition, NotFound
+from app.core.exceptions import Forbidden, InvalidStateTransition, NotFound
 from app.core.rbac import Permission, has_permission
 from app.core.schemas import Page, PageParams
 from app.core.security import utcnow
@@ -26,6 +26,9 @@ from app.modules.bounties import repository as bounty_repo
 from app.modules.bounties import service as bounty_service
 from app.modules.bounties import state_machine as sm
 from app.modules.bounties.models import Bounty, BountyStatus
+from app.modules.escrow import views as escrow_views
+from app.modules.github import service as github_service
+from app.modules.github.schemas import PullRequestOut
 from app.modules.payments.models import PaymentRecord, PaymentStatus
 from app.modules.payments.schemas import serialize_payment
 from app.modules.submissions.models import BountySubmission, SubmissionRevision, SubmissionStatus
@@ -41,7 +44,10 @@ REVIEWABLE = (SubmissionStatus.SUBMITTED, SubmissionStatus.RESUBMITTED)
 
 
 def serialize(
-    s: BountySubmission, payment: PaymentRecord | None = None, revisions: Sequence[SubmissionRevision] = ()
+    s: BountySubmission,
+    payment: PaymentRecord | None = None,
+    revisions: Sequence[SubmissionRevision] = (),
+    pull_requests: Sequence[PullRequestOut] = (),
 ) -> SubmissionOut:
     return SubmissionOut(
         id=s.id,
@@ -61,6 +67,7 @@ def serialize(
         reviewed_at=s.reviewed_at,
         payment=serialize_payment(payment, s.bounty.title, s.bounty.slug) if payment else None,
         revisions=[RevisionOut.model_validate(r) for r in revisions],
+        pull_requests=list(pull_requests),
         created_at=s.created_at,
         updated_at=s.updated_at,
     )
@@ -110,11 +117,8 @@ async def create(
         raise Forbidden("Only contributors assigned to this bounty can submit work.")
     if bounty.status not in sm.WORK_ACTIVE:
         raise InvalidStateTransition(f"Submissions are closed while the bounty is {bounty.status.value}.")
-    existing = await session.scalar(
-        select(BountySubmission.id).where(BountySubmission.assignment_id == assignment.id)
-    )
-    if existing:
-        raise Conflict("You have already submitted work. Update it when a revision is requested.")
+    # One submission per assignment, or one per milestone on a milestone bounty (escrow v2).
+    milestone_id = await escrow_views.check_new_submission(session, bounty, assignment, data.milestone_id)
     submission = BountySubmission(
         id=uuid.uuid4(),
         bounty_id=bounty.id,
@@ -125,10 +129,13 @@ async def create(
         evidence_url=data.evidence_url,
         evidence_links=[str(u) for u in data.evidence_links],
         status=SubmissionStatus.SUBMITTED,
+        milestone_id=milestone_id,
     )
     session.add(submission)
     await session.flush()
     session.add(_snapshot(submission))
+    if data.pull_request_urls:
+        await github_service.sync_submission(session, submission, data.pull_request_urls)
     audit.record(
         session,
         actor_id=user.id,
@@ -149,7 +156,9 @@ async def create(
     await bounty_service.recompute_operational_status(session, bounty, user.id)
     await bounty_service.commit_bounty(session, bounty)
     await session.refresh(submission)
-    return serialize(submission)
+    if data.pull_request_urls:
+        await github_service.verify_submission(session, submission.id)
+    return await get(session, user, submission.id)
 
 
 async def _lock_with_bounty(
@@ -198,7 +207,10 @@ async def get(session: AsyncSession, user: User, submission_id: uuid.UUID) -> Su
             .order_by(SubmissionRevision.version)
         )
     ).all()
-    return serialize(s, payment, revisions)
+    pull_requests = (await github_service.serialized_for_submissions(session, [s.id])).get(s.id, [])
+    out = serialize(s, payment, revisions, pull_requests)
+    await escrow_views.decorate_submissions(session, [(s, out)])
+    return out
 
 
 async def list_for_bounty(
@@ -223,7 +235,10 @@ async def list_for_bounty(
         .all()
     )
     payments = await _payments_for(session, [r.id for r in rows])
-    return Page[SubmissionOut].build([serialize(r, payments.get(r.id)) for r in rows], total, params)
+    prs = await github_service.serialized_for_submissions(session, [r.id for r in rows])
+    outs = [serialize(r, payments.get(r.id), pull_requests=prs.get(r.id, [])) for r in rows]
+    await escrow_views.decorate_submissions(session, list(zip(rows, outs, strict=True)))
+    return Page[SubmissionOut].build(outs, total, params)
 
 
 async def mine(
@@ -245,7 +260,10 @@ async def mine(
         .all()
     )
     payments = await _payments_for(session, [r.id for r in rows])
-    return Page[SubmissionOut].build([serialize(r, payments.get(r.id)) for r in rows], total, params)
+    prs = await github_service.serialized_for_submissions(session, [r.id for r in rows])
+    outs = [serialize(r, payments.get(r.id), pull_requests=prs.get(r.id, [])) for r in rows]
+    await escrow_views.decorate_submissions(session, list(zip(rows, outs, strict=True)))
+    return Page[SubmissionOut].build(outs, total, params)
 
 
 async def resubmit(
@@ -265,6 +283,8 @@ async def resubmit(
         s.evidence_url = str(changes["evidence_url"]) if changes["evidence_url"] else None
     if changes.get("evidence_links") is not None:
         s.evidence_links = [str(u) for u in changes["evidence_links"]]
+    if changes.get("pull_request_urls") is not None:
+        await github_service.sync_submission(session, s, changes["pull_request_urls"])
     s.version += 1
     s.status = SubmissionStatus.RESUBMITTED
     session.add(_snapshot(s))
@@ -288,6 +308,7 @@ async def resubmit(
     await session.flush()
     await bounty_service.recompute_operational_status(session, bounty, user.id)
     await bounty_service.commit_bounty(session, bounty)
+    await github_service.verify_submission(session, s.id)  # the new version's pull requests, fresh
     return await get(session, user, s.id)
 
 
@@ -315,6 +336,7 @@ async def request_revision(
     session: AsyncSession, user: User, submission_id: uuid.UUID, feedback: str
 ) -> SubmissionOut:
     s, bounty = await _load_for_review(session, user, submission_id)
+    escrow_views.guard_offchain_review(s)
     _mark_reviewed(s, user, SubmissionStatus.REVISION_REQUESTED, feedback)
     audit.record(
         session,
@@ -342,7 +364,11 @@ async def request_revision(
 async def approve(
     session: AsyncSession, user: User, submission_id: uuid.UUID, feedback: str | None
 ) -> SubmissionOut:
+    # A bounty that requires a merged pull request re-checks GitHub first, before any row lock is taken.
+    await github_service.refresh_before_approval(session, user, submission_id)
     s, bounty = await _load_for_review(session, user, submission_id)
+    await github_service.ensure_merge_requirement(session, bounty, s)
+    amount = await escrow_views.payment_amount(session, bounty, s)  # the milestone's amount, if any
     _mark_reviewed(s, user, SubmissionStatus.APPROVED, feedback)
     existing = await session.scalar(select(PaymentRecord).where(PaymentRecord.submission_id == s.id))
     if existing is None:
@@ -352,8 +378,9 @@ async def approve(
                 bounty_id=bounty.id,
                 contributor_id=s.contributor_id,
                 submission_id=s.id,
-                amount=bounty.reward_amount,
-                asset_identifier="native",
+                milestone_id=s.milestone_id,
+                amount=amount,
+                asset_identifier=bounty.reward_asset_identifier,
                 payment_status=PaymentStatus.CREATED,
             )
         )
@@ -383,6 +410,7 @@ async def approve(
 
 async def reject(session: AsyncSession, user: User, submission_id: uuid.UUID, reason: str) -> SubmissionOut:
     s, bounty = await _load_for_review(session, user, submission_id)
+    escrow_views.guard_offchain_review(s)
     _mark_reviewed(s, user, SubmissionStatus.REJECTED, reason)
     assignment = await session.get(BountyAssignment, s.assignment_id, with_for_update=True)
     if assignment is not None and assignment.status == AssignmentStatus.ACTIVE:

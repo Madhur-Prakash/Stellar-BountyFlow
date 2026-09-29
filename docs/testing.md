@@ -36,6 +36,19 @@ held in the Playwright process:
 6. Approve and pay out, then view the transaction record.
 7. Check responsive layouts at 375 px, 768 px and 1280 px, keyboard navigation and focus visibility.
 
+The suites added with the roadmap features, each of which skips with a reason when the setting it needs is
+missing:
+
+| Spec | Covers | Needs |
+| --- | --- | --- |
+| `e2e/escrow-v2.journey.spec.ts` | Milestone release, batch payout of two contributors, claim after a review timeout, a 2-of-3 arbiter split | `SOROBAN_CONTRACT_VERSION=2`, `ESCROW_MIN_REVIEW_WINDOW_SECONDS=60`, `E2E_ARBITER_SECRETS` |
+| `e2e/wallets.spec.ts` | Wallet picker, a sponsored contributor transaction (fee paid by the sponsor, checked in Horizon), a passkey wallet through Chromium's virtual authenticator | `STELLAR_SPONSOR_SECRET`, `WEB_AUTH_CONTRACT_ID` |
+| `e2e/assets.spec.ts` | A USDC bounty end to end: blocked funding, adding a trustline, funding, payout. Buys Testnet USDC on the SDF order book | USDC enabled in the asset registry |
+| `e2e/reputation.spec.ts` | Attestation after a real payout, credential download, public verification, tamper detection | `STELLAR_ATTESTER_SECRET`, `CREDENTIAL_ISSUER_SECRET`, `ATTESTATION_CONTRACT_ID` |
+| `e2e/discovery.spec.ts` | Saved search, an alert in-app and in Mailpit, the digest job, recommendations | `DISCOVERY_DIGEST_TRIGGER_ENABLED=true` for the digest test |
+| `e2e/collaboration.spec.ts` | Q&A thread, accepting an answer, moderation; GitHub gist linking and PR verification through recorded responses | `GITHUB_FIXTURE_TRANSPORT` (development only) |
+| `e2e/privacy.spec.ts` | Data export and its signed download, deletion request and cancellation, re-accepting terms, a screened wallet being blocked | — |
+
 ### Running the Playwright suite (`pnpm test:e2e`)
 
 The suite needs an isolated stack: its own database, its own Redis index, an API + worker in Testnet mode, and
@@ -82,6 +95,12 @@ a Vite dev server with the test wallet enabled. Infra (Postgres, Redis, Mailpit)
    E2E_README_SHOTS=1 pnpm test:e2e readme-screenshots --project=desktop-chromium # README images → docs/screenshots/
    ```
 
+   The escrow v2 journeys (`e2e/escrow-v2.journey.spec.ts`) need the API on the v2 contract
+   (`SOROBAN_CONTRACT_VERSION=2`). The claim-after-timeout journey also needs `ESCROW_MIN_REVIEW_WINDOW_SECONDS=60`
+   (the Testnet v2 deployment allows 60 s), and the 2-of-3 arbiter journey needs `STELLAR_ARBITER_ADDRESSES` with
+   three addresses, `STELLAR_ARBITER_THRESHOLD=2` and `E2E_ARBITER_SECRETS`. A journey whose setting is missing is
+   skipped with the reason.
+
    Take the README images against a freshly seeded database (for example a new database for the API in step 2
    with `RUN_MIGRATIONS_ON_STARTUP=true SEED_ON_STARTUP=true`), so they show the seeded marketplace and nothing
    left over from earlier test runs. The spec creates no bounties; it links a wallet to the seeded requester and
@@ -91,10 +110,13 @@ a Vite dev server with the test wallet enabled. Infra (Postgres, Redis, Mailpit)
 |---|---|---|
 | `E2E_BASE_URL` | `http://localhost:5174` | Frontend under test (`PW_BASE_URL` is still honoured) |
 | `E2E_MAILPIT_URL` | `http://localhost:8025` | Mailpit HTTP API used to read verification and reset emails |
-| `E2E_REDIS_URL` | `redis://localhost:6379/5` | The E2E Redis index; the harness clears only `bf:v1:rl:*` rate-limit counters so repeated runs do not hit 429s. Never point it at a shared index. |
+| `E2E_REDIS_URL` | `redis://localhost:6379/5` | The Redis database the API under test uses (its `REDIS_URL`); the harness clears only the `bf:v1:rl:*` rate-limit counters before each sign-in so the suite does not hit 429s. Against the docker compose stack (and in CI) this is `redis://localhost:6379/0`. Global setup stops with an error if it points at a different database than the API. Never point it at a shared production index. |
 | `E2E_FRIENDBOT_URL` / `E2E_HORIZON_URL` | Testnet defaults | Account funding and the "account exists" check |
 | `E2E_SEED_PASSWORD` | `BountyFlow!2026` | Password of the seeded accounts; must match the backend `SEED_USER_PASSWORD` |
 | `E2E_WORKERS` | `4` (`2` in CI) | Playwright workers |
+| `E2E_ARBITER_SECRETS` | root `.env` | Comma-separated secret keys of two Testnet arbiter wallets from `STELLAR_ARBITER_ADDRESSES`, for the 2-of-3 journey in `e2e/escrow-v2.journey.spec.ts`. Read from the environment or the root `.env`; the keys stay in the Playwright process. Generate with `stellar keys generate bountyflow-arbiter-2 --network testnet --fund` and `stellar keys show bountyflow-arbiter-2`. Unset skips that journey. |
+| `DISCOVERY_DIGEST_TRIGGER_ENABLED` | `false` | Set on the **API** to expose the admin digest trigger that `e2e/discovery.spec.ts` uses; the digest test skips while it is off. Never enable it in production (the mainnet guard refuses it) |
+| `GITHUB_FIXTURE_TRANSPORT` | unset | Serves the recorded GitHub responses in `backend/tests/fixtures/github/` so `e2e/collaboration.spec.ts` needs no live GitHub calls. Refused when `APP_ENV` is staging or production |
 | `PW_WEB_SERVER` | unset | `1` lets Playwright start the dev server itself |
 
 Projects: `desktop-chromium` (1280×800) runs everything, including the `*.journey.spec.ts` flows; `tablet`

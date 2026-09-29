@@ -20,6 +20,7 @@ import { describeUserAgent } from '@/lib/user-agent'
 import { useUiPrefs, type Theme } from '@/stores/ui-prefs'
 
 import { AccountLayout } from './AccountNav'
+import { GitHubSectionBody } from './settings/GitHubSection'
 import { CardQuery } from './workspace-ui'
 
 /** One settings card: a header row, flush content, and an optional footer. */
@@ -243,12 +244,25 @@ function AppearanceCard() {
   )
 }
 
+function GitHubCard() {
+  return (
+    <SettingsSection
+      id="github"
+      title="GitHub"
+      description="Link your GitHub account so the pull requests on your submissions can be verified as yours."
+    >
+      <GitHubSectionBody />
+    </SettingsSection>
+  )
+}
+
 export default function SettingsPage() {
   return (
     <div className="lg:max-w-252">
       <PageHeader title="Settings" />
       <AccountLayout>
         <NotificationPreferencesCard />
+        <GitHubCard />
         <SessionsCard />
         <AppearanceCard />
       </AccountLayout>

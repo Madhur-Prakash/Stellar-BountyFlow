@@ -6,10 +6,12 @@ import { toast } from 'sonner'
 import { ChainActionButton } from '@/components/chain/ChainActionButton'
 import { MonoValue } from '@/components/common/MonoValue'
 import { ReasonDialog } from '@/components/common/ReasonDialog'
+import { ArbiterVoteButton } from '@/components/escrow/Arbitration'
 import { PageHeader } from '@/components/layout/PageHeader'
 import { Alert, AlertAction, AlertDescription, AlertTitle } from '@/components/ui/alert'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
+import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
@@ -19,6 +21,7 @@ import { useAdminDisputes } from '@/lib/api/queries/admin'
 import { usePublicConfig } from '@/lib/api/queries/config'
 import { useMe } from '@/lib/api/queries/auth'
 import { useAssignDispute, useResolveDispute } from '@/lib/api/queries/disputes'
+import { useArbitration } from '@/lib/api/queries/escrow'
 import {
   DISPUTE_RESOLUTIONS,
   DISPUTE_STATUSES,
@@ -26,7 +29,9 @@ import {
   type DisputeResolution,
   type DisputeStatus,
 } from '@/lib/api/types'
+import { approvalsLabel, needsArbiterVotes } from '@/lib/escrow'
 import { DISPUTE_STATUS_LABELS } from '@/lib/format'
+import { formatAmount, isValidAmount, normalizeAmount } from '@/lib/money'
 import { hasPermission } from '@/lib/permissions'
 
 import {
@@ -59,6 +64,12 @@ function ExecuteResolutionButton({
   dispute: Dispute
   size?: 'default' | 'sm'
 }) {
+  // A v2 escrow with several arbiters, or a split, is executed by arbiter votes.
+  if (needsArbiterVotes(dispute)) return <ArbiterVoteButton dispute={dispute} size={size} />
+  return <SingleArbiterButton dispute={dispute} size={size} />
+}
+
+function SingleArbiterButton({ dispute, size }: { dispute: Dispute; size: 'default' | 'sm' }) {
   const { data: config } = usePublicConfig()
   const arbiter = config?.arbiter_address ?? null
   const pay = dispute.resolution === 'RELEASE_TO_CONTRIBUTOR'
@@ -98,6 +109,43 @@ function ExecuteResolutionButton({
 const ESCROW_NOTE =
   'This records the decision. If the reward is held in on-chain escrow, the arbiter wallet then signs RESOLVE_DISPUTE to move the funds.'
 
+/** A split is only executed on a frozen v2 escrow. */
+const canSplit = (d: Dispute | null) => !!d?.escrow_frozen_onchain && (d.contract_version ?? 1) >= 2
+
+/** SPLIT: what the contributor receives, bounded by their open reward (read from the escrow). */
+function SplitAmountField({
+  dispute,
+  value,
+  onChange,
+}: {
+  dispute: Dispute
+  value: string
+  onChange: (v: string) => void
+}) {
+  const id = useId()
+  const { data } = useArbitration(dispute.id)
+  const open = data?.position_value ?? null
+  const invalid = value.trim() !== '' && !isValidAmount(value.trim())
+  return (
+    <div className="space-y-2">
+      <Label htmlFor={id}>Contributor receives</Label>
+      <Input
+        id={id}
+        inputMode="decimal"
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        aria-invalid={invalid}
+        aria-describedby={`${id}-help`}
+      />
+      <p id={`${id}-help`} className="text-[0.8125rem] text-muted-foreground">
+        {open
+          ? `The contributor’s open reward is ${formatAmount(open)}. The rest goes back to the requester.`
+          : 'The rest of the contributor’s open reward goes back to the requester.'}
+      </p>
+    </div>
+  )
+}
+
 export default function AdminDisputesPage() {
   const { data: me } = useMe()
   const canResolve = hasPermission(me, 'dispute:resolve')
@@ -112,6 +160,7 @@ export default function AdminDisputesPage() {
   const [target, setTarget] = useState<Dispute | null>(null)
   const [dialogOpen, setDialogOpen] = useState(false)
   const [resolution, setResolution] = useState<DisputeResolution>('RELEASE_TO_CONTRIBUTOR')
+  const [splitAmount, setSplitAmount] = useState('')
   const [justResolved, setJustResolved] = useState<Dispute | null>(null)
   const resolutionId = useId()
 
@@ -163,6 +212,9 @@ export default function AdminDisputesPage() {
             <span className="text-xs leading-4 text-muted-foreground">
               {DISPUTE_RESOLUTION_LABELS[d.resolution]}
             </span>
+          )}
+          {d.requires_onchain_execution && needsArbiterVotes(d) && (
+            <span className="text-xs leading-4 text-muted-foreground tabular-nums">{approvalsLabel(d)}</span>
           )}
         </div>
       ),
@@ -241,6 +293,7 @@ export default function AdminDisputesPage() {
               onClick={() => {
                 setTarget(d)
                 setResolution('RELEASE_TO_CONTRIBUTOR')
+                setSplitAmount('')
                 setDialogOpen(true)
               }}
             >
@@ -267,8 +320,11 @@ export default function AdminDisputesPage() {
               <>
                 <p>
                   Decision: {DISPUTE_RESOLUTION_LABELS[justResolved.resolution ?? resolution].toLowerCase()}.
-                  The reward is frozen in the on-chain escrow, so the arbiter wallet must now sign the
-                  on-chain resolution before any funds move.
+                  The reward is frozen in the on-chain escrow, so{' '}
+                  {needsArbiterVotes(justResolved) && (justResolved.arbiter_threshold ?? 1) > 1
+                    ? `${justResolved.arbiter_threshold} arbiter wallets must now approve it on-chain`
+                    : 'the arbiter wallet must now sign the on-chain resolution'}{' '}
+                  before any funds move.
                 </p>
                 <div className="my-1">
                   <ExecuteResolutionButton dispute={justResolved} size="sm" />
@@ -354,8 +410,20 @@ export default function AdminDisputesPage() {
         pending={resolve.isPending}
         onConfirm={async (note) => {
           if (!target) return
+          const split = resolution === 'SPLIT'
+          if (split && !isValidAmount(splitAmount.trim())) {
+            toast.error('Enter what the contributor receives, up to 7 decimals.')
+            throw new Error('split amount required')
+          }
           try {
-            const updated = await resolve.mutateAsync({ id: target.id, body: { resolution, note } })
+            const updated = await resolve.mutateAsync({
+              id: target.id,
+              body: {
+                resolution,
+                note,
+                ...(split ? { contributor_amount: normalizeAmount(splitAmount.trim()) } : {}),
+              },
+            })
             setJustResolved(updated)
             toast.success('Dispute decision recorded.')
           } catch (e) {
@@ -371,7 +439,7 @@ export default function AdminDisputesPage() {
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
-              {DISPUTE_RESOLUTIONS.map((r) => (
+              {DISPUTE_RESOLUTIONS.filter((r) => r !== 'SPLIT' || canSplit(target)).map((r) => (
                 <SelectItem key={r} value={r}>
                   {DISPUTE_RESOLUTION_LABELS[r]}
                 </SelectItem>
@@ -379,6 +447,9 @@ export default function AdminDisputesPage() {
             </SelectContent>
           </Select>
         </div>
+        {resolution === 'SPLIT' && target && (
+          <SplitAmountField dispute={target} value={splitAmount} onChange={setSplitAmount} />
+        )}
       </ReasonDialog>
     </div>
   )

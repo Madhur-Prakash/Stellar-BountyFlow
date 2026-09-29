@@ -152,6 +152,13 @@ _CATEGORY_LABELS = {
     NotificationType.REVISION_REQUESTED: "Submission",
     NotificationType.SUBMISSION_APPROVED: "Submission",
     NotificationType.SUBMISSION_REJECTED: "Submission",
+    NotificationType.QUESTION_RECEIVED: "Question",
+    NotificationType.QUESTION_REPLY: "Question",
+    NotificationType.ANSWER_ACCEPTED: "Question",
+    NotificationType.PULL_REQUEST_UPDATE: "Pull request",
+    NotificationType.CLAIM_AVAILABLE: "Payment",
+    NotificationType.MILESTONE_PAID: "Payment",
+    NotificationType.ARBITER_VOTE: "Dispute",
 }
 
 _ACTION_LABELS = {
@@ -160,14 +167,20 @@ _ACTION_LABELS = {
     NotificationType.SUBMISSION_RECEIVED: "Review submission",
     NotificationType.REVISION_REQUESTED: "View feedback",
     NotificationType.DISPUTE_UPDATE: "View dispute",
+    NotificationType.QUESTION_RECEIVED: "View question",
+    NotificationType.QUESTION_REPLY: "View thread",
+    NotificationType.PULL_REQUEST_UPDATE: "View submission",
+    NotificationType.CLAIM_AVAILABLE: "View submission",
+    NotificationType.MILESTONE_PAID: "View payment",
+    NotificationType.ARBITER_VOTE: "View dispute",
 }
 
 
-def _format_amount(value: Any) -> str:
+def _format_amount(value: Any, asset_code: Any = None) -> str:
     raw = str(value)
     if "." in raw:
         raw = raw.rstrip("0").rstrip(".")
-    return f"{raw} XLM"
+    return f"{raw} {asset_code or 'XLM'}"
 
 
 def render_notification(
@@ -184,7 +197,7 @@ def render_notification(
     payload = payload or {}
     details: list[tuple[str, str]] = []
     if payload.get("amount") is not None:
-        details.append(("Amount", _format_amount(payload["amount"])))
+        details.append(("Amount", _format_amount(payload["amount"], payload.get("asset_code"))))
     if notification_type == NotificationType.PAYMENT_CONFIRMED:
         details.append(("Network", f"Stellar {settings.network_label.title()}"))
     return render(

@@ -18,5 +18,6 @@ class DailyMetric(Timestamps, Base):
     __tablename__ = "daily_metrics"
 
     day: Mapped[date] = mapped_column(Date, primary_key=True)
-    metric: Mapped[str] = mapped_column(String(64), primary_key=True)
+    # Per-asset payout volume uses "payout_volume:CODE:ISSUER" (plain "payout_volume" is XLM), hence 128.
+    metric: Mapped[str] = mapped_column(String(128), primary_key=True)
     value: Mapped[Decimal] = mapped_column(MONEY, nullable=False)

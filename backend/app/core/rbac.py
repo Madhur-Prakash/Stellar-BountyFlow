@@ -47,6 +47,7 @@ class Permission(StrEnum):
     # Administration
     USER_MANAGE = "user:manage"  # suspend / reactivate accounts
     USER_ASSIGN_ROLE = "user:assign_role"
+    ASSET_MANAGE = "asset:manage"  # add, enable/disable and deploy reward assets
 
 
 _USER: frozenset[Permission] = frozenset(
@@ -81,6 +82,7 @@ _ADMIN: frozenset[Permission] = _MODERATOR | frozenset(
     {
         Permission.USER_MANAGE,
         Permission.USER_ASSIGN_ROLE,
+        Permission.ASSET_MANAGE,
     }
 )
 

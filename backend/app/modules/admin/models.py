@@ -7,7 +7,7 @@ from datetime import datetime
 from enum import StrEnum
 from typing import Any
 
-from sqlalchemy import ForeignKey, Index, String, Text
+from sqlalchemy import ForeignKey, Index, String, Text, text
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
@@ -27,6 +27,7 @@ class ReportTarget(StrEnum):
     BOUNTY = "BOUNTY"
     USER = "USER"
     SUBMISSION = "SUBMISSION"
+    QA_POST = "QA_POST"  # a bounty question or reply (modules/qa)
 
 
 class UserReport(UUIDPrimaryKey, CreatedAt, Base):
@@ -54,6 +55,13 @@ class AuditLog(UUIDPrimaryKey, CreatedAt, Base):
     __table_args__ = (
         Index("ix_audit_logs_entity", "entity_type", "entity_id", "created_at"),
         Index("ix_audit_logs_bounty_created", "bounty_id", "created_at"),
+        # The screening decision list and the export's audit section read only the screening actions.
+        Index(
+            "ix_audit_logs_screening",
+            "action",
+            "created_at",
+            postgresql_where=text("action LIKE 'screening.%'"),
+        ),
     )
 
     actor_id: Mapped[uuid.UUID | None] = mapped_column(

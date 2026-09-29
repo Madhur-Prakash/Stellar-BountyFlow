@@ -9,6 +9,8 @@ suite in `backend/tests/integration/security/`.
 - [CSRF](#csrf)
 - [Authorization (RBAC and ownership)](#authorization)
 - [Wallet ownership proof](#wallet-ownership-proof)
+- [GitHub account proof and webhook](#github-account-proof-and-webhook)
+- [Bounty Q&A](#bounty-qa)
 - [Transaction verification pipeline](#transaction-verification-pipeline)
 - [Escrow contract: trust assumptions and limitations](#escrow-contract-trust-assumptions-and-limitations)
 - [Input handling](#input-handling)
@@ -32,6 +34,8 @@ suite in `backend/tests/integration/security/`.
 | Wallet-to-account links | `wallets` | Payout destinations are derived from them |
 | Private content | Applications (review notes), submissions, disputes, drafts, notifications | Confidentiality between parties |
 | Server secrets | `JWT_SECRET`, `WALLET_CHALLENGE_SIGNING_SECRET`, SMTP and DB credentials | Token forgery, wallet-proof forgery |
+| Sponsor balance | `STELLAR_SPONSOR_SECRET`'s account | Pays other people's network fees; a drained sponsor stops passkey wallets working |
+| Passkey smart wallets | Soroban contract accounts, signer = a WebAuthn key on the user's device | They hold funds and are payout destinations; the device's passkey is the only key |
 
 ### Actors
 
@@ -42,6 +46,7 @@ suite in `backend/tests/integration/security/`.
 | Moderator / Admin | Staff permissions from the RBAC matrix; can be a party to a bounty |
 | Arbiter key holder | Signs `resolve_dispute` on-chain; bounded by the contract |
 | Third party on-chain | Can create escrows at any `bounty_id` with any token, arbiter and deadline |
+| Sponsorship abuser | A registered user who wants BountyFlow to pay for transactions of their choosing, or to drain the sponsor |
 | Infrastructure failure | Redis, Kafka or the RPC being down |
 
 Out of scope: a compromised host or database, a compromised browser wallet, and bugs in Stellar Core or the
@@ -171,6 +176,69 @@ A wallet is linked only after a SEP-10 style challenge (`app/blockchain/wallet.p
    second account that proves the same key gets 409.
 5. If Redis is unavailable, challenges fail **closed** (503).
 
+Two more proofs exist for wallets that cannot sign a challenge transaction. Both are issued, stored and consumed
+exactly like the SEP-10 one, and the record carries its method, so an answer of the wrong kind is refused:
+
+6. **SEP-53 signed message** (`G…`). The wallet signs `sha256("Stellar Signed Message:\n" + message)`; the
+   message names the address, the network, a 24-byte nonce and an expiry, and the signature is verified against
+   the claimed account key. Same guarantee as SEP-10 — only the account's own ed25519 key produces it.
+7. **SEP-45 web authentication** (`C…`, smart wallets). The challenge is a pair of Soroban authorization entries
+   for `web_auth_verify` on BountyFlow's own web-auth contract. The server keeps **its** signed entry from the
+   issued challenge and takes only the entry whose credential address is the claimed wallet, refusing it unless
+   the authorized invocation is byte-identical to the issued one and actually carries a signature. It then
+   verifies by simulation: the call succeeds only if the wallet's `__check_auth` accepts, and the parsed nonce
+   and account must equal the issued ones. Nothing is submitted. A client cannot substitute the server's entry,
+   replay another wallet's entry, or have a different call authorized.
+
+### Sponsorship abuse
+
+The sponsor pays for other people's transactions, so it is a spendable asset. Defences
+(`app/blockchain/sponsorship.py`), all checked again at submission time, all failing closed:
+
+- **Nothing user-chosen is sponsored.** The contract id, function name and arguments of a sponsored transaction
+  are the ones BountyFlow set at prepare time and stored on the row; a fee bump wraps that exact inner
+  transaction, whose hash the server already pinned. A user cannot present an arbitrary envelope for a fee bump.
+- **Only contributor-side calls**: `consent_cancel`, `raise_dispute`, `submit_work`, `claim`, and only when the
+  caller is not the bounty's requester. Requester-side calls, which move money out of escrow, are never
+  sponsored. Trustline sponsorship is limited to the assets in `SPONSOR_ALLOWED_ASSETS`.
+- **Caps**: a per-transaction fee ceiling, and a per-user daily count and fee budget counted from
+  `sponsored_transactions` under a per-user advisory lock taken in the same transaction as the insert, so
+  concurrent submissions cannot both pass the cap.
+- **Floor**: sponsorship stops below `SPONSOR_MIN_BALANCE_XLM` and the admin console warns below
+  `SPONSOR_LOW_BALANCE_XLM`. Every sponsored transaction is recorded with the fee the network actually charged.
+- **The sponsor authorizes nothing.** A relayed transaction whose authorization entries are not the wallet's own
+  address credentials — in particular source-account credentials, which would spend the sponsor's own authority —
+  is refused. The sponsor only sources and signs the envelope.
+- **Blast radius.** The sponsor holds only what it needs for fees; it is not an arbiter, not an escrow party and
+  cannot move escrowed funds. Losing the key costs its balance, not anyone's reward.
+
+### Passkey wallet recovery
+
+A passkey smart wallet's only signer is the WebAuthn credential created on the user's device. Consequences,
+stated plainly rather than engineered around:
+
+- **A lost passkey is a lost wallet.** With a platform authenticator whose credentials are not synced (no iCloud
+  Keychain / Google Password Manager), losing the device loses the ability to authorize that wallet, and with it
+  any balance left in it. BountyFlow cannot recover it: it holds no key of that wallet and the contract has no
+  admin. The UI therefore presents passkey wallets as a working wallet, not a vault.
+- **Recovery path.** The wallet contract supports several signers (`add_secp256r1`, `add_signer` with an Ed25519
+  key or a policy contract). This deployment does not add one automatically — a second signer the platform chose
+  would be a platform key over a user's funds — so the documented recovery is: keep the passkey in a synced
+  keychain, or move the balance to an account wallet. Adding a user-chosen recovery signer is the natural next
+  step, and the kit already builds those transactions.
+- **Fresh device.** `GET /wallets/passkey/candidates` returns only the caller's own wallet's birth claims
+  (creation transaction, ledger and WASM hash); passkey-kit still verifies every claim against RPC and asks for
+  a fresh assertion before connecting, so the endpoint cannot be used to point a passkey at someone else's
+  wallet. A wallet another account already owns is refused (409).
+- **Deployment integrity.** BountyFlow re-derives the contract address from the credential id and refuses any
+  deployment that is not exactly the expected contract from the configured WASM with the registered passkey as
+  its signer, and marks the wallet `FAILED` if the deployed code does not read back as expected. The shared
+  passkey-kit deployer is a published keypair by design; it only salts and authorizes the deployment and can
+  never control the wallet.
+- **User verification.** The wallet contract requires the WebAuthn User Present flag, not User Verified, so it
+  stays compatible with authenticators without biometrics. A stolen, unlocked device can therefore authorize the
+  wallet.
+
 ## Transaction verification pipeline
 
 Every chain action follows **prepare → sign → submit → verify** (`app/modules/payments/service.py`):
@@ -210,10 +278,20 @@ fresh id, so squatting gains nothing.
 
 See `contracts/README.md` for the full interface.
 
-- **No admin, no upgrade.** Every state-changing function calls `require_auth` on the acting party. There is
-  no admin key, no upgrade path and no function that sends funds to an arbitrary address.
-- **Bounded arbiter.** The arbiter acts only on `Disputed` escrows, and only to pay one reward to an `Assigned`
-  contributor or to remove that assignment.
+- **Upgradeable by one admin (v2).** Every escrow function calls `require_auth` on the acting party, and no
+  function sends funds to an arbitrary address. The v2 contract (`CBCXG46F…3M4C`) has an admin, set by the
+  constructor, whose only power is `upgrade(new_wasm_hash)` (and handing the role over with `set_admin`, which the
+  new admin co-signs). A malicious upgrade could move escrowed funds, so the admin key is the most sensitive key of
+  a deployment: keep it offline in a hardware wallet or a multisig account, and treat every `contract_upgraded`
+  event as a release. The v1 contract (`CDX6FN2M…4SFY4CY`) has no admin and cannot change.
+- **Bounded, M-of-N arbiters.** Arbiters act only on `Disputed` escrows, and only on an `Assigned` contributor:
+  pay them up to their open position (the rest returns to the requester) or remove the assignment. On v2 a
+  resolution executes only when the escrow's threshold of arbiters approved exactly the same contributor and
+  amount in the current dispute round; mainnet configuration refuses a threshold below 2.
+- **Review window.** Work recorded on-chain (`submit_work`) can be claimed by the contributor once the escrow's
+  review window (1 to 30 days; the Testnet deployment allows 60 s for tests) passes unanswered. Paying a
+  submission clears its clock, so the same work cannot be paid and claimed. Refunds wait while recorded work is
+  unanswered.
 - **Refund gating.** The requester can refund from `AwaitingFunding`, or from `CancelRequested` when nobody is
   assigned-but-unpaid or once the deadline has passed. Contributors are protected only by an on-chain
   assignment and by disputing before the deadline. BountyFlow sets `deadline = completion_deadline + 7 days`
@@ -227,7 +305,8 @@ See `contracts/README.md` for the full interface.
 - **Fixed and redeployed.** SEC-05 (a dispute with nobody assigned froze the escrow forever) and SEC-06
   (assignment after the deadline) are enforced by the current Testnet contract `CDX6FN2M…4SFY4CY`. The backend
   enforces the same guards for everything it prepares. The earlier contract `CCJ52FHV…LMXK` is superseded.
-- **Arbiter liveness.** Disputed escrows only move when the arbiter signs. Protect the arbiter key.
+- **Arbiter liveness.** Disputed escrows only move when enough arbiters sign. Protect the arbiter keys and keep
+  the threshold below the set size (2 of 3 on Testnet).
 - **Token.** The contract accepts any SEP-41 token. BountyFlow's authenticity check restricts trusted escrows to
   the configured native XLM SAC.
 
@@ -244,6 +323,12 @@ See `contracts/README.md` for the full interface.
 - **Markdown** is stored raw and never rendered to HTML by the server. The SPA renders it without raw HTML.
   Emails are rendered with Jinja2 autoescaping, and notification titles (which become the email subject) are
   static strings, so no user text reaches mail headers.
+  - This now covers **user-to-user** text as well (bounty Q&A). `SafeMarkdown` is the only renderer: it is
+    lazy-loaded, passes `skipHtml` to react-markdown (so raw HTML is never parsed) and runs `rehype-sanitize`
+    with a schema that drops `img`, `input`, `iframe`, `video` and `audio` and allows only `http`, `https` and
+    `mailto` in `href`. Links open with `rel="noopener noreferrer nofollow"`, and images are rendered as links
+    so a post cannot embed a tracking pixel. Q&A bodies are capped at 5,000 characters and stripped of NUL
+    bytes before they reach PostgreSQL.
 - **SQL:** ORM and bound parameters only. The only `text()` calls are constant (`SELECT 1`, advisory locks).
   Free-text search escapes LIKE wildcards (SEC-07). The full-text search uses `websearch_to_tsquery`.
 - **JSONB:** `bounties.metadata` only holds validated `links` and server-set keys. Transaction and notification
@@ -270,11 +355,78 @@ Redis fixed-window limits (`app/core/rate_limit.py`). They fail **open** when Re
 | `application:create` / `submission:create` / `dispute:create` | 60, 30, 10 / hour | IP |
 | `chain:prepare` / `chain:submit` | 60 / 5 min each | IP |
 | `chain:poll` (`GET /transactions/{ref}`) | 240 / min | IP |
+| `qa:post` / `qa:post:user` | 60 / hour (IP), 20 / 10 min (user) | IP, user |
+| `qa:vote` / `qa:report` | 120 / hour (user), 20 / hour (IP) | user, IP |
+| `github:challenge` / `github:verify` / `github:oauth` | 10, 20, 10 per 15 min | user |
+| `github:recheck` / `github:link-pr` / `github:webhook` | 20 / 5 min (user), 60 / hour (IP), 600 / min (IP) | user, IP |
 
 **Client IP (SEC-03).** Proxies append to `X-Forwarded-For`, so only the right-most `TRUSTED_PROXY_HOPS` entries
 are trustworthy. The default is `1`, which fits the bundled nginx (`$proxy_add_x_forwarded_for`). Set `0` when
 the API is reachable directly; `X-Forwarded-For` is then ignored. Also drop uvicorn's
 `--forwarded-allow-ips *` in that setup. The value is truncated to 64 characters.
+
+
+## GitHub account proof and webhook
+
+BountyFlow reads only **public** data from the GitHub REST API and never writes to GitHub. Full rules in
+[github.md](github.md).
+
+### Gist proof (no OAuth secrets needed)
+
+1. `POST /github/account/challenge {login}` mints `bountyflow:<username>:<16 random bytes>` and stores it in
+   Redis for 30 minutes **keyed by the signed-in user's id**, together with the login being claimed. The
+   challenge is therefore bound to one account and one GitHub username.
+2. The user publishes it in a public gist. `POST /github/account/verify-gist` fetches that gist through the API
+   and links the account **only if** the gist's owner login equals the claimed login *and* a file contains the
+   exact challenge. Anonymous gists (no owner) never prove anything.
+3. The challenge is deleted on success, so a gist cannot be replayed, and both endpoints are rate limited per
+   user (10 and 20 per 15 minutes). If Redis is unavailable, linking fails **closed** (503).
+4. The verified **numeric GitHub id** is stored, not just the login, so renaming the GitHub account (or someone
+   else later taking that username) cannot silently re-point an established link. A unique constraint on
+   `github_accounts.github_id` means one GitHub account maps to at most one BountyFlow account.
+5. Gist responses are never cached — the user creates the gist moments before the check.
+
+OAuth is optional and only offered when both `GITHUB_CLIENT_ID` and `GITHUB_CLIENT_SECRET` are set. Its `state`
+is single-use, bound to the user in Redis and consumed with `GETDEL` even when the exchange then fails. The
+access token is used once, server-side, to read `/user` and is never stored or logged.
+
+### Webhook
+
+`POST /api/v1/github/webhook` is off (404) unless `GITHUB_WEBHOOK_SECRET` is set. Every delivery must carry
+`X-Hub-Signature-256` = `sha256=` + HMAC-SHA256 of the **raw** body with that secret, compared with
+`hmac.compare_digest`; anything else is 401 `invalid_signature`. It is CSRF-exempt because GitHub signs each
+delivery instead of carrying a cookie, and it is matched exactly in the exempt list like the other exemptions.
+
+The payload is **never trusted for state**: it is only used to mark matching pull request rows as due, and the
+actual state is then read from the REST API. `X-GitHub-Delivery` is remembered in Redis for 24 hours so a
+redelivery does not re-queue work, unknown event types are ignored, and the endpoint is rate limited
+(600 / minute).
+
+### Reading GitHub safely
+
+- `GITHUB_TOKEN` is optional, server-side only and sent to the configured API host only. It needs no repository
+  or account permissions.
+- A pull request URL is parsed strictly (host `github.com`, `/{owner}/{repo}/pull/{number}`, no credentials in
+  the URL) before it is stored, and it is canonicalised, so a submission cannot be used to make the server
+  fetch an arbitrary address.
+- Responses are size-bounded when cached (gist file contents are truncated at 100,000 characters), and every
+  GitHub call runs outside database transactions, so a slow or hostile response cannot hold row locks.
+- When the rate limit is exhausted, a shared Redis backoff stops every caller until the reset instead of
+  hammering GitHub.
+
+## Bounty Q&A
+
+- Posting needs an active account with a **verified email**; reading is public but follows the bounty's
+  visibility (a draft or moderator-hidden bounty returns 404 to everyone else).
+- Posting is rate limited per user (20 per 10 minutes) as well as per IP (60 per hour), with separate limits for
+  votes (120 / hour) and reports (20 / hour).
+- Authors edit and delete only their own posts; deletion is soft (the body is cleared and the author hidden) so
+  a thread keeps its shape and a report still points at something.
+- Moderators (`bounty:moderate`) hide and unhide posts with a reason. A hidden post's body is returned only to
+  its author and to moderators, hiding marks the post's open reports as actioned, and every moderation step is
+  written to the append-only audit log (`qa.post_hidden` / `qa.post_unhidden`).
+- Only the bounty's requester can accept an answer or pin a question; the accepted answer is enforced one per
+  question by a partial unique index, not only in application code.
 
 ## Transport, headers and CORS
 

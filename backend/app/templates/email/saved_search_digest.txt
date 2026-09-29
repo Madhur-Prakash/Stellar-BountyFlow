@@ -1,0 +1,13 @@
+{% if recipient_name %}Hi {{ recipient_name }},
+
+{% endif %}{{ total }} new {{ "bounty matches" if total == 1 else "bounties match" }} your saved searches.
+{% for section in sections %}
+{{ section.name }} ({{ section.bounties|length }} new)
+{% for bounty in section.bounties %}- {{ bounty.title }}, {{ bounty.reward }}: {{ bounty.url }}
+{% endfor %}Unsubscribe from alerts for "{{ section.name }}": {{ section.unsubscribe_url }}
+{% endfor %}
+{{ action_label }}: {{ action_url }}
+
+--
+{{ app_name }}
+Manage email notifications: {{ preferences_url }}

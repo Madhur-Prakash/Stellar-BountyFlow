@@ -1,0 +1,17 @@
+{
+    "network":  "testnet",
+    "contract_id":  "CBXJVFUQHWECJZQSEBAFGHXLHP72PCPUX7XES42KVEMVAMZ26D5CZ33N",
+    "attester_address":  "GA4HHOAIAJKAOF5T33ZH5IQCWY7GPPI5S3KORSJYBULMEOOYZLUWW3CK",
+    "wasm_hash":  "9fd157a8edf80d041759e23f916c1e410df779b1371a05186f5327f4ebe53ccd",
+    "upload_tx":  "70a1f7c7b86b57f84f5e93f4436037e50e120fb6e36d8817db08e8690c070cd5",
+    "deploy_tx":  "b9baba5cd50febb339aae772967cef14cdf2603ed26da718e5ef3548d6fbeddf",
+    "deployed_at":  "2026-09-28T21:03:15Z",
+    "deployer_address":  "GD646RGJJOHCMJDICTLPTPZXYQSS2Y4IZBOWEAYU2AU7PAT7ESKZKPE5",
+    "contract_version":  1,
+    "explorer_url":  "https://stellar.expert/explorer/testnet/contract/CBXJVFUQHWECJZQSEBAFGHXLHP72PCPUX7XES42KVEMVAMZ26D5CZ33N",
+    "smoke_test":  {
+                       "version":  1,
+                       "attester":  "GA4HHOAIAJKAOF5T33ZH5IQCWY7GPPI5S3KORSJYBULMEOOYZLUWW3CK",
+                       "total":  0
+                   }
+}

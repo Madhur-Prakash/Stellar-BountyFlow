@@ -73,6 +73,10 @@ class Bounty(UUIDPrimaryKey, Timestamps, Base):
         CheckConstraint("reward_amount > 0", name="reward_positive"),
         CheckConstraint("positions_available >= 1 AND positions_available <= 100", name="positions_range"),
         CheckConstraint(
+            "review_window_seconds IS NULL OR (review_window_seconds >= 60 AND review_window_seconds <= 2592000)",
+            name="review_window_range",
+        ),
+        CheckConstraint(
             "application_deadline IS NULL OR completion_deadline IS NULL "
             "OR application_deadline <= completion_deadline",
             name="deadline_order",
@@ -96,7 +100,12 @@ class Bounty(UUIDPrimaryKey, Timestamps, Base):
         str_enum(Difficulty, "bounty_difficulty"), nullable=False, index=True
     )
     reward_amount: Mapped[Decimal] = mapped_column(MONEY, nullable=False)
+    # Asset code for display ("XLM", "USDC"); reward_asset_identifier below is the authoritative value.
     reward_asset: Mapped[str] = mapped_column(String(64), nullable=False, default="XLM")
+    # The reward asset: "native" (XLM) or "CODE:ISSUER", an entry of the reward asset registry (app.modules.assets).
+    reward_asset_identifier: Mapped[str] = mapped_column(
+        String(80), nullable=False, default="native", server_default="native", index=True
+    )
     network: Mapped[str] = mapped_column(String(16), nullable=False)
     status: Mapped[BountyStatus] = mapped_column(
         str_enum(BountyStatus, "bounty_status"), nullable=False, default=BountyStatus.DRAFT, index=True
@@ -104,10 +113,16 @@ class Bounty(UUIDPrimaryKey, Timestamps, Base):
     application_deadline: Mapped[datetime | None]
     completion_deadline: Mapped[datetime | None]
     positions_available: Mapped[int] = mapped_column(Integer, nullable=False, default=1)
+    # Escrow v2: seconds the requester has to answer work recorded on-chain (None = the platform default).
+    review_window_seconds: Mapped[int | None] = mapped_column(Integer)
     eligibility_criteria: Mapped[str | None] = mapped_column(Text)
     submission_requirements: Mapped[str | None] = mapped_column(Text)
     acceptance_criteria: Mapped[str | None] = mapped_column(Text)
     repository_url: Mapped[str | None] = mapped_column(String(500))
+    # Approval needs a merged pull request, verified through GitHub, from the contributor (modules/github).
+    require_merged_pr: Mapped[bool] = mapped_column(
+        Boolean, nullable=False, default=False, server_default="false"
+    )
     visibility: Mapped[Visibility] = mapped_column(
         str_enum(Visibility, "bounty_visibility"), nullable=False, default=Visibility.PUBLIC
     )
@@ -160,7 +175,11 @@ class Bounty(UUIDPrimaryKey, Timestamps, Base):
 
 class BountyTag(UUIDPrimaryKey, Base):
     __tablename__ = "bounty_tags"
-    __table_args__ = (UniqueConstraint("bounty_id", "tag"),)
+    __table_args__ = (
+        UniqueConstraint("bounty_id", "tag"),
+        # Recommendations match on the normalised name, which the plain index cannot serve.
+        Index("ix_bounty_tags_normalized", text(r"regexp_replace(lower(btrim(tag)), '[\s_-]+', ' ', 'g')")),
+    )
 
     bounty_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("bounties.id", ondelete="CASCADE"), index=True)
     tag: Mapped[str] = mapped_column(String(40), nullable=False, index=True)
@@ -170,7 +189,14 @@ class BountyTag(UUIDPrimaryKey, Base):
 
 class BountySkill(UUIDPrimaryKey, Base):
     __tablename__ = "bounty_skills"
-    __table_args__ = (UniqueConstraint("bounty_id", "skill_name"),)
+    __table_args__ = (
+        UniqueConstraint("bounty_id", "skill_name"),
+        # Recommendations match on the normalised name, which the plain index cannot serve.
+        Index(
+            "ix_bounty_skills_normalized",
+            text(r"regexp_replace(lower(btrim(skill_name)), '[\s_-]+', ' ', 'g')"),
+        ),
+    )
 
     bounty_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("bounties.id", ondelete="CASCADE"), index=True)
     skill_name: Mapped[str] = mapped_column(String(40), nullable=False, index=True)

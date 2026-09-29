@@ -10,13 +10,13 @@ const STYLES: Record<BlockchainMode, { label: string; icon: LucideIcon; tone: st
     label: 'Testnet',
     icon: FlaskConical,
     tone: 'text-cyan',
-    hint: 'Transactions run on Stellar Testnet. Test XLM has no monetary value.',
+    hint: 'Transactions run on Stellar Testnet. Test XLM and test USDC have no monetary value.',
   },
   mainnet: {
     label: 'Mainnet',
     icon: Globe,
     tone: 'text-success',
-    hint: 'Transactions run on the Stellar public network with real XLM.',
+    hint: 'Transactions run on the Stellar public network with real funds.',
   },
 }
 

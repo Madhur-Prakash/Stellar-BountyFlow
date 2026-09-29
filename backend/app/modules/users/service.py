@@ -20,6 +20,7 @@ from app.core.security import utcnow
 from app.messaging.events import EventType
 from app.messaging.outbox import add_event
 from app.modules.admin import audit
+from app.modules.compliance import screening
 from app.modules.users import repository as repo
 from app.modules.users.models import User, Wallet, WalletVerificationStatus
 from app.modules.users.schemas import (
@@ -31,6 +32,7 @@ from app.modules.users.schemas import (
     UserStats,
     WalletChallengeResponse,
     WalletOut,
+    WalletVerifyRequest,
 )
 
 _CLEARABLE_FIELDS = {"avatar_url", "bio", "github_url", "portfolio_url"}
@@ -164,19 +166,34 @@ async def list_wallets(session: AsyncSession, user: User) -> list[WalletOut]:
     return [WalletOut.model_validate(w) for w in await repo.verified_wallets(session, user.id)]
 
 
-async def create_wallet_challenge(user: User, address: str) -> WalletChallengeResponse:
-    challenge = await wallet_proof.create_challenge(str(user.id), address)
+async def create_wallet_challenge(
+    user: User, address: str, method: wallet_proof.ProofMethod | None = None
+) -> WalletChallengeResponse:
+    challenge = await wallet_proof.issue_challenge(str(user.id), address, method)
     return WalletChallengeResponse(
+        method=challenge.method,
         challenge_xdr=challenge.xdr,
+        message=challenge.message,
+        authorization_entries=challenge.authorization_entries,
         network_passphrase=get_network().passphrase,
         expires_at=challenge.expires_at,
     )
 
 
-async def verify_wallet(session: AsyncSession, user: User, address: str, signed_xdr: str) -> WalletOut:
-    address = wallet_proof.validate_address(address)
+async def verify_wallet(session: AsyncSession, user: User, data: WalletVerifyRequest) -> WalletOut:
+    """Links a wallet once the issued challenge is answered: a signed SEP-10 transaction, a SEP-53 message
+    signature, or (contract accounts) a SEP-45 authorization."""
+    address = wallet_proof.validate_address(data.public_address, allow_contract=True)
     network = get_network()
-    await wallet_proof.verify_challenge(str(user.id), address, signed_xdr)
+    method = await wallet_proof.verify_proof(
+        str(user.id),
+        address,
+        signed_challenge_xdr=data.signed_challenge_xdr,
+        signed_message=data.signed_message,
+        signed_authorization_entries=data.signed_authorization_entries,
+    )
+    # Sanctions screening, once ownership is proven (so only the owner learns the result).
+    await screening.enforce(user_id=user.id, addresses=[address], context=screening.WALLET_VERIFICATION)
 
     existing_owner = await session.scalar(
         select(Wallet).where(
@@ -196,7 +213,9 @@ async def verify_wallet(session: AsyncSession, user: User, address: str, signed_
         network=network.network,
         verification_status=WalletVerificationStatus.VERIFIED,
         verified_at=utcnow(),
-        verification_note="sep10-signature",
+        verification_note=f"{method}-signature",
+        wallet_app=data.wallet_app or ("smart-wallet" if method == "sep45" else None),
+        proof_method=method,
     )
     session.add(wallet)
     await session.flush()
@@ -206,7 +225,12 @@ async def verify_wallet(session: AsyncSession, user: User, address: str, signed_
         action="wallet.verified",
         entity_type="wallet",
         entity_id=wallet.id,
-        metadata={"address": address, "network": network.network},
+        metadata={
+            "address": address,
+            "network": network.network,
+            "wallet_app": wallet.wallet_app,
+            "proof": method,
+        },
         is_public=False,
     )
     add_event(

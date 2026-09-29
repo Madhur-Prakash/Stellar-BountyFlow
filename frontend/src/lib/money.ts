@@ -1,8 +1,11 @@
 /**
- * Decimal-string money helpers. All arithmetic runs on BigInt stroops
- * (1 XLM = 10,000,000 stroops, Stellar's 7-decimal precision). Floats are
- * never used for amounts.
+ * Decimal-string money helpers. All arithmetic runs on BigInt base units
+ * (1 XLM = 10,000,000 stroops; every Stellar Asset Contract token, USDC
+ * included, uses the same 7-decimal precision). Floats are never used for
+ * amounts. Amounts of different assets are never added together: always
+ * carry the asset (`formatMoney`, `AssetAmount`).
  */
+import type { Asset, AssetAmount } from '@/lib/api/types'
 
 export const DECIMALS = 7
 export const STROOPS_PER_UNIT = 10n ** BigInt(DECIMALS)
@@ -124,6 +127,39 @@ export function formatAmountCompact(value: string | bigint | null | undefined, a
     }
   }
   return formatAmount(stroops, { maxDecimals: 2, asset })
+}
+
+type AssetLike = Pick<Asset, 'code'> | string | null | undefined
+
+/** The asset code to print next to an amount ("XLM" when unknown, as for pre-asset rows). */
+export function assetCode(asset: AssetLike): string {
+  if (!asset) return 'XLM'
+  return typeof asset === 'string' ? asset : asset.code
+}
+
+/** An amount with its asset code, e.g. formatMoney("20.5000000", usdc) → "20.5 USDC". */
+export function formatMoney(
+  value: string | bigint | null | undefined,
+  asset: AssetLike,
+  opts: Omit<FormatAmountOptions, 'asset'> = {},
+): string {
+  return formatAmount(value, { ...opts, asset: assetCode(asset) })
+}
+
+/** Per-asset totals as one line, XLM first: "12 XLM, 20 USDC". Empty → "0 XLM" (nothing was paid). */
+export function formatAssetAmounts(
+  rows: AssetAmount[] | null | undefined,
+  opts: Omit<FormatAmountOptions, 'asset'> = {},
+): string {
+  const nonZero = (rows ?? []).filter((r) => tryParseAmount(r.amount) !== 0n)
+  if (nonZero.length === 0) return formatMoney('0', 'XLM', opts)
+  return nonZero.map((r) => formatMoney(r.amount, r.asset, opts)).join(', ')
+}
+
+/** "GBBD…LFLA5": short form of an issuer or contract address for labels. */
+export function shortAddress(address: string | null | undefined): string {
+  if (!address) return ''
+  return address.length > 12 ? `${address.slice(0, 4)}…${address.slice(-5)}` : address
 }
 
 /** Stroops (integer string, e.g. fee estimates) → formatted XLM. */

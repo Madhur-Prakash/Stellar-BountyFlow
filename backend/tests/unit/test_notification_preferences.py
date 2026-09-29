@@ -23,6 +23,12 @@ def test_default_email_types_match_policy() -> None:
         "DISPUTE_UPDATE",
         "SUBMISSION_RECEIVED",
         "APPLICATION_RECEIVED",
+        "QUESTION_RECEIVED",
+        "QUESTION_REPLY",
+        "PULL_REQUEST_UPDATE",
+        "CLAIM_AVAILABLE",
+        "MILESTONE_PAID",
+        "ARBITER_VOTE",
     }
 
 

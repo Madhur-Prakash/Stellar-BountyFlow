@@ -9,6 +9,7 @@ from typing import Annotated, Literal
 
 from fastapi import APIRouter, Depends, Query, Request, Response, status
 
+from app.blockchain.assets import InvalidAsset, parse_identifier
 from app.core.exceptions import NotFound, ValidationFailed
 from app.core.rate_limit import client_ip, rate_limit
 from app.core.rbac import Permission
@@ -55,6 +56,21 @@ def _decimal(value: str | None, field: str) -> Decimal | None:
     return result
 
 
+def _assets(value: str | None) -> list[str] | None:
+    """Comma-separated reward asset identifiers ("native", "XLM" or "CODE:ISSUER")."""
+    items = _csv(value)
+    if not items:
+        return None
+    try:
+        return list(
+            dict.fromkeys(parse_identifier("native" if i.upper() == "XLM" else i).identifier for i in items)
+        )
+    except InvalidAsset as exc:
+        raise ValidationFailed(
+            "Invalid filter value.", details=[{"field": "asset", "message": str(exc)}]
+        ) from exc
+
+
 def marketplace_filters(
     q: Annotated[str | None, Query(max_length=200)] = None,
     category: str | None = None,
@@ -67,6 +83,7 @@ def marketplace_filters(
     deadline_before: datetime | None = None,
     deadline_after: datetime | None = None,
     funded_only: bool = False,
+    asset: Annotated[str | None, Query(max_length=400)] = None,
     sort: SortOption | None = None,
 ) -> MarketplaceFilters:
     try:
@@ -82,6 +99,7 @@ def marketplace_filters(
             deadline_before=deadline_before,
             deadline_after=deadline_after,
             funded_only=funded_only,
+            asset=_assets(asset),
             sort=sort,
         )
     except ValueError as exc:

@@ -1,0 +1,12 @@
+{% if recipient_name %}Hi {{ recipient_name }},
+
+{% endif %}The copy of your {{ app_name }} data you asked for is ready. It is a JSON file with your profile, bounties, applications, submissions, payments, wallets, notifications and account activity.
+
+Sign in and download it from your privacy settings before {{ expires_at }}:
+
+{{ action_url }}
+
+If you did not ask for this export, change your password and review your active sessions.
+
+--
+{{ app_name }}
