@@ -57,101 +57,147 @@ verified on-chain before the app records it.
 
 ## Contents
 
-1. [Problem & solution](#problem--solution)
-2. [Key features](#key-features)
-3. [Screenshots](#screenshots)
-4. [Architecture](#architecture)
-5. [Technology stack](#technology-stack)
-6. [Repository structure](#repository-structure)
-7. [Quick start](#quick-start)
-8. [Environment configuration](#environment-configuration)
-9. [Database migrations & seed data](#database-migrations--seed-data)
-10. [Makefile commands](#makefile-commands)
-11. [API](#api)
-12. [Kafka architecture](#kafka-architecture)
-13. [Redis caching strategy](#redis-caching-strategy)
-14. [Stellar Testnet & wallets](#stellar-testnet--wallets)
-15. [Soroban contract](#soroban-contract)
-16. [Testing](#testing)
-17. [Troubleshooting](#troubleshooting)
-18. [Documentation](#documentation)
-19. [Security](#security)
-20. [Known limitations](#known-limitations)
-21. [Roadmap](#roadmap)
-22. [Contributing](#contributing)
-23. [License](#license)
+| Understand it | Run it | Build on it |
+|---|---|---|
+| [Problem & solution](#problem--solution) | [Quick start](#quick-start) | [API](#api) |
+| [Key features](#key-features) | [Environment configuration](#environment-configuration) | [Kafka architecture](#kafka-architecture) |
+| [Screenshots](#screenshots) | [Migrations & seed data](#database-migrations--seed-data) | [Redis caching strategy](#redis-caching-strategy) |
+| [Architecture](#architecture) | [Makefile commands](#makefile-commands) | [Stellar Testnet & wallets](#stellar-testnet--wallets) |
+| [Technology stack](#technology-stack) | [Troubleshooting](#troubleshooting) | [Soroban contract](#soroban-contract) |
+| [Repository structure](#repository-structure) | [Testing](#testing) | [Documentation](#documentation) |
+
+| Before you trust it | | |
+|---|---|---|
+| [Security](#security) | [Known limitations](#known-limitations) | [Roadmap](#roadmap) |
+| [Contributing](#contributing) | [License](#license) | |
 
 ## Problem & solution
 
-**Problem.** Paying for small, well-defined work across the internet is built on trust. Contributors worry they
-won't be paid after delivering. Requesters worry about paying for work that doesn't meet the brief. Payment
-records are opaque, and "funded" labels usually mean nothing.
+Paying for small, well-defined work across the internet runs on trust. Both sides carry a risk the platform
+cannot remove — only hide.
 
-**Solution.** BountyFlow puts each bounty's reward into a Soroban escrow *before* anyone starts work. It tracks the
-work through an explicit, auditable state machine. Only verified on-chain events move money-related state:
-- A bounty is **Funded** only when the contract says so.
-- A payment is **Confirmed** only when the contract reports the contributor as paid.
-- A refund cannot bypass the contract's rules.
+| Who | The risk today | What BountyFlow changes |
+|---|---|---|
+| **Contributor** | Delivers the work, then waits or chases for the money | The reward is locked in escrow before they start, and anyone can read it on-chain |
+| **Requester** | Pays up front and hopes the result matches the brief | Funds release on their approval, or by a contract rule they agreed to |
+| **Both** | "Funded" is a label in someone else's database | "Funded" is a contract balance either side can verify |
+
+### The rule everything else follows
+
+Only verified on-chain events move money-related state. The server records what the chain confirms, and nothing
+more.
+
+| This state | Is set by | Never by |
+|---|---|---|
+| A bounty reading **Funded** | The escrow contract confirming it holds the reward | An application write |
+| A payment reading **Confirmed** | The contract reporting the contributor as paid | A successful submission |
+| A **refund** | The contract's own conditions | An administrator |
 
 ## Key features
 
-- **Marketplace:** full-text search, filters (category, skills, reward, difficulty, deadline, status, funded
-  only), sorting (newest, deadline, reward, documented popularity), pagination, bookmarks, reports.
-- **Complete lifecycle:** draft → publish → fund escrow → apply → select → submit → revise → approve → on-chain
-  payout, plus cancellation and refunds. Multi-position bounties and partial funding are supported.
-- **Real Stellar integration:**
-  - Any Stellar wallet through the Stellar Wallets Kit (Freighter, xBull, Albedo, LOBSTR, Hana and more), with
-    SEP-10, SEP-53 or SEP-45 ownership proofs.
-  - **Passkey smart wallets:** create a wallet in the browser with a passkey — no extension, no seed phrase, and
-    no XLM needed to start.
-  - **The platform pays contributors' network fees** for claiming, submitting and disputing, under per-user daily
-    caps, so a contributor never needs to hold XLM.
-  - Contract calls are built and preflighted on the server (Soroban RPC simulation) and signed in the wallet.
-  - The server verifies the signed envelope, submits it, confirms the result, and reconciles from chain state.
-- **Reward assets:** XLM, USDC or any Stellar asset an admin adds, moved through that asset's Stellar Asset
-  Contract. Every amount carries its asset and totals are never added across assets. Trustlines are checked
-  before funding, assignment and every payout, and the missing one is added in a single signed transaction.
-- **Soroban escrow contract** in Rust (interface v2): access control, checked arithmetic, duplicate-payout
-  prevention, refund conditions, and disputes with an M-of-N arbiter set. There is no admin withdrawal. It adds
-  **milestone releases**, **batch payouts** (up to 10 contributors in one atomic transaction) and a **review
-  window** — a contributor who records their work on-chain can claim the reward themselves if the requester never
-  answers.
-- **Disputes:** evidence, moderator review, and on-chain freeze and resolution, decided by an M-of-N arbiter set
-  with split outcomes.
-- **Notifications:** in-app and email (HTML templates), delivered asynchronously through Kafka with exactly-once
-  email sending.
-- **Dashboard and discovery:** requester and contributor views, an activity feed, **saved searches** with
-  instant or digest alerts, and **skill-graph recommendations** built from real listings that always show which
-  skills matched.
-- **Analytics:** a documented methodology for every metric. Suspended accounts and moderator-hidden bounties are
-  excluded, and every on-chain metric counts verified transactions only.
-- **Administration:** RBAC (`USER` / `MODERATOR` / `ADMIN`) with a central permission matrix, user and bounty
-  moderation, reports, a dispute queue, transaction monitoring, and an immutable audit log.
-- **Proof of work:** every completed bounty is recorded in a separate Soroban attestation registry, and
-  contributors can download a W3C Verifiable Credential for it. Anyone can check one at `/credentials/verify` —
-  signature, revocation status, and a live read of the on-chain record.
-- **Collaboration:** public questions and answers on every bounty (requester replies marked, one answer
-  acceptable, pinning, moderation), GitHub accounts proved with a public gist, and linked pull requests verified
-  through the GitHub API — repository, author, merge state and checks. Requesters can require a merged pull
-  request before approving.
-- **Compliance and privacy:** data export as a JSON archive delivered by a signed expiring link, account deletion
-  after a cancellable grace period that anonymises while keeping required financial records, sanctions screening
-  of wallet addresses at verification and before every payout, and versioned terms acceptance.
-- **Operability:** a protected Prometheus `/metrics` endpoint, alert rules and a Grafana dashboard, backup and
-  restore scripts, and twelve SRE runbooks in [docs/runbooks/](docs/runbooks/README.md). `STELLAR_NETWORK=mainnet`
-  refuses to start until every requirement is met.
-- **Security:** Argon2id, HttpOnly cookie sessions with refresh rotation and reuse detection, CSRF double-submit,
-  rate limits, strict validation, safe markdown, security headers, and redacted structured logs (Logifyx).
-- **Interface:** a premium, light-first design system with a warm dark theme (shadcn/ui + Tailwind v4 tokens, bold Bricolage Grotesque headlines over Geist),
-  documented in [docs/design.md](docs/design.md). Every screen shows live data. Records are shown in tables, and
-  the escrow state machine is a diagram whose states explain themselves on hover. On the landing page, "How a
-  bounty moves" and the escrow diagram play as scroll stories (GSAP ScrollTrigger on sticky sections). Three.js
-  (React Three Fiber) draws a constellation of payment pulses behind the hero, an interactive payments globe you
-  can drag and click to send payments, and a ledger field. The rest of the motion is small:
-  route fades, an animated light/dark switch, and Lenis smooth scrolling on the public site. Routes and heavy
-  pieces (charts, Markdown, the wallet SDK, GSAP, Three.js, on-demand dialogs) load lazily. Loading states are
-  boneyard skeletons captured from the real layout. Everything respects reduced motion; WCAG-minded and
-  responsive from 360 px up.
+### Marketplace & lifecycle
+
+| Feature | What it does |
+|---|---|
+| **Search & filter** | Full-text search with filters for category, skills, reward, difficulty, deadline, status and funded-only |
+| **Sorting & paging** | Newest, deadline, reward, and a documented popularity measure — all paginated |
+| **Full lifecycle** | Draft → publish → fund escrow → apply → select → submit → revise → approve → on-chain payout |
+| **Exits** | Cancellation and refunds, with multi-position bounties and partial funding supported |
+| **Personal** | Bookmarks, saved searches, and reports on any listing |
+
+### Stellar & wallets
+
+| Feature | What it does |
+|---|---|
+| **Any Stellar wallet** | Freighter, xBull, Albedo, LOBSTR, Hana and more through the Stellar Wallets Kit |
+| **Ownership proof** | SEP-10, SEP-53 or SEP-45 challenges, signed but never submitted |
+| **Passkey smart wallets** | Create a wallet in the browser with a passkey — no extension, no seed phrase, no XLM to start |
+| **Sponsored fees** | The platform pays contributors' network fees for claiming, submitting and disputing, under per-user daily caps |
+| **Server-side preflight** | Calls are built and simulated against Soroban RPC, signed in the wallet, then verified before submission |
+
+### The escrow contract
+
+Rust, Soroban SDK 28, interface **v2**. Full interface, state machine and error codes:
+[contracts/README.md](contracts/README.md).
+
+| Capability | Detail |
+|---|---|
+| **Milestone releases** | Long work is paid in stages rather than all at the end |
+| **Batch payouts** | Up to ten contributors in one atomic transaction |
+| **Review window** | A contributor whose work is recorded on-chain can claim if the requester never answers |
+| **Disputes** | An M-of-N arbiter set decides, and split outcomes are allowed |
+| **Safety** | Checked arithmetic, duplicate-payout prevention, and explicit refund conditions |
+| **No admin withdrawal** | There is no code path for the platform to take escrowed funds |
+
+### Money & assets
+
+| Feature | What it does |
+|---|---|
+| **Any Stellar asset** | XLM, USDC, or any asset an admin adds, moved through that asset's Stellar Asset Contract |
+| **Amounts carry their asset** | Totals are never added across assets |
+| **Trustline checks** | Verified before funding, assignment and every payout; a missing one is added in a single signed transaction |
+
+### Trust & proof
+
+| Feature | What it does |
+|---|---|
+| **On-chain attestations** | Every completed bounty is recorded in a separate Soroban attestation registry |
+| **Verifiable credentials** | Contributors download a W3C credential for completed work |
+| **Public verification** | Anyone can check one at `/credentials/verify` — signature, revocation, and a live read of the on-chain record |
+| **GitHub proof** | Accounts proved with a public gist; pull requests verified for repository, author, merge state and checks |
+
+### Collaboration & discovery
+
+| Feature | What it does |
+|---|---|
+| **Questions & answers** | Public Q&A on every bounty, with requester replies marked, one acceptable answer, pinning and moderation |
+| **Saved searches** | Instant or digest alerts when matching work appears |
+| **Skill graph** | Recommendations built from real listings that always show which skills matched |
+| **Dashboards** | Separate requester and contributor views with an activity feed |
+| **In-product feedback** | A button on every screen sends bugs, ideas and praise straight to the maintainer's queue |
+
+### Administration & moderation
+
+| Feature | What it does |
+|---|---|
+| **RBAC** | `USER` / `MODERATOR` / `ADMIN` against a central permission matrix |
+| **Queues** | User and bounty moderation, reports, disputes, feedback and transaction monitoring |
+| **Audit log** | Immutable record of every administrative action |
+| **Analytics** | A documented methodology per metric; suspended accounts and hidden bounties excluded, on-chain metrics count verified transactions only |
+
+### Compliance & privacy
+
+| Feature | What it does |
+|---|---|
+| **Data export** | A JSON archive delivered by a signed, expiring link |
+| **Account deletion** | A cancellable grace period, then anonymisation that keeps required financial records |
+| **Sanctions screening** | Wallet addresses screened at verification and before every payout |
+| **Versioned terms** | Acceptance recorded against the document version in force |
+
+### Operations & security
+
+| Area | What ships |
+|---|---|
+| **Observability** | Protected Prometheus `/metrics`, alert rules, and a Grafana dashboard |
+| **Runbooks** | Twelve SRE runbooks in [docs/runbooks/](docs/runbooks/README.md) |
+| **Recovery** | Backup and restore scripts |
+| **Mainnet guard** | `STELLAR_NETWORK=mainnet` refuses to start until every requirement is met |
+| **Sessions** | Argon2id, HttpOnly cookies, refresh rotation with reuse detection |
+| **Request safety** | CSRF double-submit, rate limits, strict validation, safe markdown, security headers |
+| **Logs** | Structured and redacted by default (Logifyx) |
+
+### Interface
+
+| Area | What ships |
+|---|---|
+| **Design system** | Light-first with a warm dark theme — shadcn/ui on Tailwind v4 tokens, bold Bricolage Grotesque over Geist ([docs/design.md](docs/design.md)) |
+| **Live data** | Every screen reads real records; the escrow state machine is a diagram that explains itself on hover |
+| **Scroll stories** | "How a bounty moves" and the escrow diagram play as GSAP ScrollTrigger sequences on sticky sections |
+| **3D** | A constellation of payment pulses behind the hero, a draggable payments globe, and a ledger field (Three.js / React Three Fiber) |
+| **Restraint** | The rest of the motion is route fades, an animated theme switch, and Lenis smooth scrolling on the public site |
+| **Performance** | Routes and heavy pieces (charts, Markdown, wallet SDK, GSAP, Three.js, dialogs) load lazily |
+| **Loading** | Skeletons captured from the real layout (boneyard) |
+| **Accessibility** | Reduced motion respected throughout, WCAG-minded, responsive from 360 px |
 
 ## Screenshots
 
@@ -162,6 +208,14 @@ work through an explicit, auditable state machine. Only verified on-chain events
 | Dashboard | Chain action (sign & verify) | Mobile |
 |---|---|---|
 | ![Dashboard](docs/screenshots/dashboard-desktop.png) | ![Chain action](docs/screenshots/chain-action-desktop.png) | ![Mobile](docs/screenshots/marketplace-mobile.png) |
+
+### Walkthrough & deck
+
+| Asset | What it is |
+|---|---|
+| [Product walkthrough](BountyFlow-Product-Walkthrough.mp4) | A narrated 3-minute recording of the running app: marketplace, a bounty, the escrow state machine, the workspace, funding, and feedback |
+| [Pitch deck](BountyFlow-Pitch-Deck.pptx) · [PDF](BountyFlow-Pitch-Deck.pdf) | Problem, solution, market, architecture, growth and roadmap in seven slides |
+| [LinkedIn carousel](BountyFlow-LinkedIn-Carousel.pdf) | The same story as eight square slides, sized for a document post |
 
 ## Architecture
 
@@ -202,8 +256,10 @@ Details, sequence diagrams and design decisions: [docs/architecture.md](docs/arc
 │   │   ├── db/ cache/       SQLAlchemy base/session, Redis cache keys & invalidation
 │   │   ├── messaging/       event envelope, payload schemas, outbox, Kafka, consumer registry
 │   │   ├── blockchain/      network config, SEP-10 wallet proof, adapters, verification, reconciliation
-│   │   ├── modules/         auth · users · bounties · applications · submissions · payments ·
-│   │   │                    disputes · notifications · analytics · admin · dashboard
+│   │   ├── modules/         22 modules: auth · users · wallets · bounties · applications ·
+│   │   │                    submissions · escrow · payments · assets · disputes · qa ·
+│   │   │                    credentials · reputation · discovery · github · notifications ·
+│   │   │                    feedback · analytics · dashboard · admin · compliance · ops
 │   │   ├── api/             router + health/config endpoints
 │   │   ├── scripts/seed.py  idempotent seed: accounts, profiles, bounties
 │   │   └── templates/email/ HTML + text email templates
@@ -229,11 +285,11 @@ make dev         # Postgres/Redis/Kafka/Mailpit in Docker; migrate + seed; API, 
 ```
 
 Open http://localhost:5173/login and sign in with one of the [seeded accounts](#database-migrations--seed-data), or
-register your own. Alternatively, run everything in containers with `make up` → http://localhost:3000.
+register your own. Alternatively, run everything in containers with `make up` → the same address.
 
 | Service | URL |
 |---|---|
-| App | http://localhost:5173 (dev) · http://localhost:3000 (Docker) |
+| App | http://localhost:5173 — dev server and Docker both, so email links resolve either way (`FRONTEND_HOST_PORT`) |
 | API docs (OpenAPI) | http://localhost:8000/api/docs |
 | Mailpit | http://localhost:8025 |
 | Kafka UI | http://localhost:8080 (`make up-tools`) |
@@ -334,9 +390,24 @@ More in [docs/blockchain.md](docs/blockchain.md).
 
 ## Soroban contract
 
-`contracts/bounty_escrow` provides `create_escrow`, `fund`, `assign`, `release`, `request_cancel`,
-`consent_cancel`, `refund`, `raise_dispute`, `resolve_dispute`, and the views `get_escrow` and `assignment`. It has
-36 unit tests.
+`contracts/bounty_escrow` is the interface **v2** escrow. Three contracts are deployed to Testnet, with **91**
+Rust tests between them — written adversarially, so most assert a panic on a specific error code.
+
+| Group | Functions |
+|---|---|
+| **Lifecycle** | `create_escrow`, `create_escrow_v`, `fund`, `assign`, `release` |
+| **Milestones & batching** | `release_milestone`, `batch_release` |
+| **Review window** | `submit_work`, `request_changes`, `reject_submission`, `claim` |
+| **Exits** | `request_cancel`, `consent_cancel`, `refund` |
+| **Disputes** | `raise_dispute`, `resolve_dispute`, `vote_resolution` |
+| **Views** | `get_escrow`, `assignment`, `review`, `resolution_votes`, `admin`, `min_review_window`, `version` |
+| **Administration** | `set_admin`, `upgrade` — there is no withdrawal function |
+
+| Contract | Rust tests |
+|---|---|
+| `bounty_escrow` | 70 |
+| `attestations` | 16 |
+| `web_auth` (SEP-45) | 5 |
 
 ```bash
 make contract-test
@@ -404,27 +475,40 @@ not a public issue. The policy, scope and security model summary are in [SECURIT
 
 ## Known limitations
 
-- A payout needs the requester's wallet signature, so the contract cannot force a release. A contributor who
-  records their submission on-chain can claim it after the review window; work submitted only in BountyFlow has
-  no on-chain clock. Disputes let an M-of-N arbiter set route **frozen** escrows.
-- The contract admin can replace the contract code. Keep that key offline, and use a multisig account on mainnet.
-- A trustline's 0.5 XLM reserve must come from the contributor's own account; BountyFlow pays only the fee.
-- A lost, unsynced passkey is an unrecoverable wallet. BountyFlow holds no recovery key on purpose — holding one
-  would make it custodial.
-- Sanctions screening matches addresses against a configured list, not names, and is only as current as its source.
-- Profiles and skills are self-reported. Wallet ownership, completed work (attestations) and linked GitHub
-  accounts are verified; the rest is not.
+| Limitation | Why it exists | What softens it |
+|---|---|---|
+| **A payout needs the requester's signature** | The contract cannot force a release | A contributor who records their submission on-chain can claim after the review window; disputes let an M-of-N arbiter set route frozen escrows |
+| **Work submitted only in BountyFlow has no on-chain clock** | The review-timeout claim reads chain state | Record the submission on-chain to start the clock |
+| **The contract admin can replace the code** | Upgradeability was kept for fixes | Keep that key offline, and use a multisig account on mainnet |
+| **A trustline's 0.5 XLM reserve is the contributor's own** | Reserves are a protocol rule | BountyFlow pays the network fee; sponsoring the reserve is on the roadmap |
+| **A lost, unsynced passkey is unrecoverable** | Deliberate — holding a recovery key would make BountyFlow custodial | A non-custodial recovery path is on the roadmap |
+| **Sanctions screening matches addresses, not names** | It screens what it can verify | It is only as current as its configured source |
+| **Profiles and skills are self-reported** | Nobody attests to a bio | Wallet ownership, completed work and linked GitHub accounts *are* verified |
 
 ## Roadmap
 
-Multi-wallet support, passkey wallets, fee sponsorship, USDC and other Stellar assets, milestone escrows,
-review-timeout claims, an M-of-N arbiter, batch payouts, on-chain attestations, verifiable credentials, saved
-searches, recommendations, bounty Q&A, GitHub PR verification, and mainnet readiness have all shipped.
+### Shipped
 
-The remaining gate for mainnet is an **independent contract audit**: the startup guard refuses every contract id
-until a real audit report is recorded in `deploy/audited-deployments.json`. Also open: KYC/AML decisions, name
-screening, tax reporting, a non-custodial recovery path for passkey wallets, and sponsoring a trustline's reserve.
-See [docs/product-roadmap.md](docs/product-roadmap.md).
+| Area | What landed |
+|---|---|
+| **Wallets** | Multi-wallet support, passkey smart wallets, fee sponsorship |
+| **Money** | USDC and other Stellar assets, milestone escrows, batch payouts |
+| **Fairness** | Review-timeout claims, an M-of-N arbiter set |
+| **Proof** | On-chain attestations, verifiable credentials |
+| **Discovery** | Saved searches, skill-graph recommendations, bounty Q&A, GitHub PR verification |
+| **Listening** | In-product feedback with an admin triage queue |
+
+### Next
+
+| Theme | What is left | What blocks it |
+|---|---|---|
+| **Mainnet** | The deployment itself | An **independent contract audit** — the startup guard refuses every contract id until a real report is recorded in `deploy/audited-deployments.json` |
+| **Compliance** | KYC/AML decisions, name screening, geographic controls, tax reporting | Policy decisions, not code |
+| **Wallets** | A recovery path for passkey wallets | It must not make BountyFlow custodial |
+| **Payments** | Sponsoring a trustline's reserve | So a contributor holding no XLM can be paid in USDC |
+| **Escrow** | An on-chain pause for emergencies | The contract is permissionless by design today |
+
+Full detail in [docs/product-roadmap.md](docs/product-roadmap.md).
 
 ## Contributing
 

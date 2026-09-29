@@ -90,7 +90,9 @@ describe('AdminFeedbackPage', () => {
     const table = await screen.findByRole('table', { name: 'Feedback' })
     await user.click(within(table).getAllByRole('button', { name: /Show the full note/ })[0]!)
 
-    expect(await screen.findByText('Chrome on macOS')).toBeInTheDocument()
+    // AdminTable renders every row's detail twice — once for the desktop table and once for the mobile
+    // cards — and CSS hides one. Both are in the DOM here, so these assertions count rather than expect one.
+    expect((await screen.findAllByText('Chrome on macOS')).length).toBeGreaterThan(0)
     expect(screen.getAllByText('1,280 × 800').length).toBeGreaterThan(0)
   })
 

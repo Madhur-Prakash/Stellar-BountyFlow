@@ -1,6 +1,6 @@
 import { screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
 
 import { jsonResponse, makeMe } from '@/test/fixtures'
 import { renderWithProviders } from '@/test/render'
@@ -13,6 +13,12 @@ function lastFeedbackBody(): Record<string, unknown> {
   const call = fetchMock.mock.calls.findLast(([url]) => url.includes('/feedback'))
   return JSON.parse(String(call?.[1]?.body ?? '{}')) as Record<string, unknown>
 }
+
+// The dialog is a lazy chunk fetched on the first click. Importing it once here means no individual test
+// pays the module-load cost inside findBy's one-second budget, which is what made this file fail on CI.
+beforeAll(async () => {
+  await import('./FeedbackDialog')
+}, 30_000)
 
 beforeEach(() => {
   fetchMock.mockReset()
@@ -29,7 +35,8 @@ async function open(opts: Parameters<typeof renderWithProviders>[1] = {}) {
   renderWithProviders(<FeedbackLauncher />, { me: null, ...opts })
   const button = screen.getByRole('button', { name: 'Feedback' })
   await user.click(button)
-  const dialog = await screen.findByRole('dialog')
+  // Suspense still has to resolve after the click, and CI machines are slower than this default allows.
+  const dialog = await screen.findByRole('dialog', undefined, { timeout: 5_000 })
   return { user, button, dialog }
 }
 
@@ -41,7 +48,8 @@ describe('FeedbackLauncher', () => {
 
     await user.keyboard('{Escape}')
     await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument())
-    expect(button).toHaveFocus()
+    // Radix restores focus to the trigger after it has removed the content, not in the same tick.
+    await waitFor(() => expect(button).toHaveFocus())
   })
 
   it('says what it captures and sends the path and viewport with the note', async () => {
