@@ -100,6 +100,8 @@ type WalletProvider = {
   id: WalletId
   name: string
   proof: AccountProof
+  /** Where to get this wallet, for the picker's install link. Empty when there is nowhere to send people. */
+  url: string
   isInstalled(): Promise<boolean>
   /** Prompts (if needed) and returns the shared address. */
   requestAccess(): Promise<string>
@@ -150,6 +152,8 @@ function moduleProvider(mod: ModuleInterface, overrides: Partial<CatalogEntry> =
   return {
     id: mod.productId,
     name,
+    // The kit publishes a product URL for its modules; the catalog only overrides the featured few.
+    url: overrides.url ?? catalog?.url ?? mod.productUrl ?? '',
     proof: overrides.proof ?? catalog?.proof ?? 'transaction',
     isInstalled: () =>
       withTimeout(
@@ -341,6 +345,8 @@ function passkeyProvider(ref: PasskeyWalletRef): WalletProvider {
   }
   return {
     id: PASSKEY_WALLET_ID,
+    // Nothing to install: the passkey is created in the browser, so there is nowhere to send anyone.
+    url: '',
     name: 'Passkey wallet',
     proof: 'transaction',
     isInstalled: async () => typeof window !== 'undefined' && !!window.PublicKeyCredential,
@@ -411,7 +417,7 @@ export async function listWallets(): Promise<WalletOption[]> {
     providers.map(async (p) => ({
       id: p.id,
       name: p.name,
-      url: CATALOG[p.id]?.url ?? '',
+      url: p.url,
       kind: p.id === TEST_WALLET_ID ? ('test' as const) : (CATALOG[p.id]?.kind ?? 'extension'),
       available: await p.isInstalled(),
     })),

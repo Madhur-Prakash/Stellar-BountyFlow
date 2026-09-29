@@ -13,6 +13,7 @@ import { Bones } from '@/components/layout/Bones'
 import { EmptyState } from '@/components/layout/EmptyState'
 import { ErrorState } from '@/components/layout/ErrorState'
 import { ListSkeleton, LoadingState } from '@/components/layout/LoadingState'
+import { PageBreadcrumbs } from '@/components/layout/PageBreadcrumbs'
 import { PageContainer } from '@/components/layout/PageContainer'
 import { PaginationBar } from '@/components/layout/PaginationBar'
 import { Badge } from '@/components/ui/badge'
@@ -191,6 +192,11 @@ function ProfileView({ profile }: { profile: PublicProfile }) {
 
   return (
     <PageContainer className="pt-10 pb-16 sm:pt-16 sm:pb-20">
+      {/* Profiles are reached from a bounty, so the trail leads back to the marketplace. */}
+      <PageBreadcrumbs
+        items={[{ label: 'Marketplace', to: '/bounties' }, { label: profile.display_name }]}
+        className="mb-5"
+      />
       <header className="flex flex-col gap-6 sm:flex-row sm:items-start sm:gap-8">
         <UserAvatar user={profile} className="size-16 text-base sm:size-20 sm:text-lg" />
         <div className="min-w-0 flex-1">
@@ -265,7 +271,7 @@ function ProfileView({ profile }: { profile: PublicProfile }) {
 
       <div className="mt-10 grid gap-8 lg:grid-cols-[minmax(0,1fr)_20rem] lg:gap-10">
         <Tabs defaultValue="bounties" className="min-w-0 gap-4">
-          <TabsList className="max-w-full justify-start overflow-x-auto rounded-full border bg-card p-1">
+          <TabsList className="max-w-full justify-start overflow-x-auto overflow-y-hidden rounded-full border bg-card p-1">
             <TabsTrigger value="bounties" className={TAB}>
               Created bounties
             </TabsTrigger>

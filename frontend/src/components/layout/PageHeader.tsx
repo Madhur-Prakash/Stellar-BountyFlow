@@ -1,18 +1,9 @@
 import type { ReactNode } from 'react'
-import { Fragment } from 'react'
-import { Link } from 'react-router'
 
-import {
-  Breadcrumb,
-  BreadcrumbItem,
-  BreadcrumbLink,
-  BreadcrumbList,
-  BreadcrumbPage,
-  BreadcrumbSeparator,
-} from '@/components/ui/breadcrumb'
+import { PageBreadcrumbs, type Crumb } from '@/components/layout/PageBreadcrumbs'
 import { cn } from '@/lib/utils'
 
-export type Crumb = { label: string; to?: string }
+export type { Crumb }
 
 const SIZES = {
   /** Workspace and admin pages: Geist 500, 28–32px. */
@@ -54,26 +45,7 @@ export function PageHeader({
   const s = SIZES[size]
   return (
     <header className={cn('flex flex-col gap-3 pb-6 lg:pb-7', className)}>
-      {breadcrumbs && breadcrumbs.length > 0 && (
-        <Breadcrumb>
-          <BreadcrumbList className="text-[0.8125rem]">
-            {breadcrumbs.map((c, i) => (
-              <Fragment key={`${c.label}-${i}`}>
-                <BreadcrumbItem>
-                  {c.to && i < breadcrumbs.length - 1 ? (
-                    <BreadcrumbLink asChild>
-                      <Link to={c.to}>{c.label}</Link>
-                    </BreadcrumbLink>
-                  ) : (
-                    <BreadcrumbPage className="max-w-[40ch] truncate">{c.label}</BreadcrumbPage>
-                  )}
-                </BreadcrumbItem>
-                {i < breadcrumbs.length - 1 && <BreadcrumbSeparator />}
-              </Fragment>
-            ))}
-          </BreadcrumbList>
-        </Breadcrumb>
-      )}
+      {breadcrumbs && <PageBreadcrumbs items={breadcrumbs} />}
       <div className="flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
         <div className="min-w-0">
           {eyebrow && <div className="label-mono mb-2">{eyebrow}</div>}

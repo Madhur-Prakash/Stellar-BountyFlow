@@ -87,7 +87,10 @@ export function ProsePage({
       {/* The reading column plus its rails is far narrower than the page container, so the whole block is
           centred: otherwise it hugs the left edge with a wide empty margin on large screens. */}
       <div className={cn('mx-auto w-full', aside ? 'max-w-[82rem]' : 'max-w-[62rem]')}>
-        <header className="max-w-3xl">
+        {/* The header is centred over the whole block rather than aligned to either column below it. Set to
+            the body's left edge it left a dead gutter above the contents rail, and set to the block's edge it
+            fought with the prose for the reader's left margin; centred, it belongs to the page instead. */}
+        <header className="mx-auto max-w-3xl text-center">
           {eyebrow && <p className="label-mono">{eyebrow}</p>}
           <h1
             className={cn(
@@ -97,11 +100,12 @@ export function ProsePage({
           >
             {title}
           </h1>
-          <div className="mt-5 max-w-2xl text-lg leading-relaxed text-muted-foreground sm:mt-6 sm:text-xl sm:leading-[1.6]">
+          <div className="mt-5 text-lg leading-relaxed text-balance text-muted-foreground sm:mt-6 sm:text-xl sm:leading-[1.6]">
             {intro}
           </div>
           {updated && <p className="label-mono mt-6">Last updated {updated}</p>}
-          {notice && <div className="mt-8 max-w-2xl">{notice}</div>}
+          {/* The notice keeps its own left rule and reads left-aligned; only the block is centred. */}
+          {notice && <div className="mx-auto mt-8 max-w-2xl text-left">{notice}</div>}
         </header>
 
         <div

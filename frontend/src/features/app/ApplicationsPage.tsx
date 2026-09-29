@@ -90,7 +90,7 @@ export default function ApplicationsPage() {
       >
         <Card className="gap-0 py-0">
           <CardToolbar>
-            <TabsList className="h-9 max-w-full scrollbar-thin justify-start overflow-x-auto">
+            <TabsList className="h-9 max-w-full scrollbar-thin justify-start overflow-x-auto overflow-y-hidden">
               {FILTERS.map((f) => (
                 <TabsTrigger key={f.value} value={f.value} className="flex-none px-3">
                   {f.label}

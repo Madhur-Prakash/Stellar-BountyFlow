@@ -20,7 +20,8 @@ import {
   useVerifyGist,
 } from '@/lib/api/queries/github'
 import type { GitHubChallenge } from '@/lib/api/types'
-import { formatDate } from '@/lib/format'
+import { useCountdown } from '@/hooks/useCountdown'
+import { formatDate, formatTime } from '@/lib/format'
 
 /** Step 1 of the gist proof: ask for the username and get the one-time text to publish. */
 function StartLinking({ onIssued }: { onIssued: (challenge: GitHubChallenge) => void }) {
@@ -61,8 +62,8 @@ function StartLinking({ onIssued }: { onIssued: (challenge: GitHubChallenge) => 
           </Button>
         </div>
         <p className="text-xs text-muted-foreground">
-          You prove the account by publishing a one-time text in a public gist. BountyFlow reads it through the
-          GitHub API and stores only your username and numeric id.
+          You prove the account by publishing a one-time text in a public gist. BountyFlow reads it through
+          the GitHub API and stores only your username and numeric id.
         </p>
       </form>
       {config.data?.oauth_enabled && (
@@ -88,6 +89,34 @@ function StartLinking({ onIssued }: { onIssued: (challenge: GitHubChallenge) => 
 }
 
 /** Step 2: the challenge is issued; publish it in a gist and paste the gist URL back. */
+/**
+ * When the one-time text stops working, as a clock time and a live countdown.
+ *
+ * The window is minutes long, so a date alone ("expires Sep 29, 2026") reads as though there is no hurry at
+ * all. Counting in whole minutes keeps the line from rewriting itself every second while someone is reading it.
+ */
+function ChallengeExpiry({ expiresAt }: { expiresAt: string }) {
+  const countdown = useCountdown(expiresAt)
+  const at = formatTime(expiresAt)
+  if (!countdown || countdown.isPast) {
+    return (
+      <p className="text-xs text-warning">
+        This text expired at {at}. Cancel and start again to get a new one.
+      </p>
+    )
+  }
+  const minutes = Math.max(1, Math.round(countdown.remainingMs / 60_000))
+  return (
+    <p className="text-xs text-muted-foreground">
+      The text expires at{' '}
+      <time dateTime={expiresAt} className="text-foreground">
+        {at}
+      </time>
+      , in {minutes} minute{minutes === 1 ? '' : 's'}. You can delete the gist once the account is linked.
+    </p>
+  )
+}
+
 function FinishLinking({ challenge, onCancel }: { challenge: GitHubChallenge; onCancel: () => void }) {
   const id = useId()
   const verify = useVerifyGist()
@@ -151,9 +180,7 @@ function FinishLinking({ challenge, onCancel }: { challenge: GitHubChallenge; on
           </form>
         </li>
       </ol>
-      <p className="text-xs text-muted-foreground">
-        The text expires {formatDate(challenge.expires_at)}. You can delete the gist once the account is linked.
-      </p>
+      <ChallengeExpiry expiresAt={challenge.expires_at} />
       <Button variant="ghost" size="sm" onClick={onCancel}>
         Cancel
       </Button>

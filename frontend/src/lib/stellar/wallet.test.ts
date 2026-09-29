@@ -1,4 +1,4 @@
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
 
 import {
   forgetWallet,
@@ -29,6 +29,17 @@ function injectWallet(overrides: Partial<InjectedTestWallet> = {}) {
     ...overrides,
   }
 }
+
+// Any wallet the kit knows is reached through a dynamic import of the kit itself, and Vite transforms that
+// bundle the first time a test asks for one. On a loaded machine that transform alone can outrun a test's
+// default 5s budget, which made whichever test happened to be first fail intermittently. Paying for it once,
+// up front and with room to spare, keeps the tests themselves measuring what they mean to.
+beforeAll(async () => {
+  vi.stubEnv('VITE_ENABLE_TEST_WALLET', 'true')
+  await selectWallet(TEST_WALLET_ID).catch(() => {})
+  forgetWallet()
+  vi.unstubAllEnvs()
+}, 60_000)
 
 beforeEach(() => {
   // The kit-compatible test provider is the one E2E uses; it only exists behind this build flag.

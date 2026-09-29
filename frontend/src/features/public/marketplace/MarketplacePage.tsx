@@ -9,6 +9,7 @@ import { BountyList, BountyListSkeleton } from '@/components/bounty/BountyRow'
 import { Bones } from '@/components/layout/Bones'
 import { EmptyState } from '@/components/layout/EmptyState'
 import { ErrorState } from '@/components/layout/ErrorState'
+import { PageBreadcrumbs } from '@/components/layout/PageBreadcrumbs'
 import { PageContainer } from '@/components/layout/PageContainer'
 import { PaginationBar } from '@/components/layout/PaginationBar'
 import { Button } from '@/components/ui/button'
@@ -128,6 +129,15 @@ export default function MarketplacePage() {
   return (
     <PageContainer className="pt-10 pb-16 sm:pt-16 sm:pb-20">
       <header className="pb-8 sm:pb-10">
+        {/* The marketplace is a public page, so a signed-in visitor arriving from "Find work" in the workspace
+            loses the sidebar and has no route back. The trail leads wherever they actually came from. */}
+        <PageBreadcrumbs
+          items={[
+            me ? { label: 'Workspace', to: '/app' } : { label: 'Home', to: '/' },
+            { label: 'Marketplace' },
+          ]}
+          className="mb-4"
+        />
         <h1 className="font-display text-[2.25rem] leading-[1.02] sm:text-[3rem]">Bounty marketplace</h1>
         <p className="mt-3 max-w-2xl text-base text-muted-foreground sm:text-lg">
           Paid tasks from requesters on BountyFlow.

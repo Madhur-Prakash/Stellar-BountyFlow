@@ -32,6 +32,12 @@ export function formatDateTime(iso: string | null | undefined): string {
   return d ? format(d, 'MMM d, yyyy, HH:mm') : '—'
 }
 
+/** "14:05" (local time). For deadlines close enough that the date is obvious. */
+export function formatTime(iso: string | null | undefined): string {
+  const d = toDate(iso)
+  return d ? format(d, 'HH:mm') : '—'
+}
+
 /** "3 hours ago" / "in 2 days" */
 export function formatRelative(iso: string | null | undefined): string {
   const d = toDate(iso)
