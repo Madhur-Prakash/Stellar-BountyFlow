@@ -428,6 +428,10 @@ See [docs/product-roadmap.md](docs/product-roadmap.md).
 
 ## Contributing
 
+BountyFlow is built and maintained by **one person**, not a team. Issues are read and pull requests are
+reviewed, but neither is on a schedule: small, focused changes land quickly, and larger ones land only if the
+shape was agreed in an issue before the code was written.
+
 1. `make install && make dev`
 2. Keep `make check` green (lint, types, tests). Add tests with every change.
 3. Database changes need an Alembic migration (`make migration m="..."`). API changes must update

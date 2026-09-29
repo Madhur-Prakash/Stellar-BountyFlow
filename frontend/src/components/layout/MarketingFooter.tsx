@@ -3,7 +3,7 @@ import { Link } from 'react-router'
 import { GithubMark } from '@/components/brand/GithubMark'
 import { Logo } from '@/components/brand/Logo'
 import { usePublicConfig } from '@/lib/api/queries/config'
-import { SITE } from '@/lib/site'
+import { COPYRIGHT_YEAR, SITE } from '@/lib/site'
 import { networkDisplayName } from '@/lib/stellar/explorer'
 
 const COLUMNS: { title: string; links: { label: string; to: string; external?: boolean }[] }[] = [
@@ -115,11 +115,18 @@ export function MarketingFooter() {
             ))}
           </div>
         </div>
-        <div className="mt-10 flex flex-col gap-2 border-t pt-6 text-xs text-muted-foreground sm:flex-row sm:items-center sm:justify-between">
-          <p>
-            BountyFlow is an independent project built on Stellar and Soroban. It is not affiliated with the
-            Stellar Development Foundation.
-          </p>
+        <div className="mt-10 flex flex-col gap-2 border-t pt-6 text-xs text-muted-foreground sm:flex-row sm:items-start sm:justify-between">
+          <div className="space-y-1">
+            <p>
+              BountyFlow is an independent project built on Stellar and Soroban. It is not affiliated with the
+              Stellar Development Foundation.
+            </p>
+            {/* Built and maintained by one person; the year is fixed to the release rather than "now", so a
+                stale clock on a viewer's machine cannot change what the notice claims. */}
+            <p>
+              © {COPYRIGHT_YEAR} {SITE.name}. All rights reserved.
+            </p>
+          </div>
           <FooterNetwork />
         </div>
       </div>

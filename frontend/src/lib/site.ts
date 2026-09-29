@@ -10,3 +10,6 @@ export const SITE = {
   sorobanDocsUrl: 'https://developers.stellar.org/docs/build/smart-contracts/overview',
   friendbotUrl: 'https://laboratory.stellar.org/#account-creator?network=test',
 } as const
+
+/** The year in the footer's copyright line. Bump it with a release rather than reading the viewer's clock. */
+export const COPYRIGHT_YEAR = 2026

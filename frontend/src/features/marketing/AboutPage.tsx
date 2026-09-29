@@ -196,7 +196,7 @@ export default function AboutPage() {
               id="about-title"
               className="mt-4 font-display text-[2.5rem] leading-[1] tracking-[-0.03em] sm:text-[3.5rem] xl:text-[4.25rem]"
             >
-              Why we built BountyFlow
+              Why BountyFlow exists
             </h1>
             <p className="mt-6 text-lg leading-[1.6] text-muted-foreground sm:text-xl">
               Paid open work, like bug fixes, audits, docs and design, usually runs on trust. A requester
@@ -239,7 +239,7 @@ export default function AboutPage() {
 
       <section aria-labelledby="principles-title" className="py-16 sm:py-24">
         <PageContainer>
-          <Heading id="principles-title" label="Principles" title="What we hold ourselves to" />
+          <Heading id="principles-title" label="Principles" title="What it holds itself to" />
           <ul className="mt-10 grid gap-px border bg-border sm:mt-12 md:grid-cols-3">
             {PRINCIPLES.map(({ icon: Icon, title, text }) => (
               <li key={title} className="flex flex-col bg-card p-6 sm:p-8 md:min-h-60">

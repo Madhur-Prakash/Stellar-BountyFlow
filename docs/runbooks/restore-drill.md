@@ -125,7 +125,7 @@ with none of the production controls.
 
 ## Record template
 
-Fill this in and keep it with the team's operational records.
+Fill this in and keep it with the operational records.
 
 ```markdown
 # Restore drill — <YYYY-QN>

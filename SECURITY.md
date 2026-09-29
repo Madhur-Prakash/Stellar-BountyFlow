@@ -1,7 +1,10 @@
 # Security policy
 
-BountyFlow moves money through a Soroban escrow contract, so we take reports about it seriously. This page explains
-how to report a vulnerability privately, what is in scope, and how the platform is protected.
+BountyFlow moves money through a Soroban escrow contract, so reports about it are taken seriously. This page
+explains how to report a vulnerability privately, what is in scope, and how the platform is protected.
+
+BountyFlow is built and maintained by one person, not a team or a company. Reports are read and acted on, but
+there is no on-call rota behind them — the timings below are intentions, not a service level.
 
 ## Supported versions
 
@@ -42,10 +45,10 @@ funded by Friendbot.
 
 ### What to expect
 
-- We aim to acknowledge a report within a few working days.
-- We will tell you whether we can reproduce it, keep you updated while we work on a fix, and agree on disclosure
-  timing with you in the advisory.
-- If you would like credit, we will name you in the published advisory.
+- Acknowledgement usually within a few working days, sooner for anything that can move funds.
+- You will be told whether the issue reproduces, kept updated while a fix is written, and consulted on
+  disclosure timing before an advisory is published.
+- If you would like credit, you will be named in the advisory.
 
 This policy does not include a paid bug bounty or legal safe-harbour terms.
 

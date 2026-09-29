@@ -1,7 +1,8 @@
 # Compliance review
 
-This is an honest review of BountyFlow's compliance posture, written for the team and for the lawyers we take
-it to. It records what the product does today on Stellar **Testnet**, what changes when real money moves, and
+This is an honest review of BountyFlow's compliance posture, written for whoever operates BountyFlow and for
+the lawyers it is taken to. BountyFlow is maintained by one person, so every control described here is one that
+a single operator can actually run. It records what the product does today on Stellar **Testnet**, what changes when real money moves, and
 what must be true before a mainnet launch.
 
 **This is not legal advice.** Everything under "considerations" is a question to take to counsel in each

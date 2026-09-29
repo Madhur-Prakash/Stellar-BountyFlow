@@ -3,6 +3,14 @@
 Thanks for helping. This guide covers the local setup, the checks every change must pass, the conventions the
 codebase follows, and how to open a pull request.
 
+> **This is a single-maintainer project**, so the honest version up front: **issues are read, pull requests are
+> reviewed, and neither is on a schedule.** Small, focused changes land quickly. Large ones land only if the
+> shape was agreed before the code was written — open an issue describing the change before writing it, because
+> that is a much cheaper conversation than a rejected branch.
+>
+> There is one person behind BountyFlow, not a team or a company. "We" does not appear in these docs for that
+> reason, and neither does a promised response time.
+
 Found a vulnerability? Don't open an issue or pull request. Follow [SECURITY.md](SECURITY.md) instead.
 
 ## Prerequisites

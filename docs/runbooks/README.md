@@ -46,7 +46,9 @@ This deployment has no paging vendor wired up yet. Fill in the rows below before
 | Compliance and legal | — | — |
 | Status page and customer comms | — | — |
 
-Alert routing: `severity: page` goes to the primary on-call; `severity: ticket` goes to the team queue. The
+Alert routing: `severity: page` reaches the operator immediately; `severity: ticket` waits for the next
+working session. With a single maintainer these are the same person, so the split is about **when** an alert is
+allowed to interrupt, not about who receives it. The
 severity label is set per alert in [`deploy/prometheus/alerts.yml`](../../deploy/prometheus/alerts.yml).
 
 ## First five minutes
