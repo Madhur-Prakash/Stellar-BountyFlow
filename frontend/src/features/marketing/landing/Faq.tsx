@@ -1,9 +1,11 @@
-import { Plus } from 'lucide-react'
+import { ArrowRight, ExternalLink, Plus } from 'lucide-react'
 import type { ReactNode } from 'react'
 import { Link } from 'react-router'
 
 import { PageContainer } from '@/components/layout/PageContainer'
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion'
+import { usePublicConfig } from '@/lib/api/queries/config'
+import { contractExplorerUrl, networkDisplayName } from '@/lib/stellar/explorer'
 import { cn } from '@/lib/utils'
 
 import { SECTION, SECTION_LEAD, SECTION_TITLE } from './SectionHeading'
@@ -56,6 +58,49 @@ const FAQS: { q: string; a: ReactNode }[] = [
   },
 ]
 
+/** The parts of the guide these questions most often lead to. */
+const GUIDE_SECTIONS: { to: string; label: string; note: string }[] = [
+  { to: '/guide#getting-started', label: 'Getting started', note: 'Post or apply for your first bounty' },
+  { to: '/guide#wallets', label: 'Wallets & Freighter', note: 'Connect a wallet and prove you own it' },
+  { to: '/guide#disputes', label: 'Disputes', note: 'Evidence, moderators and the arbiter' },
+  { to: '/guide#fees', label: 'Fees', note: 'What the network charges, and when' },
+]
+
+/**
+ * The escrow contract this deployment actually uses, read from the API. The answers say the money sits in a
+ * contract, so the contract is named here and linked to the explorer: the claim is checkable, not just stated.
+ */
+function ContractCard() {
+  const { data } = usePublicConfig()
+  if (!data?.contract_id) return null
+  const href = data.contract_explorer_url ?? contractExplorerUrl(data, data.contract_id)
+  const short = `${data.contract_id.slice(0, 8)}…${data.contract_id.slice(-8)}`
+  return (
+    <div className="mt-8 rounded-xl border bg-card p-5 shadow-soft">
+      <p className="text-[0.9375rem] font-medium">Check it on Stellar</p>
+      <p className="mt-1 text-sm leading-relaxed text-muted-foreground">
+        Every reward is held by this contract on {networkDisplayName(data.network, data.blockchain_mode)}. Its
+        balance and every payout are public.
+      </p>
+      {href ? (
+        <a
+          href={href}
+          target="_blank"
+          rel="noopener noreferrer"
+          aria-label={`Escrow contract ${data.contract_id} on the Stellar explorer`}
+          className="mt-3 inline-flex items-center gap-1.5 font-mono text-xs break-all text-foreground hover:underline"
+        >
+          {short}
+          <ExternalLink className="size-3 shrink-0" aria-hidden />
+          <span className="sr-only">(opens in a new tab)</span>
+        </a>
+      ) : (
+        <p className="mt-3 font-mono text-xs break-all text-foreground">{short}</p>
+      )}
+    </div>
+  )
+}
+
 /** Questions on the right in hairline rows with a plus that turns into a cross; the heading holds the left. */
 export function Faq() {
   return (
@@ -73,6 +118,25 @@ export function Faq() {
               </Link>
               .
             </p>
+            <nav aria-label="Guide sections" className="mt-8 border-t">
+              {GUIDE_SECTIONS.map(({ to, label, note }) => (
+                <Link
+                  key={to}
+                  to={to}
+                  className="group flex items-baseline justify-between gap-4 border-b py-3.5 transition-colors hover:border-foreground/25"
+                >
+                  <span className="min-w-0">
+                    <span className="block text-[0.9375rem] font-medium group-hover:underline">{label}</span>
+                    <span className="mt-0.5 block text-sm text-muted-foreground">{note}</span>
+                  </span>
+                  <ArrowRight
+                    aria-hidden
+                    className="size-4 shrink-0 translate-y-0.5 text-muted-foreground transition-transform group-hover:translate-x-0.5"
+                  />
+                </Link>
+              ))}
+            </nav>
+            <ContractCard />
           </div>
           <Accordion type="single" collapsible className="border-t">
             {FAQS.map((f, i) => (
