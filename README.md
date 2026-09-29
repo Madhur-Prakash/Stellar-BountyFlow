@@ -253,7 +253,8 @@ refuses weak secrets and insecure cookies.
 | `SEED_USER_PASSWORD` | Password given to the seeded accounts (development only) |
 | `DATABASE_URL`, `REDIS_URL`, `KAFKA_BOOTSTRAP_SERVERS` | Data stores |
 | `JWT_SECRET`, `ACCESS_TOKEN_TTL`, `REFRESH_TOKEN_TTL`, `COOKIE_SECURE`, `COOKIE_SAMESITE` | Sessions |
-| `SMTP_*`, `EMAIL_FROM` | Email (Mailpit locally) |
+| `SMTP_*`, `EMAIL_FROM` | Email transport for development (Mailpit locally) |
+| `GMAIL_CREDENTIALS_B64`, `GMAIL_SENDER`, `EMAIL_FROM_NAME` | Real email through the Gmail API; set these three and nothing else changes. Mint the credential with `scripts/mint_gmail_token.py` |
 | `LOG_LEVEL`, `LOG_JSON`, `LOG_OUTPUT` | Logifyx logging |
 
 ## Database migrations & seed data

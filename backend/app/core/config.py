@@ -84,13 +84,25 @@ class Settings(BaseSettings):
     seed_user_password: str = "BountyFlow!2026"
 
     # --- Email -----------------------------------------------------------------
-    email_backend: Literal["smtp", "console"] = "smtp"
+    # Transport is chosen in `notifications.email.get_email_backend`: "console" always wins when set
+    # explicitly, otherwise Gmail is used as soon as GMAIL_CREDENTIALS_B64 is present, and SMTP is the
+    # fallback (Mailpit in development).
+    email_backend: Literal["smtp", "console", "gmail"] = "smtp"
     smtp_host: str = "localhost"
     smtp_port: int = 1025
     smtp_username: str | None = None
     smtp_password: str | None = None
     smtp_use_tls: bool = False
     email_from: str = "BountyFlow <no-reply@bountyflow.local>"
+
+    # Gmail API transport. One base64 line holding the pickled OAuth credential, minted by
+    # `scripts/mint_gmail_token.py`; a secret, and never committed. Sending is all it can do: the token
+    # carries the gmail.send scope only, so a leak cannot read the mailbox it sends from.
+    gmail_credentials_b64: str = ""
+    # The mailbox that consented when the token was minted. Gmail sends from the authorised account
+    # whatever this says, so it exists to carry the display name and to catch a mismatch early.
+    gmail_sender: str = ""
+    email_from_name: str = "BountyFlow"
 
     # --- Stellar / Soroban -------------------------------------------------
     blockchain_mode: Literal["testnet", "mainnet"] = "testnet"
@@ -307,6 +319,14 @@ class Settings(BaseSettings):
     @property
     def network_label(self) -> str:
         return self.stellar_network
+
+    @property
+    def email_sender(self) -> str:
+        """The From header. ``EMAIL_FROM_NAME <GMAIL_SENDER>`` once a Gmail mailbox is configured, so the
+        display name comes from one setting and the address from the mailbox that actually consented."""
+        if self.gmail_sender:
+            return f"{self.email_from_name} <{self.gmail_sender}>"
+        return self.email_from
 
     def topic(self, name: str) -> str:
         return f"{self.kafka_topic_prefix}{name}"

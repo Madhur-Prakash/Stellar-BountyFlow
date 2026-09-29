@@ -164,7 +164,8 @@ All variables are documented in [`.env.example`](../.env.example). Key switches:
 | `SEED_ON_STARTUP` | API runs the idempotent seed on boot (skipped in staging/production) |
 | `KAFKA_ENABLED` | `false` dispatches events in-process (no Kafka needed) |
 | `SEED_USER_PASSWORD` | Password given to seeded accounts (development only) |
-| `EMAIL_BACKEND` | `smtp` (Mailpit locally) or `console` |
+| `EMAIL_BACKEND` | `smtp` (Mailpit locally), `console`, or `gmail` |
+| `GMAIL_CREDENTIALS_B64`, `GMAIL_SENDER`, `EMAIL_FROM_NAME` | Send real email through the Gmail API. Setting the credential is enough — it takes precedence over the SMTP default. Mint it with `uv run python scripts/mint_gmail_token.py` (needs `uv sync --group dev`). |
 
 ## Troubleshooting
 

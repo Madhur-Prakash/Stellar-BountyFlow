@@ -1,21 +1,37 @@
-"""Email rendering (Jinja2, autoescaped) and delivery backends (SMTP via aiosmtplib, or console).
+"""Email rendering (Jinja2, autoescaped) and delivery backends (Gmail API, SMTP, or console).
 
 Rendered bodies may contain single-use tokens inside links. They are handed straight to the backend and are
 never logged or persisted: logs carry only the template name, subject, and recipient.
+
+**Transports.** SMTP (aiosmtplib) is the development path and points at Mailpit. The Gmail API transport is
+what a deployment uses, and takes over as soon as ``GMAIL_CREDENTIALS_B64`` is set — Google refuses plain
+passwords, and an app password needs 2FA plus a per-account secret a Workspace admin can switch off, whereas a
+refresh token scoped to ``gmail.send`` grants exactly one capability. ``ConsoleEmailBackend`` records that a
+message would have been sent and is what explicit ``EMAIL_BACKEND=console`` selects.
+
+Every failure reaches the caller as :class:`EmailSendError`, which is what makes the worker retry the event.
+The Gmail backend rides out a blip itself before giving up, and says in the error whether the cause looks
+transient or permanent so a dead credential is not mistaken for a network wobble.
 """
 
 from __future__ import annotations
 
+import asyncio
+import base64
+import pickle
+import threading
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
 from email.message import EmailMessage
+from email.policy import SMTP as SMTP_POLICY
 from email.utils import make_msgid
 from functools import lru_cache
 from pathlib import Path
-from typing import Any, Protocol
+from typing import Any, Final, Protocol
 from urllib.parse import urlencode
 
 import aiosmtplib
+import anyio.to_thread
 from jinja2 import Environment, FileSystemLoader, StrictUndefined, select_autoescape
 
 from app.core.config import Settings, get_settings
@@ -260,6 +276,120 @@ class SmtpEmailBackend:
         logger.info("email_sent", backend="smtp", to=message.to, subject=message.subject)
 
 
+#: Sending is serialised. Neither the httplib2 connection inside a Gmail service object nor a shared
+#: ``Credentials`` is thread-safe, and two threads refreshing the same token at once is a race on it.
+#: Transactional mail is a handful of messages, so serialising costs nothing measurable.
+_gmail_lock = threading.Lock()
+
+#: Attempts per message, and the waits between them. Deliberately short: a send is awaited inside the worker
+#: job that triggered it, and only transient failures are retried at all, so a dead credential still fails on
+#: the first attempt.
+_GMAIL_ATTEMPTS: Final = 3
+_GMAIL_WAITS: Final = (1.0, 2.0)
+
+
+def _gmail_service(credentials_b64: str) -> Any:
+    """Unpickle the configured credential and build an authorised Gmail client.
+
+    The blob is the operator's own configuration and carries the same authority as this repository's code, so
+    it is unpickled without validation. That is safe only because of where it comes from: it must never be
+    sourced from the database, an upload, an API request or a shared config service. If that ever changes,
+    this function has to change first.
+    """
+    from google.auth.transport.requests import Request
+    from googleapiclient.discovery import build
+
+    credentials = pickle.loads(base64.b64decode(credentials_b64))  # noqa: S301 - operator-supplied, see above
+    if credentials.expired and credentials.refresh_token:
+        credentials.refresh(Request())
+    return build("gmail", "v1", credentials=credentials)
+
+
+def _gmail_transient(exc: BaseException) -> bool:
+    """Whether retrying this failure could plausibly succeed.
+
+    A revoked token or a missing scope cannot be fixed by asking again, and retrying only delays a failure
+    that is already certain. 429 and 5xx are Google saying "not now"; every other 4xx is "not ever".
+    """
+    from google.auth.exceptions import RefreshError, TransportError
+    from googleapiclient.errors import HttpError
+
+    if isinstance(exc, RefreshError):
+        return False
+    if isinstance(exc, HttpError):
+        status = exc.status_code
+        return status is not None and (status == 429 or status >= 500)
+    return isinstance(exc, (TransportError, OSError, TimeoutError))
+
+
+def _gmail_reason(exc: BaseException) -> str:
+    """A one-line cause, carrying Google's own wording where there is one."""
+    from google.auth.exceptions import RefreshError
+    from googleapiclient.errors import HttpError
+
+    if isinstance(exc, RefreshError):
+        if "invalid_grant" in str(exc):
+            # The one Gmail failure whose own message says nothing useful. Google has rejected the refresh
+            # token itself, so it is dead rather than misconfigured and has to be replaced. The first cause
+            # is by far the most common and is invisible from the error.
+            return (
+                "Google rejected the refresh token (invalid_grant). Mint a new one with "
+                "scripts/mint_gmail_token.py. Causes, in order of likelihood: the OAuth consent screen is "
+                "still in Testing (Google expires those tokens after 7 days — publish the app), access was "
+                "revoked, the account password changed, or the OAuth client was deleted."
+            )
+        return f"RefreshError: {exc}"
+    if isinstance(exc, HttpError):
+        return f"HTTP {exc.status_code}: {exc}"
+    return f"{type(exc).__name__}: {exc}"
+
+
+class GmailEmailBackend:
+    """Delivery through the Gmail API.
+
+    ``google-api-python-client`` owns the send and ``google-auth`` owns the token lifecycle, so neither is
+    reimplemented here. Both are synchronous (httplib2 underneath), so the send leaves the event loop or it
+    stalls every other task for the length of a round trip.
+    """
+
+    def __init__(self, settings: Settings | None = None) -> None:
+        self.settings = settings or get_settings()
+
+    def _send_sync(self, mime: EmailMessage) -> None:
+        # `raw` is a complete RFC 5322 message, serialised with the SMTP policy: CRLF endings and folded
+        # headers, the same bytes any mail transport would put on the wire.
+        raw = base64.urlsafe_b64encode(mime.as_bytes(policy=SMTP_POLICY)).decode("ascii")
+        with _gmail_lock:
+            service = _gmail_service(self.settings.gmail_credentials_b64)
+            service.users().messages().send(userId="me", body={"raw": raw}).execute()
+
+    async def send(self, message: OutgoingEmail) -> None:
+        if not self.settings.gmail_credentials_b64:
+            raise EmailSendError("GMAIL_CREDENTIALS_B64 is not set, so the Gmail transport cannot send.")
+        mime = build_mime(message, self.settings.email_sender)
+        for attempt in range(1, _GMAIL_ATTEMPTS + 1):
+            try:
+                # anyio rather than asyncio.to_thread: that is the pool FastAPI already sizes.
+                await anyio.to_thread.run_sync(self._send_sync, mime)
+                logger.info("email_sent", backend="gmail", to=message.to, subject=message.subject)
+                return
+            except Exception as exc:
+                transient = _gmail_transient(exc)
+                if not transient or attempt == _GMAIL_ATTEMPTS:
+                    raise EmailSendError(
+                        f"Gmail delivery failed ({'transient' if transient else 'permanent'}): "
+                        f"{_gmail_reason(exc)}"
+                    ) from exc
+                logger.warning(
+                    "email_send_retry",
+                    backend="gmail",
+                    to=message.to,
+                    attempt=attempt,
+                    error=_gmail_reason(exc),
+                )
+                await asyncio.sleep(_GMAIL_WAITS[attempt - 1])
+
+
 class ConsoleEmailBackend:
     """Development backend: records that an email would be sent. Bodies (which may hold tokens) are never
     written to the log."""
@@ -275,7 +405,14 @@ def get_email_backend() -> EmailBackend:
     global _backend
     if _backend is None:
         settings = get_settings()
-        _backend = SmtpEmailBackend(settings) if settings.email_backend == "smtp" else ConsoleEmailBackend()
+        # An explicit "console" always wins. Otherwise a configured Gmail credential is the deployment's
+        # intent, so it takes precedence over the SMTP default without needing EMAIL_BACKEND set as well.
+        if settings.email_backend == "console":
+            _backend = ConsoleEmailBackend()
+        elif settings.gmail_credentials_b64 or settings.email_backend == "gmail":
+            _backend = GmailEmailBackend(settings)
+        else:
+            _backend = SmtpEmailBackend(settings)
     return _backend
 
 
