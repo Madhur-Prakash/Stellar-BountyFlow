@@ -66,6 +66,7 @@ export default function SavedPage() {
   return (
     <div>
       <PageHeader
+        breadcrumbs={[{ label: 'Workspace', to: '/app' }, { label: 'Saved' }]}
         title="Saved"
         description="Bookmarked bounties and the searches you follow."
         actions={

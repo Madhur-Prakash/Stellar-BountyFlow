@@ -55,6 +55,7 @@ export default function PaymentsPage() {
   return (
     <div>
       <PageHeader
+        breadcrumbs={[{ label: 'Workspace', to: '/app' }, { label: 'Payments' }]}
         title="Payments"
         description="Rewards you’ve received and payouts you’ve sent from escrow."
       />

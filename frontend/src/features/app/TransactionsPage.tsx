@@ -68,7 +68,11 @@ export default function TransactionsPage() {
   const { data: config } = usePublicConfig()
   return (
     <div>
-      <PageHeader title="Transactions" description="On-chain actions you’ve prepared or signed." />
+      <PageHeader
+        breadcrumbs={[{ label: 'Workspace', to: '/app' }, { label: 'Transactions' }]}
+        title="Transactions"
+        description="On-chain actions you’ve prepared or signed."
+      />
       <Card className="gap-0 py-0">
         <CardQuery
           query={query}

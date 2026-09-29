@@ -1,6 +1,7 @@
 import { BookOpen, Search } from 'lucide-react'
 import { Link } from 'react-router'
 
+import { PageBreadcrumbs } from '@/components/layout/PageBreadcrumbs'
 import { PageContainer } from '@/components/layout/PageContainer'
 import { MonoLabel } from '@/components/marketing'
 import { Button } from '@/components/ui/button'
@@ -14,6 +15,7 @@ export default function HowItWorksPage() {
     <>
       <section aria-labelledby="how-page-title">
         <PageContainer className="flex flex-col items-center pt-16 pb-12 text-center sm:pt-28 sm:pb-16">
+          <PageBreadcrumbs items={[{ label: 'Home', to: '/' }, { label: 'How it works' }]} className="mb-6" />
           <MonoLabel>How it works</MonoLabel>
           <h1
             id="how-page-title"

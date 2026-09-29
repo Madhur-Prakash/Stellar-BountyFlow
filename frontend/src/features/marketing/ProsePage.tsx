@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState, type ReactNode } from 'react'
 
+import { PageBreadcrumbs } from '@/components/layout/PageBreadcrumbs'
 import { PageContainer } from '@/components/layout/PageContainer'
 import { motionAllowed } from '@/hooks/useReducedMotion'
 import { scrollToAnchor } from '@/lib/scroll'
@@ -91,6 +92,10 @@ export function ProsePage({
             the body's left edge it left a dead gutter above the contents rail, and set to the block's edge it
             fought with the prose for the reader's left margin; centred, it belongs to the page instead. */}
         <header className="mx-auto max-w-3xl text-center">
+          <PageBreadcrumbs
+            items={[{ label: 'Home', to: '/' }, { label: title }]}
+            className="mb-5 flex justify-center"
+          />
           {eyebrow && <p className="label-mono">{eyebrow}</p>}
           <h1
             className={cn(

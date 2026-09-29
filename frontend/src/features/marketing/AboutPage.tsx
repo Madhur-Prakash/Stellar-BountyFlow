@@ -3,6 +3,7 @@ import type { ReactNode } from 'react'
 import { Link } from 'react-router'
 
 import { GithubMark } from '@/components/brand/GithubMark'
+import { PageBreadcrumbs } from '@/components/layout/PageBreadcrumbs'
 import { PageContainer } from '@/components/layout/PageContainer'
 import { AppWindow, Atmosphere, MonoLabel } from '@/components/marketing'
 import { Button } from '@/components/ui/button'
@@ -189,6 +190,7 @@ export default function AboutPage() {
       <section aria-labelledby="about-title">
         <PageContainer className="grid gap-12 pt-14 pb-16 sm:pt-24 sm:pb-24 lg:grid-cols-[minmax(0,1fr)_minmax(0,1.1fr)] lg:items-center lg:gap-16">
           <div className="max-w-2xl">
+            <PageBreadcrumbs items={[{ label: 'Home', to: '/' }, { label: 'About' }]} className="mb-5" />
             <MonoLabel>About</MonoLabel>
             <h1
               id="about-title"

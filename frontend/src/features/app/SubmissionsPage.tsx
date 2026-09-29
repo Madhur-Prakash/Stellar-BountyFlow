@@ -75,6 +75,7 @@ export default function SubmissionsPage() {
   return (
     <div>
       <PageHeader
+        breadcrumbs={[{ label: 'Workspace', to: '/app' }, { label: 'Submissions' }]}
         title="My submissions"
         description="Work you’ve delivered, with its review and payout status."
       />

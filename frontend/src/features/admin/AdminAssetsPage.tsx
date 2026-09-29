@@ -276,6 +276,7 @@ export default function AdminAssetsPage() {
   return (
     <div>
       <PageHeader
+        breadcrumbs={[{ label: 'Admin', to: '/admin' }, { label: 'Reward assets' }]}
         title="Reward assets"
         description="Which assets bounties can pay in on this network. Amounts are always recorded per asset."
         actions={

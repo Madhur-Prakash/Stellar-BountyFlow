@@ -40,7 +40,6 @@ import { errorMessage } from '@/lib/api/client'
 import { useLogout, useMe } from '@/lib/api/queries/auth'
 import { useUnreadNotificationCount } from '@/lib/api/queries/notifications'
 import { originOf, switchTheme } from '@/lib/theme-transition'
-import { cn } from '@/lib/utils'
 import { useAuthUi } from '@/stores/auth-ui'
 import { useUiPrefs } from '@/stores/ui-prefs'
 
@@ -274,16 +273,10 @@ export function AppShell({
             aria-label="Toggle navigation"
           />
           <span aria-hidden className="hidden h-4 w-px bg-border md:block" />
-          <div className="flex min-w-0 items-center gap-2.5 pl-1">
-            <span className={cn('label-mono shrink-0 text-[0.75rem]', section && 'hidden md:inline')}>
-              {areaLabel}
-            </span>
-            {section && (
-              <>
-                <span aria-hidden className="hidden h-3.5 w-px rotate-18 bg-border md:block" />
-                <span className="truncate text-sm font-medium text-foreground">{section}</span>
-              </>
-            )}
+          {/* The current section only. The area it belongs to is already obvious from the sidebar, and each
+              page's own breadcrumb carries the link back, so repeating "Workspace /" here said nothing. */}
+          <div className="flex min-w-0 items-center pl-1">
+            <span className="truncate text-sm font-medium text-foreground">{section ?? areaLabel}</span>
           </div>
           <div className="ml-auto flex items-center gap-1 sm:gap-1.5">
             <NetworkBadge compact />

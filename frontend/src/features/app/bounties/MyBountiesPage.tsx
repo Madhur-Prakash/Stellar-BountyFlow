@@ -273,6 +273,7 @@ export default function MyBountiesPage() {
   return (
     <div>
       <PageHeader
+        breadcrumbs={[{ label: 'Workspace', to: '/app' }, { label: 'My bounties' }]}
         title="My bounties"
         actions={
           <Button asChild>

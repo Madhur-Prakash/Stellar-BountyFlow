@@ -164,6 +164,7 @@ export default function VerifyCredentialPage() {
   return (
     <PageContainer className="pt-10 pb-16 sm:pt-14 sm:pb-20">
       <PageHeader
+        breadcrumbs={[{ label: 'Home', to: '/' }, { label: 'Verify a credential' }]}
         size="display"
         eyebrow={<span className="label-mono">Credentials</span>}
         title={<span className="font-display font-bold">Verify a credential</span>}

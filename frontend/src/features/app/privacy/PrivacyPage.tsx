@@ -473,7 +473,10 @@ function DeletionCard() {
 export default function PrivacyPage() {
   return (
     <div className="lg:max-w-252">
-      <PageHeader title="Privacy and data" />
+      <PageHeader
+        breadcrumbs={[{ label: 'Workspace', to: '/app' }, { label: 'Privacy and data' }]}
+        title="Privacy and data"
+      />
       <AccountLayout>
         <ExportCard />
         <LegalCard />

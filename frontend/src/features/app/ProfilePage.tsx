@@ -217,6 +217,7 @@ export default function ProfilePage() {
   return (
     <div className="lg:max-w-252">
       <PageHeader
+        breadcrumbs={[{ label: 'Workspace', to: '/app' }, { label: 'Profile' }]}
         title="Profile"
         description="How you appear to requesters and contributors. Everything here except wallets is self-reported."
         actions={

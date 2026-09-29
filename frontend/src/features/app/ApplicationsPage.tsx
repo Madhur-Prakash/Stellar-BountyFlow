@@ -71,6 +71,7 @@ export default function ApplicationsPage() {
   return (
     <div>
       <PageHeader
+        breadcrumbs={[{ label: 'Workspace', to: '/app' }, { label: 'Applications' }]}
         title="My applications"
         description="Bounties you’ve applied to and where each application stands."
         actions={

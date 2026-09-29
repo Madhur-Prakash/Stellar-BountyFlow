@@ -79,6 +79,7 @@ function AttestationView({ a }: { a: AttestationDetail }) {
   return (
     <PageContainer className="pt-10 pb-16 sm:pt-14 sm:pb-20">
       <PageHeader
+        breadcrumbs={[{ label: 'Home', to: '/' }, { label: 'Attestation' }]}
         size="display"
         eyebrow={<span className="label-mono">Attestation #{a.onchain_id}</span>}
         title={<span className="font-display font-bold">{a.bounty.title}</span>}

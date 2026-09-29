@@ -90,6 +90,7 @@ export default function NotificationsPage() {
   return (
     <div>
       <PageHeader
+        breadcrumbs={[{ label: 'Workspace', to: '/app' }, { label: 'Notifications' }]}
         title="Notifications"
         description={
           query.data

@@ -259,7 +259,10 @@ function GitHubCard() {
 export default function SettingsPage() {
   return (
     <div className="lg:max-w-252">
-      <PageHeader title="Settings" />
+      <PageHeader
+        breadcrumbs={[{ label: 'Workspace', to: '/app' }, { label: 'Settings' }]}
+        title="Settings"
+      />
       <AccountLayout>
         <NotificationPreferencesCard />
         <GitHubCard />

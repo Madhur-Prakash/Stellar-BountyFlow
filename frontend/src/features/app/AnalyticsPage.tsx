@@ -141,6 +141,7 @@ export default function AnalyticsPage() {
   return (
     <div>
       <PageHeader
+        breadcrumbs={[{ label: 'Workspace', to: '/app' }, { label: 'Analytics' }]}
         title="Analytics"
         description={
           staff
