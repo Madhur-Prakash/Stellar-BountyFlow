@@ -57,11 +57,13 @@ export function MarketingFooter() {
         <div className="grid gap-12 lg:grid-cols-[1.2fr_2fr]">
           <div className="space-y-6">
             <Logo />
-            {/* The tagline as a large halftone wordmark: dots of ink that read as type from a distance. */}
+            {/* The tagline as a large halftone wordmark: dots of ink that read as type from a distance. The
+                dots overlap their 3.4px cell, so the letters read as near-solid ink and the grain only shows
+                close up. */}
             <p className="sr-only">{SITE.tagline}</p>
             <div
               aria-hidden
-              className="font-display bg-[radial-gradient(circle,currentColor_1.35px,transparent_1.6px)] bg-size-[3.4px_3.4px] bg-clip-text text-[clamp(2.25rem,4.2vw,4rem)] leading-[0.94] font-extrabold tracking-[-0.035em] text-foreground/55 select-none dark:text-foreground/45"
+              className="bg-[radial-gradient(circle,currentColor_2.15px,transparent_2.4px)] bg-size-[3.4px_3.4px] bg-clip-text font-display text-[clamp(2.25rem,4.2vw,4rem)] leading-[0.94] font-extrabold tracking-[-0.035em] text-foreground select-none dark:text-foreground/80"
               style={{ WebkitTextFillColor: 'transparent' }}
             >
               <span className="block whitespace-nowrap">Work gets done.</span>

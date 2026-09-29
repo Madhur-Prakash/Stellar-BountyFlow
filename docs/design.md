@@ -92,7 +92,11 @@ Motion explains something or answers an action. It stays calm and never gets in 
   - Three Three.js scenes (`components/three`, lazy-loaded through `Scene`, paused off screen, hidden from
     assistive technology):
     - **Constellation:** a network of nodes behind the hero headline, masked away from the text. Payment
-      pulses hop between nodes and light them up, and the network leans slightly towards the pointer.
+      pulses hop between nodes and light them up, and the network leans slightly towards the pointer. It is
+      interactive: nodes light up under the pointer, and a press or tap anywhere over it sends a ripple of
+      light outwards and launches payments from the nearest node. The canvas keeps `pointer-events: none` and
+      hit-tests window events against its own box, so the headline stays selectable, the buttons stay
+      clickable, and a touch still scrolls the page.
     - **Payments globe:** the dotted globe rising behind the "Built on the Stellar stack" strip, on large
       screens. It is interactive: drag it to turn it (it keeps some spin, then eases back), and click it to send
       a payment from that point to the nearest hubs. Vertical page scrolling still works on touch screens.

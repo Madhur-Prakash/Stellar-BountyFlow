@@ -120,7 +120,7 @@ export function PlatformStats() {
     !!data && COUNTS.every((key) => data[key] === 0) && isZeroAmount(data.verified_payout_volume || '0')
 
   return (
-    <section aria-labelledby="stats-title" className="py-16 sm:py-20">
+    <section aria-labelledby="stats-title" className="pt-16 pb-6 sm:pt-20 sm:pb-8">
       <PageContainer>
         <SectionHeading
           id="stats-title"

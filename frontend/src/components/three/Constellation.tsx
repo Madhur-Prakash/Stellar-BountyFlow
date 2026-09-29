@@ -1,5 +1,5 @@
 import { Canvas, useFrame, useThree } from '@react-three/fiber'
-import { useEffect, useMemo, useRef, type CSSProperties } from 'react'
+import { useEffect, useMemo, useRef, type CSSProperties, type RefObject } from 'react'
 import * as THREE from 'three'
 
 import { motionAllowed } from '@/hooks/useReducedMotion'
@@ -187,7 +187,25 @@ function driftedNode(out: THREE.Vector3, nodes: Float32Array, phases: Float32Arr
 
 type Pulse = { from: number; to: number; start: number; duration: number }
 
-function Network({ theme, count }: { theme: ThreeTheme; count: number }) {
+/** A press on the network: a ring of light travelling outwards from where it landed. */
+type Ripple = { x: number; y: number; start: number }
+
+/** How far a ripple reaches, how fast it travels, and how wide its bright edge is (world units). */
+const RIPPLE_REACH = 9
+const RIPPLE_SPEED = 7
+const RIPPLE_BAND = 0.9
+/** How close the pointer has to be for a node to light up under it. */
+const POINTER_REACH = 1.5
+
+function Network({
+  theme,
+  count,
+  host,
+}: {
+  theme: ThreeTheme
+  count: number
+  host: RefObject<HTMLDivElement | null>
+}) {
   const group = useRef<THREE.Group>(null)
   const nodeMaterial = useRef<THREE.ShaderMaterial>(null)
   const lineMaterial = useRef<THREE.ShaderMaterial>(null)
@@ -196,7 +214,14 @@ function Network({ theme, count }: { theme: ThreeTheme; count: number }) {
   const pulsePoints = useRef<THREE.Points>(null)
   // The pulses in flight, and the network they belong to (a new node count starts them afresh).
   const pulses = useRef<{ network: Network; list: Pulse[] } | null>(null)
-  const pointer = useRef({ x: 0, y: 0 })
+  const pointer = useRef<{ x: number; y: number; inside: boolean; tap: { x: number; y: number } | null }>({
+    x: 0,
+    y: 0,
+    inside: false,
+    tap: null,
+  })
+  const ripples = useRef<Ripple[]>([])
+  const camera = useThree((s) => s.camera)
   const pixelRatio = useThree((s) => s.viewport.dpr)
   const invalidate = useThree((s) => s.invalidate)
 
@@ -245,16 +270,52 @@ function Network({ theme, count }: { theme: ThreeTheme; count: number }) {
     invalidate()
   }, [theme, pixelRatio, invalidate])
 
-  // The network leans a little towards the pointer, which is what makes its depth readable.
+  /**
+   * Pointer tracking, listened for on the window rather than on the canvas.
+   *
+   * The canvas sits behind the headline with `pointer-events: none`, so the text stays selectable and the
+   * buttons stay clickable; hit-testing against its own box gives the network its interactivity back without
+   * taking anything away from the content in front of it. Nothing calls `preventDefault`, so a touch still
+   * scrolls the page.
+   */
   useEffect(() => {
-    if (!motionAllowed()) return
+    const el = host.current
+    if (!el) return
+    const local = (e: PointerEvent) => {
+      const rect = el.getBoundingClientRect()
+      const inside =
+        e.clientX >= rect.left && e.clientX <= rect.right && e.clientY >= rect.top && e.clientY <= rect.bottom
+      return {
+        inside,
+        x: ((e.clientX - rect.left) / rect.width) * 2 - 1,
+        y: -((e.clientY - rect.top) / rect.height) * 2 + 1,
+      }
+    }
     const move = (e: PointerEvent) => {
-      pointer.current.x = (e.clientX / window.innerWidth) * 2 - 1
-      pointer.current.y = (e.clientY / window.innerHeight) * 2 - 1
+      const p = local(e)
+      pointer.current = { ...p, tap: pointer.current.tap }
+      if (p.inside) invalidate()
+    }
+    // A press anywhere over the network sends a ripple from that spot; the frame loop turns it into world
+    // coordinates, where it has the camera and the network's own rotation.
+    const down = (e: PointerEvent) => {
+      const p = local(e)
+      if (!p.inside) return
+      pointer.current = { ...p, tap: { x: p.x, y: p.y } }
+      invalidate()
+    }
+    const leave = () => {
+      pointer.current = { ...pointer.current, inside: false }
     }
     window.addEventListener('pointermove', move, { passive: true })
-    return () => window.removeEventListener('pointermove', move)
-  }, [])
+    window.addEventListener('pointerdown', down, { passive: true })
+    window.addEventListener('pointerleave', leave, { passive: true })
+    return () => {
+      window.removeEventListener('pointermove', move)
+      window.removeEventListener('pointerdown', down)
+      window.removeEventListener('pointerleave', leave)
+    }
+  }, [host, invalidate])
 
   useFrame((state, delta) => {
     const t = state.clock.elapsedTime
@@ -263,6 +324,7 @@ function Network({ theme, count }: { theme: ThreeTheme; count: number }) {
     if (node) node.uniforms.uTime.value = t
     if (line) line.uniforms.uTime.value = t
 
+    const animate = motionAllowed()
     const g = group.current
     if (g) {
       const ease = 1 - Math.exp(-delta * 2)
@@ -297,6 +359,74 @@ function Network({ theme, count }: { theme: ThreeTheme; count: number }) {
     if (glowArray) {
       const decay = Math.exp(-delta * 1.8)
       for (let i = 0; i < glowArray.length; i++) glowArray[i] *= decay
+    }
+
+    // --- Interaction: the pointer lights what it passes, and a press sends a ripple ----------------
+    /** Where a point on the canvas lands on the network's own plane, allowing for its lean. */
+    const toLocal = (ndcX: number, ndcY: number): THREE.Vector3 | null => {
+      if (!g) return null
+      const target = new THREE.Vector3(ndcX, ndcY, 0.5).unproject(camera)
+      const dir = target.sub(camera.position)
+      if (dir.z === 0) return null
+      const point = camera.position.clone().addScaledVector(dir, -camera.position.z / dir.z)
+      return g.worldToLocal(point)
+    }
+
+    const tap = pointer.current.tap
+    if (tap) {
+      pointer.current.tap = null
+      const at = toLocal(tap.x, tap.y)
+      if (at) {
+        ripples.current.push({ x: at.x, y: at.y, start: t })
+        if (ripples.current.length > 4) ripples.current.shift()
+        // Send payments on their way from whichever node was pressed nearest.
+        let nearest = 0
+        let best = Infinity
+        for (let i = 0; i < nodeCount; i++) {
+          const dx = nodes[i * 3] - at.x
+          const dy = nodes[i * 3 + 1] - at.y
+          const d = dx * dx + dy * dy
+          if (d < best) {
+            best = d
+            nearest = i
+          }
+        }
+        const options = neighbours[nearest]
+        for (let k = 0; k < Math.min(3, list.length); k++) {
+          const to = options[Math.floor(Math.random() * options.length)] ?? nearest
+          list[(k * 4) % list.length] = { from: nearest, to, start: t, duration: 0.8 }
+        }
+        if (glowArray) glowArray[nearest] = 1
+      }
+    }
+
+    if (glowArray) {
+      const at = pointer.current.inside && animate ? toLocal(pointer.current.x, pointer.current.y) : null
+      const live: Ripple[] = []
+      for (const ripple of ripples.current) {
+        const radius = (t - ripple.start) * RIPPLE_SPEED
+        if (radius <= RIPPLE_REACH) live.push(ripple)
+      }
+      ripples.current = live
+      for (let i = 0; i < nodeCount; i++) {
+        const nx = nodes[i * 3]
+        const ny = nodes[i * 3 + 1]
+        if (at) {
+          const d = Math.hypot(nx - at.x, ny - at.y)
+          if (d < POINTER_REACH) {
+            glowArray[i] = Math.max(glowArray[i], (1 - d / POINTER_REACH) ** 2 * 0.75)
+          }
+        }
+        for (const ripple of live) {
+          const radius = (t - ripple.start) * RIPPLE_SPEED
+          const d = Math.abs(Math.hypot(nx - ripple.x, ny - ripple.y) - radius)
+          if (d < RIPPLE_BAND) {
+            const fade = 1 - radius / RIPPLE_REACH
+            glowArray[i] = Math.max(glowArray[i], (1 - d / RIPPLE_BAND) * fade)
+          }
+        }
+      }
+      if (live.length > 0) invalidate()
     }
 
     const posAttr = pulsePoints.current?.geometry.getAttribute('position') as
@@ -385,7 +515,8 @@ function Network({ theme, count }: { theme: ThreeTheme; count: number }) {
 
 /**
  * A field of linked nodes behind the landing headline, with payments hopping from node to node and lighting
- * each one they reach: the Stellar network, quietly at work. It leans towards the pointer. Decorative only
+ * each one they reach: the Stellar network, quietly at work. It leans towards the pointer, lights up under it,
+ * and sends a ripple of light plus a few payments outwards wherever it is pressed or tapped. Decorative only
  * (hidden from assistive technology); it stops drawing while off screen and is a still frame under reduced
  * motion.
  */
@@ -410,7 +541,7 @@ export default function Constellation({
         camera={{ position: [0, 0, 6], fov: 50 }}
         gl={{ antialias: true, alpha: true, powerPreference: 'low-power' }}
       >
-        <Network theme={theme} count={density} />
+        <Network theme={theme} count={density} host={host} />
       </Canvas>
     </div>
   )

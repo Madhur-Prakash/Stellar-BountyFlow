@@ -15,7 +15,7 @@ import { CATEGORY_LABELS, DIFFICULTY_LABELS } from '@/lib/format'
 import { formatAmount } from '@/lib/money'
 import { cn } from '@/lib/utils'
 
-import { SECTION, SectionHeading } from './SectionHeading'
+import { SectionHeading } from './SectionHeading'
 
 const SHOWN = 6
 const COLUMNS = 'md:grid-cols-[minmax(0,1fr)_10rem_8rem_9rem] md:gap-8'
@@ -80,7 +80,7 @@ export function OpenBounties() {
   const { data, isPending, isError, error, refetch } = useFeaturedBounties()
 
   return (
-    <section aria-labelledby="open-bounties-title" className={SECTION}>
+    <section aria-labelledby="open-bounties-title" className="pt-6 pb-16 sm:pt-8 sm:pb-24">
       <PageContainer>
         <SectionHeading
           id="open-bounties-title"
