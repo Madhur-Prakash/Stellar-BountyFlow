@@ -1,8 +1,10 @@
 import { BriefcaseBusiness, Check, UserRound, type LucideIcon } from 'lucide-react'
+import { Link } from 'react-router'
 
 import { PageContainer } from '@/components/layout/PageContainer'
+import { Button } from '@/components/ui/button'
 
-import { SECTION, SectionHeading } from './SectionHeading'
+import { SectionHeading } from './SectionHeading'
 
 type Point = { title: string; text: string }
 
@@ -81,13 +83,23 @@ function Side({
 
 export function Benefits() {
   return (
-    <section aria-labelledby="benefits-title" className={SECTION}>
+    <section aria-labelledby="benefits-title" className="pt-6 pb-16 sm:pt-8 sm:pb-24">
       <PageContainer>
         <SectionHeading
           id="benefits-title"
           label="Both sides"
           title="Why teams and contributors use it"
           description="What changes when the reward is in escrow before the work starts."
+          actions={
+            <>
+              <Button asChild variant="inverse" size="pill">
+                <Link to="/app/bounties/create">Post a bounty</Link>
+              </Button>
+              <Button asChild variant="outline" size="pill">
+                <Link to="/bounties">Find work</Link>
+              </Button>
+            </>
+          }
         />
         <div className="mt-10 grid gap-px overflow-hidden rounded-2xl border bg-border lg:grid-cols-2">
           <Side

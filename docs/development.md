@@ -97,8 +97,9 @@ pnpm dev | pnpm build | pnpm lint | pnpm typecheck | pnpm test | pnpm test:e2e |
 ### Design system and motion
 
 The visual rules (tokens, type scale, layout patterns, what motion is allowed) are in
-[design.md](design.md). In short: Geist on warm paper (or warm near-black), framed product panels, one blue accent, green only for money
-that is really in escrow, and motion that answers an action rather than decorating the page.
+[design.md](design.md). In short: bold Bricolage Grotesque headlines over Geist on warm paper (or warm
+near-black), one blue accent carrying every action and status tag, green kept for confirmations of verified
+on-chain facts, and motion that answers an action rather than decorating the page.
 
 Small transitions are CSS (`tw-animate-css` utilities), such as the route fade (`AnimatedOutlet`) and the
 mobile menu's link stagger.

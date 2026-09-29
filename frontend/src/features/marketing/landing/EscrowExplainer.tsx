@@ -434,7 +434,7 @@ export function EscrowExplainer() {
   )
 
   return (
-    <section id="escrow" aria-labelledby="escrow-title" className="py-12 sm:py-16">
+    <section id="escrow" aria-labelledby="escrow-title" className="pt-12 pb-8 sm:pt-16 sm:pb-10">
       {story ? (
         // A tall wrapper with a sticky stage: the diagram stays on screen while the wrapper scrolls past.
         <div ref={wrapper} data-escrow-story className="relative">

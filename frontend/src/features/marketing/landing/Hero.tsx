@@ -311,7 +311,7 @@ function StageCell({ cell }: { cell: Cell }) {
       </dd>
       {cell.fill !== undefined && (
         <span aria-hidden className="mt-2 block h-1 overflow-hidden rounded-full bg-muted">
-          <span className="block h-full animate-in rounded-full bg-success duration-700 slide-in-from-left" />
+          <span className="block h-full animate-in rounded-full bg-primary duration-700 slide-in-from-left" />
         </span>
       )}
     </div>

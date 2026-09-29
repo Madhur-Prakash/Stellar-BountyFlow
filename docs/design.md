@@ -15,7 +15,7 @@ real data, and motion explains what happens to a bounty rather than decorating t
 | `muted-foreground` | `#69655c` | `#a8a396` | Secondary text, labels |
 | `border` / `input` | `#e8e5de` / `#e1ddd4` | `#2b2924` / `#34312b` | Hairlines, field borders |
 | `primary` | `#3563e9` | `#3a62e4` | Accent: app primary actions, links, focus, active navigation, progress |
-| `success` | `#12733a` | `#4ade80` | Funded in escrow, paid, confirmed. Reserved for money that is really there |
+| `success` | `#12733a` | `#4ade80` | Confirmation that something verified on-chain succeeded: a settled transaction, a passed check, a guarantee in prose. **Not** the funded/paid status tags — those use the blue accent with every other status, so a card never mixes two accent colours |
 | `warning` / `destructive` | amber / red | | Attention and errors only |
 
 - **Type:**

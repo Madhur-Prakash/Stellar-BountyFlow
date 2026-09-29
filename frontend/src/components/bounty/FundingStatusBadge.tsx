@@ -20,7 +20,7 @@ type Variant = 'success' | 'warning' | 'danger' | 'info' | 'muted' | 'outline'
 type Display = { label: string; variant: Variant; icon: LucideIcon; tone: string }
 
 const FUNDING: Record<FundingStatus, Display> = {
-  FUNDED: { label: FUNDING_STATUS_LABELS.FUNDED, variant: 'success', icon: ShieldCheck, tone: 'funded' },
+  FUNDED: { label: FUNDING_STATUS_LABELS.FUNDED, variant: 'info', icon: ShieldCheck, tone: 'funded' },
   PARTIALLY_FUNDED: {
     label: FUNDING_STATUS_LABELS.PARTIALLY_FUNDED,
     variant: 'warning',
@@ -41,7 +41,7 @@ const FUNDING: Record<FundingStatus, Display> = {
     icon: ArrowDownLeft,
     tone: 'refunded',
   },
-  SETTLED: { label: 'Paid out', variant: 'success', icon: CheckCircle2, tone: 'settled' },
+  SETTLED: { label: 'Paid out', variant: 'info', icon: CheckCircle2, tone: 'settled' },
 }
 
 /**
@@ -58,7 +58,7 @@ function fundingDisplay(status: FundingStatus, bountyStatus?: BountyStatus): Dis
   }
   if (bountyStatus === 'COMPLETED' && status === 'SETTLED') {
     // The status badge already says "Completed"; the funding badge only adds where the money went.
-    return { label: 'Paid out', variant: 'success', icon: CheckCircle2, tone: 'completed' }
+    return { label: 'Paid out', variant: 'info', icon: CheckCircle2, tone: 'completed' }
   }
   return FUNDING[status]
 }
