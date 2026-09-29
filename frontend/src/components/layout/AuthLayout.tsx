@@ -9,8 +9,8 @@ import { Button } from '@/components/ui/button'
 import { AnimatedOutlet } from './AnimatedOutlet'
 
 /**
- * Sign in, register and the password / email screens: a slim top row and one centred column on the canvas. Each
- * screen's card sits on its own atmospheric panel (AuthCard).
+ * Sign in, register and the password / email screens: a slim top row and one centred column on the canvas
+ * holding the screen's heading and its card (AuthCard).
  */
 export function AuthLayout() {
   return (
