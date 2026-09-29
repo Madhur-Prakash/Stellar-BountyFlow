@@ -13,7 +13,7 @@ from starlette.types import ASGIApp, Message, Receive, Scope, Send
 
 from app.core.config import get_settings
 from app.core.logging import bind_context, get_logger, unbind_context
-from app.core.security import CSRF_COOKIE, CSRF_HEADER, constant_time_equals
+from app.core.security import CSRF_COOKIE, CSRF_HEADER, constant_time_equals, generate_token
 
 logger = get_logger("http")
 
@@ -140,7 +140,12 @@ class _BodyTooLarge(Exception):
 
 
 class CSRFMiddleware(BaseHTTPMiddleware):
-    """Double-submit cookie CSRF protection for cookie-authenticated mutating requests."""
+    """Double-submit cookie CSRF protection for cookie-authenticated mutating requests.
+
+    Signing in mints the token (see ``app/modules/auth/router.py``). A visitor who has not signed in gets one
+    from the first safe request they make, so the routes open to them — feedback — are protected by the same
+    check as everything else rather than being exempted from it.
+    """
 
     async def dispatch(self, request: Request, call_next: RequestResponseEndpoint) -> Response:
         settings = get_settings()
@@ -163,4 +168,17 @@ class CSRFMiddleware(BaseHTTPMiddleware):
                         }
                     },
                 )
-        return await call_next(request)
+        response = await call_next(request)
+        if request.method in SAFE_METHODS and not request.cookies.get(CSRF_COOKIE):
+            # Readable by JavaScript on purpose: the token must be echoed in the X-CSRF-Token header.
+            response.set_cookie(
+                CSRF_COOKIE,
+                generate_token(24),
+                max_age=settings.refresh_token_ttl,
+                httponly=False,
+                path="/",
+                secure=settings.cookie_secure,
+                samesite=settings.cookie_samesite,
+                domain=settings.cookie_domain,
+            )
+        return response

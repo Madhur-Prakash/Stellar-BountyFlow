@@ -108,6 +108,7 @@ export const PERMISSIONS = [
   'dispute:view_all',
   'dispute:resolve',
   'report:review',
+  'feedback:review',
   'user:view_all',
   'user:manage',
   'user:assign_role',
@@ -253,6 +254,12 @@ export type DisputeResolution = (typeof DISPUTE_RESOLUTIONS)[number]
 
 export const REPORT_STATUSES = ['OPEN', 'REVIEWING', 'ACTIONED', 'DISMISSED'] as const
 export type ReportStatus = (typeof REPORT_STATUSES)[number]
+
+export const FEEDBACK_KINDS = ['BUG', 'IDEA', 'PRAISE', 'OTHER'] as const
+export type FeedbackKind = (typeof FEEDBACK_KINDS)[number]
+
+export const FEEDBACK_STATUSES = ['NEW', 'HANDLED'] as const
+export type FeedbackStatus = (typeof FEEDBACK_STATUSES)[number]
 
 export const NOTIFICATION_TYPES = [
   'BOUNTY_PUBLISHED',
@@ -1098,6 +1105,41 @@ export type Report = {
 }
 export type AdminReportsParams = PageParams & { status?: ReportStatus; target_type?: string }
 export type ResolveReportRequest = { status: 'ACTIONED' | 'DISMISSED'; note: string }
+
+/** What the feedback form sends. The user agent is read from the request, not from the page. */
+export type SubmitFeedbackRequest = {
+  kind: FeedbackKind
+  message: string
+  /** Signed-out senders only; the account's address is used when there is a session. */
+  email?: string | null
+  /** The route the sender was on. Any query string is dropped by the API. */
+  path?: string | null
+  viewport_width?: number | null
+  viewport_height?: number | null
+}
+
+export type Feedback = {
+  id: string
+  kind: FeedbackKind
+  status: FeedbackStatus
+  message: string
+  /** Null when the note came from someone who was not signed in. */
+  sender: UserSummary | null
+  /** A signed-out sender's reply address, when they left one. */
+  email: string | null
+  path: string | null
+  viewport_width: number | null
+  viewport_height: number | null
+  user_agent: string | null
+  created_at: ISODateTime
+  handled_at: ISODateTime | null
+  handled_by: UserSummary | null
+  handled_note: string | null
+}
+/** A page of feedback, plus how much is still waiting across every filter. */
+export type FeedbackPage = Page<Feedback> & { new_count: number }
+export type AdminFeedbackParams = PageParams & { kind?: FeedbackKind; status?: FeedbackStatus }
+export type HandleFeedbackRequest = { handled: boolean; note?: string | null }
 
 export type AdminDisputesParams = PageParams & { status?: DisputeStatus }
 export type AdminTransactionsParams = PageParams & { status?: TxStatus; type?: TxType }

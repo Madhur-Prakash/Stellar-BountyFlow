@@ -6,6 +6,8 @@ import type {
   Category,
   Difficulty,
   DisputeStatus,
+  FeedbackKind,
+  FeedbackStatus,
   FundingStatus,
   PaymentStatus,
   ReportStatus,
@@ -170,6 +172,18 @@ export const REPORT_STATUS_LABELS: Record<ReportStatus, string> = {
   REVIEWING: 'Reviewing',
   ACTIONED: 'Actioned',
   DISMISSED: 'Dismissed',
+}
+
+export const FEEDBACK_KIND_LABELS: Record<FeedbackKind, string> = {
+  BUG: 'Bug',
+  IDEA: 'Idea',
+  PRAISE: 'Praise',
+  OTHER: 'Other',
+}
+
+export const FEEDBACK_STATUS_LABELS: Record<FeedbackStatus, string> = {
+  NEW: 'Waiting',
+  HANDLED: 'Handled',
 }
 
 /**

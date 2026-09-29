@@ -40,6 +40,9 @@ CSRF_EXEMPT = {
 }
 
 PUBLIC = CSRF_EXEMPT | {
+    # Anyone may send feedback, signed in or not. It is *not* CSRF exempt: visitors are minted a token by
+    # the first safe request they make (see app/core/middleware.py).
+    ("post", "/feedback"),
     ("get", "/skills/related"),
     ("post", "/auth/logout"),
     ("get", "/config/public"),

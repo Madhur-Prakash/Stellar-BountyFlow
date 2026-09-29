@@ -2,6 +2,7 @@ import { useEffect } from 'react'
 import { useLocation } from 'react-router'
 
 import { MAIN_CONTENT_ID, SkipLink } from '@/components/common/SkipLink'
+import { FeedbackLauncher } from '@/components/feedback/FeedbackLauncher'
 import { useSmoothScroll } from '@/hooks/useSmoothScroll'
 import { scrollToAnchorWhenReady } from '@/lib/scroll'
 
@@ -28,6 +29,7 @@ export function MarketingLayout() {
         <AnimatedOutlet />
       </main>
       <MarketingFooter />
+      <FeedbackLauncher />
     </div>
   )
 }

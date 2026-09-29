@@ -121,6 +121,7 @@ export const routes: RouteObject[] = [
           { path: 'users', lazy: page(() => import('@/features/admin/AdminUsersPage')) },
           { path: 'bounties', lazy: page(() => import('@/features/admin/AdminBountiesPage')) },
           { path: 'reports', lazy: page(() => import('@/features/admin/AdminReportsPage')) },
+          { path: 'feedback', lazy: page(() => import('@/features/admin/AdminFeedbackPage')) },
           { path: 'disputes', lazy: page(() => import('@/features/admin/AdminDisputesPage')) },
           { path: 'transactions', lazy: page(() => import('@/features/admin/AdminTransactionsPage')) },
           { path: 'assets', lazy: page(() => import('@/features/admin/AdminAssetsPage')) },

@@ -18,6 +18,7 @@ from app.modules.credentials.models import IssuedCredential
 from app.modules.discovery.models import SavedSearch, SavedSearchMatch, SkillEdge, SkillNode
 from app.modules.disputes.models import Dispute, DisputeEvidence
 from app.modules.escrow.models import BountyMilestone, DisputeVote
+from app.modules.feedback.models import Feedback
 from app.modules.github.models import GitHubAccount, SubmissionPullRequest
 from app.modules.notifications.models import EmailDelivery, Notification, NotificationPreference
 from app.modules.payments.models import (
@@ -56,6 +57,7 @@ __all__ = [
     "DisputeVote",
     "EmailDelivery",
     "EmailVerificationToken",
+    "Feedback",
     "GitHubAccount",
     "IssuedCredential",
     "LegalAcceptance",

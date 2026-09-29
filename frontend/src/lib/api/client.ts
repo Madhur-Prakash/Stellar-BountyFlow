@@ -142,6 +142,23 @@ export function readCookie(name: string): string | null {
   return null
 }
 
+/**
+ * Makes sure a `bf_csrf` cookie exists before a mutating request from someone who is not signed in.
+ * Signing in mints one; a visitor gets theirs from any safe request (the API sets it on the response).
+ */
+export async function ensureCsrfToken(): Promise<void> {
+  if (readCookie(CSRF_COOKIE)) return
+  try {
+    const res = await fetch(`${API_BASE_URL}/config/public`, {
+      credentials: 'include',
+      headers: { Accept: 'application/json' },
+    })
+    await res.text().catch(() => '')
+  } catch {
+    // The request that follows reports the failure; nothing useful to add here.
+  }
+}
+
 export function buildQuery(params?: QueryParams): string {
   if (!params) return ''
   const sp = new URLSearchParams()

@@ -108,6 +108,7 @@ capture(
     '/admin/users',
     '/admin/bounties',
     '/admin/reports',
+    '/admin/feedback',
     '/admin/disputes',
     '/admin/transactions',
     '/admin/audit-logs',

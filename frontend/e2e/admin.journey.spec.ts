@@ -27,7 +27,7 @@ test('admin sees every console section with data', async ({ page }) => {
   await page.getByRole('link', { name: 'Admin console' }).click()
   await expect(page.getByRole('heading', { level: 1, name: 'Admin overview' })).toBeVisible()
 
-  const sections = ['Users', 'Bounties', 'Reports', 'Disputes', 'Transactions', 'Audit logs']
+  const sections = ['Users', 'Bounties', 'Reports', 'Feedback', 'Disputes', 'Transactions', 'Audit logs']
   const nav = page.locator('[data-sidebar="sidebar"]')
   for (const name of sections) {
     await nav.getByRole('link', { name, exact: true }).click()

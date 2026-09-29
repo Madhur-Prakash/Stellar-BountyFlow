@@ -19,6 +19,8 @@ from app.modules.dashboard.router import router as dashboard_router
 from app.modules.discovery.router import router as discovery_router
 from app.modules.disputes.router import router as disputes_router
 from app.modules.escrow.router import router as escrow_router
+from app.modules.feedback.router import admin_router as admin_feedback_router
+from app.modules.feedback.router import router as feedback_router
 from app.modules.github.router import router as github_router
 from app.modules.notifications.router import router as notifications_router
 from app.modules.ops.router import router as admin_ops_router
@@ -46,6 +48,7 @@ for router in (
     assets_router,
     disputes_router,
     escrow_router,
+    feedback_router,
     notifications_router,
     compliance_router,
     analytics_router,
@@ -55,6 +58,7 @@ for router in (
     credentials_router,
     admin_users_router,
     admin_compliance_router,
+    admin_feedback_router,
     admin_ops_router,
     admin_qa_router,
     admin_wallets_router,

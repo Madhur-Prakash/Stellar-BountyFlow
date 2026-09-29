@@ -19,6 +19,7 @@ import { useState } from 'react'
 import { Link, useNavigate } from 'react-router'
 
 import { UserAvatar } from '@/components/common/UserAvatar'
+import { FeedbackLauncher } from '@/components/feedback/FeedbackLauncher'
 import { LegalNotice } from '@/features/app/privacy/LegalGate'
 import { SidebarMenu, SidebarMenuButton, SidebarMenuItem, useSidebar } from '@/components/ui/sidebar'
 import { useMe } from '@/lib/api/queries/auth'
@@ -141,12 +142,16 @@ export function AppLayout() {
     ? [...nav, { label: 'Staff', items: [{ label: 'Admin console', to: '/admin', icon: ShieldCheck }] }]
     : nav
   return (
-    <AppShell
-      areaLabel="Workspace"
-      groups={groups}
-      search={<MarketplaceSearch />}
-      footer={<SignedInAs />}
-      notice={<LegalNotice />}
-    />
+    <>
+      <AppShell
+        areaLabel="Workspace"
+        groups={groups}
+        search={<MarketplaceSearch />}
+        footer={<SignedInAs />}
+        notice={<LegalNotice />}
+      />
+      {/* The workspace has it; the admin console, which shares this shell, does not. */}
+      <FeedbackLauncher />
+    </>
   )
 }

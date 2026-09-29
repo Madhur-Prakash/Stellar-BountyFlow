@@ -33,6 +33,7 @@ MODERATION = {
     Permission.DISPUTE_VIEW_ALL,
     Permission.DISPUTE_RESOLVE,
     Permission.REPORT_REVIEW,
+    Permission.FEEDBACK_REVIEW,
     Permission.USER_VIEW_ALL,
     Permission.TRANSACTION_VIEW_ALL,
     Permission.AUDIT_READ,

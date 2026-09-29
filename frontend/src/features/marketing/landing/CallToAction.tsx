@@ -33,11 +33,13 @@ export function CallToAction() {
           <p className={cn('mx-auto mt-4 max-w-xl', SECTION_LEAD)}>
             Posting takes a few minutes. You fund it from your own wallet when you are ready.
           </p>
+          {/* data-primary-action: the floating feedback button lifts itself clear of these two, which run the
+              full width on a phone. */}
           <div className="mt-9 flex flex-col items-stretch justify-center gap-3 sm:flex-row sm:items-center">
-            <Button asChild variant="inverse" size="pill">
+            <Button asChild variant="inverse" size="pill" data-primary-action>
               <Link to="/app/bounties/create">Post a bounty</Link>
             </Button>
-            <Button asChild variant="outline" size="pill">
+            <Button asChild variant="outline" size="pill" data-primary-action>
               <Link to="/bounties">Browse bounties</Link>
             </Button>
           </div>

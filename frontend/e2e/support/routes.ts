@@ -67,6 +67,7 @@ export const ADMIN_ROUTES: RouteSpec[] = [
   { path: '/admin/users', name: 'admin-users' },
   { path: '/admin/bounties', name: 'admin-bounties' },
   { path: '/admin/reports', name: 'admin-reports' },
+  { path: '/admin/feedback', name: 'admin-feedback' },
   { path: '/admin/disputes', name: 'admin-disputes' },
   { path: '/admin/transactions', name: 'admin-transactions' },
   { path: '/admin/audit-logs', name: 'admin-audit-logs' },

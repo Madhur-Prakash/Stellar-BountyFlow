@@ -103,6 +103,9 @@ Soroban host.
 - **Exempt routes, matched exactly** (SEC-13): `POST /auth/register`, `/auth/login`, `/auth/refresh`,
   `/auth/forgot-password`, `/auth/reset-password`, `/auth/verify-email`. These either create
   the session (no token exists yet) or are protected by single-use secrets.
+- **Visitors get a token too.** Signing in mints `bf_csrf`; a request from someone who has never signed in gets
+  one on the response to their first safe request (`CSRFMiddleware`, `HttpOnly` off on purpose). That is what
+  lets the one route open to visitors — `POST /feedback` — stay behind the same check instead of being exempted.
 - **Why exempt routes are still safe from cross-site forms.** They accept JSON only. A cross-site HTML form can
   send `text/plain`, urlencoded or multipart bodies, and FastAPI answers 422 for all of them (tested). Cookies
   default to `SameSite=Lax`.
@@ -125,7 +128,7 @@ get 403 on every authenticated request.
 | `bounty:create`, `application:create`, `dispute:raise`, `report:create`, `wallet:manage` | ✓ | ✓ | ✓ |
 | `bounty:moderate`, `bounty:feature`, `bounty:view_all` | | ✓ | ✓ |
 | `application:view_all`, `submission:view_all`, `dispute:view_all`, `transaction:view_all` | | ✓ | ✓ |
-| `dispute:resolve`, `report:review`, `user:view_all`, `audit:read`, `analytics:platform`, `system:health` | | ✓ | ✓ |
+| `dispute:resolve`, `report:review`, `feedback:review`, `user:view_all`, `audit:read`, `analytics:platform`, `system:health` | | ✓ | ✓ |
 | `user:manage` (suspend/reactivate), `user:assign_role` | | | ✓ |
 
 Nobody can change their own role or status. Role changes need `user:assign_role`. Moderators cannot promote,
@@ -135,7 +138,7 @@ demote, suspend or reactivate anyone. A moderator who is a party to a dispute ca
 
 | Class | Routes | Guard |
 |---|---|---|
-| Public (no session) | `GET /config/public`, `/bounties`, `/bounties/featured`, `/bounties/{ref}`, `/bounties/{ref}/activity`, `/bounties/{id}/funding`, `/bounties/{id}/transactions`, `/transactions/{ref}`, `/users/{username}[/bounties\|/contributions\|/stats]`, `/analytics/public`; the CSRF-exempt auth routes; `POST /auth/logout` | Visibility filters: drafts and hidden bounties return 404 unless you are the owner or hold `bounty:view_all`; unsigned or expired transactions are only visible to their creator or `transaction:view_all` |
+| Public (no session) | `GET /config/public`, `/bounties`, `/bounties/featured`, `/bounties/{ref}`, `/bounties/{ref}/activity`, `/bounties/{id}/funding`, `/bounties/{id}/transactions`, `/transactions/{ref}`, `/users/{username}[/bounties\|/contributions\|/stats]`, `/analytics/public`, `POST /feedback`; the CSRF-exempt auth routes; `POST /auth/logout` | Visibility filters: drafts and hidden bounties return 404 unless you are the owner or hold `bounty:view_all`; unsigned or expired transactions are only visible to their creator or `transaction:view_all` |
 | Authenticated | Everything else | Session (and permission where listed) |
 | Staff | `/admin/*`, `GET /analytics/platform`, `POST /bounties/{id}/feature`, `POST /disputes/{id}/assign`, `POST /disputes/{id}/resolve` | `require_permission(...)` (see `app/modules/admin/router*.py`) |
 
@@ -355,6 +358,7 @@ Redis fixed-window limits (`app/core/rate_limit.py`). They fail **open** when Re
 | `application:create` / `submission:create` / `dispute:create` | 60, 30, 10 / hour | IP |
 | `chain:prepare` / `chain:submit` | 60 / 5 min each | IP |
 | `chain:poll` (`GET /transactions/{ref}`) | 240 / min | IP |
+| `feedback:submit` | 5 / hour | IP |
 | `qa:post` / `qa:post:user` | 60 / hour (IP), 20 / 10 min (user) | IP, user |
 | `qa:vote` / `qa:report` | 120 / hour (user), 20 / hour (IP) | user, IP |
 | `github:challenge` / `github:verify` / `github:oauth` | 10, 20, 10 per 15 min | user |
@@ -427,6 +431,33 @@ redelivery does not re-queue work, unknown event types are ignored, and the endp
   written to the append-only audit log (`qa.post_hidden` / `qa.post_unhidden`).
 - Only the bounty's requester can accept an answer or pin a question; the accepted answer is enforced one per
   question by a partial unique index, not only in application code.
+
+## Feedback form
+
+- **Open to visitors.** `POST /feedback` takes a note from anyone, signed in or not, and is still covered by the
+  double-submit CSRF check rather than being added to the exempt list. Signing in mints the `bf_csrf` cookie;
+  a visitor who never signs in is minted one by the first safe request they make (`CSRFMiddleware`), so the
+  check works for them too.
+- **Rate limit: 5 per hour per IP** (`feedback:submit`). Someone writing in good faith sends one note; the
+  spare four cover a second thought and a retry after a failed request, and a script is held to 120 rows a day
+  from one address. Nothing is emailed on arrival, so the only cost of abuse is rows in one table — which is
+  also why a tighter limit is not worth turning away colleagues behind a shared office address.
+- **No mail on submission.** One person reads the queue, so a message per submission would turn an anonymous
+  form into a way to flood their inbox. The row *is* the delivery; staff read it in the admin console.
+- **What is captured, and said so in the form:** the route the sender was on, the size of their window, and the
+  `User-Agent` of the request. The form states all three before it is sent.
+- **What is deliberately not captured:** nothing is read out of the page — no field values, no wallet address,
+  no session or CSRF token, no session id. The route is stored without its query string or fragment (the API
+  cuts them off rather than trusting the client not to send them), because a marketplace search or an
+  unsubscribe token can live there. The `User-Agent` comes from the request header, never from a body field, and
+  the **client IP is not stored**: the rate limiter keeps it in a Redis key for an hour and nothing writes it to
+  the database.
+- **Email.** A signed-out sender may leave an address to be written back to; it is validated and kept as they
+  typed it. A signed-in sender's account is the reply address, and an address sent in the body is discarded.
+- **Reading it** needs `feedback:review` (moderators and admins). The queue holds addresses and user agents of
+  people who are not signed in, which is why it is its own permission rather than folded into `report:review`.
+  Marking a note handled — or putting it back — is written to the append-only audit log (`feedback.handled` /
+  `feedback.reopened`).
 
 ## Transport, headers and CORS
 

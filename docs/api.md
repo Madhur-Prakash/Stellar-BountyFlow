@@ -555,6 +555,42 @@ type QuestionPage = Page<Thread> & {
 }
 ```
 
+### Feedback
+The floating form on the public site and in the workspace. Anyone may send a note, signed in or not; a session,
+when there is one, records who sent it and the submitted `email` is ignored (the account's address is the reply
+address). Nothing is emailed on arrival — one person reads the queue.
+
+- `POST /feedback` `{ kind, message, email?, path?, viewport_width?, viewport_height? }` → `201 { id }` (public;
+  5 per hour per IP). `message` is 10–2,000 characters. `path` keeps only the route: any query string or
+  fragment is cut off before it is stored. The `User-Agent` is read from the request header, not from the body.
+  Like every other mutating route it needs the `X-CSRF-Token` header; a visitor who has never signed in is
+  minted the `bf_csrf` cookie by the first safe request they make.
+- `GET /admin/feedback?kind&status&page&page_size` → `FeedbackPage` (`feedback:review`)
+- `POST /admin/feedback/{id}/handle` `{ handled, note? }` → `Feedback` (`feedback:review`). `handled: false`
+  puts a note back in the queue and clears who handled it.
+
+```ts
+type FeedbackKind = 'BUG' | 'IDEA' | 'PRAISE' | 'OTHER'
+type FeedbackStatus = 'NEW' | 'HANDLED'
+type Feedback = {
+  id: string
+  kind: FeedbackKind
+  status: FeedbackStatus
+  message: string
+  sender: UserSummary | null   // null when the sender was not signed in
+  email: string | null         // a signed-out sender's reply address, when they left one
+  path: string | null
+  viewport_width: number | null
+  viewport_height: number | null
+  user_agent: string | null
+  created_at: string
+  handled_at: string | null
+  handled_by: UserSummary | null
+  handled_note: string | null
+}
+type FeedbackPage = Page<Feedback> & { new_count: number }  // still waiting, whatever the filters
+```
+
 ### GitHub
 Account linking and pull request verification; the rules are in [github.md](github.md).
 
@@ -700,6 +736,8 @@ while the bounty is a `DRAFT`. The marketplace filters on it: `GET /bounties?ass
 - `POST /admin/bounties/{id}/moderate` `{ action: "HIDE" | "UNHIDE" | "CANCEL", reason }` → `BountyDetail`
 - `GET /admin/reports?status&target_type&page&page_size` → `Page<{ id, reporter: UserSummary, target_type, target_id, reason, status, created_at, resolution_note, target_summary }>`. For a `QA_POST` report `target_summary` carries `{ label, excerpt, link, author, is_hidden, is_deleted, bounty_id }` so the queue shows what was reported without a second request.
 - `POST /admin/reports/{id}/resolve` `{ status: "ACTIONED" | "DISMISSED", note }` → report
+- `GET /admin/feedback?kind&status&page&page_size` → `FeedbackPage` (`feedback:review`), and
+  `POST /admin/feedback/{id}/handle` `{ handled, note? }` → `Feedback`. See [Feedback](#feedback).
 - `GET /admin/disputes?status&page&page_size` → `Page<Dispute>`
 - `GET /admin/transactions?status&type&page&page_size` → `Page<BlockchainTransaction>`
 - `GET /admin/audit-logs?entity_type&action&page&page_size` → `Page<{ id, actor: UserSummary | null, action, entity_type, entity_id, metadata, created_at }>`

@@ -6,6 +6,7 @@ import {
   Flag,
   LayoutDashboard,
   LockKeyhole,
+  MessageSquareText,
   ScrollText,
   ShieldBan,
   Scale,
@@ -26,6 +27,7 @@ const ADMIN_NAV: (ShellNavItem & { permission?: Permission })[] = [
   { label: 'Users', to: '/admin/users', icon: Users, permission: 'user:view_all' },
   { label: 'Bounties', to: '/admin/bounties', icon: BriefcaseBusiness, permission: 'bounty:view_all' },
   { label: 'Reports', to: '/admin/reports', icon: Flag, permission: 'report:review' },
+  { label: 'Feedback', to: '/admin/feedback', icon: MessageSquareText, permission: 'feedback:review' },
   { label: 'Disputes', to: '/admin/disputes', icon: Scale, permission: 'dispute:view_all' },
   {
     label: 'Transactions',

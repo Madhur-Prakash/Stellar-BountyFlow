@@ -419,7 +419,11 @@ export function BountyForm({
 
         <LivePreview control={form.control} status={status} />
 
-        <div className="sticky bottom-3 z-10 flex flex-col-reverse gap-3 rounded-xl border bg-card/95 px-4 py-3 shadow-lift backdrop-blur supports-backdrop-filter:bg-card/85 sm:flex-row sm:items-center sm:justify-between xl:col-span-2">
+        {/* data-primary-action: the floating feedback button lifts itself clear of this bar. */}
+        <div
+          data-primary-action
+          className="sticky bottom-3 z-10 flex flex-col-reverse gap-3 rounded-xl border bg-card/95 px-4 py-3 shadow-lift backdrop-blur supports-backdrop-filter:bg-card/85 sm:flex-row sm:items-center sm:justify-between xl:col-span-2"
+        >
           <p className="hidden text-[0.8125rem] text-muted-foreground sm:block">{footerNote}</p>
           <div className="flex gap-2">
             {cancelTo && (

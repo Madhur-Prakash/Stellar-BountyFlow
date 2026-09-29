@@ -38,6 +38,7 @@ class Permission(StrEnum):
     DISPUTE_VIEW_ALL = "dispute:view_all"
     DISPUTE_RESOLVE = "dispute:resolve"
     REPORT_REVIEW = "report:review"
+    FEEDBACK_REVIEW = "feedback:review"  # read the product feedback queue and mark notes handled
     USER_VIEW_ALL = "user:view_all"
     TRANSACTION_VIEW_ALL = "transaction:view_all"
     AUDIT_READ = "audit:read"
@@ -70,6 +71,7 @@ _MODERATOR: frozenset[Permission] = _USER | frozenset(
         Permission.DISPUTE_VIEW_ALL,
         Permission.DISPUTE_RESOLVE,
         Permission.REPORT_REVIEW,
+        Permission.FEEDBACK_REVIEW,
         Permission.USER_VIEW_ALL,
         Permission.TRANSACTION_VIEW_ALL,
         Permission.AUDIT_READ,

@@ -95,6 +95,7 @@ erDiagram
 | `github_accounts` | A GitHub account a user proved they own | PK `user_id`, **unique `github_id`** — one GitHub account per BountyFlow account; `method` (GIST / OAUTH) and `proof_url` record how it was verified |
 | `submission_pull_requests` | Pull requests linked to a submission, with the latest verification snapshot | unique (submission, owner, repo, number); indexes (submission_id), (owner, repo, number) and (head_sha) for webhook lookups, and (next_check_at) for the re-check job. `snapshot` (JSONB) holds the check runs and statuses as GitHub reported them |
 | `user_reports` | Moderation reports | index (target_type, target_id); `target_type` includes `QA_POST` |
+| `feedback` | Notes sent from the floating feedback form, and their triage state | `user_id` and `handled_by_id` are ON DELETE SET NULL, so a closed account's note stays readable without its author; CHECKs list the allowed `kind` and `status`; indexes (created_at), (status, created_at) and (kind, created_at) — the queue is always newest first, unfiltered or filtered by one of the two. No IP address is stored |
 | `audit_logs` | Append-only state transitions | index (bounty, created_at), (entity, created_at) |
 | `outbox_events` | Transactional outbox | partial index on unpublished rows |
 | `processed_events` | Consumer idempotency | PK (consumer, event_id) |
