@@ -374,6 +374,10 @@ async def test_a_batch_payout_names_the_leg_that_cannot_receive(
     assert "batch pays every contributor in one transaction" in excinfo.value.message
     assert excinfo.value.details["address"] == blocked_wallet
 
-    # Once that wallet has its trustline, the whole batch is allowed.
+    # Once that wallet has its trustline, the whole batch is allowed. The trustline state is cached briefly;
+    # adding one through BountyFlow clears it, and a trustline added in another wallet app is simulated here.
+    from app.modules.assets.checks import invalidate_trustline
+
     fake_ledger.add_account(blocked_wallet, xlm="20", assets={TESTNET_USDC: "0"})
+    await invalidate_trustline(blocked_wallet, TESTNET_USDC)
     await ensure_batch_can_receive(db_session, bounty, TESTNET_USDC, legs, actor_id=requester.id)

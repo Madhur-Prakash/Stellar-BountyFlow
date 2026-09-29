@@ -42,7 +42,7 @@ async def test_metrics_cover_requests_backlog_escrow_and_are_not_public(
     assert "bountyflow_outbox_backlog " in text
     assert 'bountyflow_escrow_held_amount{asset="native"} 3' in text
     assert 'bountyflow_metrics_collector_up{collector="outbox"} 1' in text
-    assert "bountyflow_sponsor_configured 0" in text
+    assert "bountyflow_sponsor_configured 1" in text  # the API fixtures configure a test fee sponsor
     assert 'bountyflow_build_info{version="' in text
 
     proxied = await probe.http.get("/metrics", headers={"X-Forwarded-For": "203.0.113.7"})

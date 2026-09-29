@@ -316,12 +316,37 @@ async def _load_pair(
     return row[0], row[1]
 
 
-async def _landed(op: AssetOperation) -> bool | None:
+@dataclass(frozen=True)
+class _Target:
+    """What the network reads need, copied off the rows while they are still loaded.
+
+    Every chain call below runs with no database transaction open, and rolling one back expires every instance
+    the session holds: an attribute read afterwards would be a lazy load, which async SQLAlchemy cannot do. So
+    the reads work from this plain snapshot, never from an ORM row (``_apply`` writes to freshly locked rows)."""
+
+    kind: AssetOperationKind
+    transaction_hash: str
+    source_address: str = ""
+    identifier: str = ""
+    contract_id: str = ""
+
+
+def _target(op: AssetOperation, asset: RewardAsset | None = None) -> _Target:
+    return _Target(
+        kind=op.kind,
+        transaction_hash=op.transaction_hash,
+        source_address=op.source_address,
+        identifier=asset.identifier if asset is not None else "",
+        contract_id=asset.contract_id if asset is not None else "",
+    )
+
+
+async def _landed(target: _Target) -> bool | None:
     """Whether the network already has a result for this operation (None: it cannot be asked right now)."""
     try:
-        if op.kind == AssetOperationKind.TRUSTLINE:
-            return await get_horizon().transaction(op.transaction_hash) is not None
-        outcome = await get_tokens().outcome(op.transaction_hash)
+        if target.kind == AssetOperationKind.TRUSTLINE:
+            return await get_horizon().transaction(target.transaction_hash) is not None
+        outcome = await get_tokens().outcome(target.transaction_hash)
         return outcome.status in ("SUCCESS", "FAILED")
     except (HorizonUnavailable, ChainUnavailable):
         return None
@@ -358,31 +383,31 @@ def _classic_outcome(result: ClassicResult | None) -> TxOutcome:
     )
 
 
-async def _read_trustline(op: AssetOperation, asset: RewardAsset) -> _ChainReads:
+async def _read_trustline(target: _Target) -> _ChainReads:
     horizon = get_horizon()
-    outcome = _classic_outcome(await horizon.transaction(op.transaction_hash))
+    outcome = _classic_outcome(await horizon.transaction(target.transaction_hash))
     if outcome.status != "SUCCESS":
         return _ChainReads(outcome)
-    account = await horizon.load_account(op.source_address)
+    account = await horizon.load_account(target.source_address)
     return _ChainReads(
-        outcome, effect_present=account is not None and account.balance(asset.identifier) is not None
+        outcome, effect_present=account is not None and account.balance(target.identifier) is not None
     )
 
 
-async def _read_deploy(op: AssetOperation, asset: RewardAsset) -> _ChainReads:
+async def _read_deploy(target: _Target) -> _ChainReads:
     tokens = get_tokens()
-    outcome = await tokens.outcome(op.transaction_hash)
+    outcome = await tokens.outcome(target.transaction_hash)
     if outcome.status != "SUCCESS":
         return _ChainReads(outcome)
-    if not await tokens.contract_exists(asset.contract_id):
+    if not await tokens.contract_exists(target.contract_id):
         return _ChainReads(outcome)
-    return _ChainReads(outcome, effect_present=True, metadata=await tokens.metadata(asset.contract_id))
+    return _ChainReads(outcome, effect_present=True, metadata=await tokens.metadata(target.contract_id))
 
 
-async def _read_chain(op: AssetOperation, asset: RewardAsset) -> _ChainReads:
-    if op.kind == AssetOperationKind.TRUSTLINE:
-        return await _read_trustline(op, asset)
-    return await _read_deploy(op, asset)
+async def _read_chain(target: _Target) -> _ChainReads:
+    if target.kind == AssetOperationKind.TRUSTLINE:
+        return await _read_trustline(target)
+    return await _read_deploy(target)
 
 
 def _expired(op: AssetOperation) -> bool:
@@ -485,8 +510,9 @@ async def _claim_for_submission(
         raise ValidationFailed(str(exc), code="signature_invalid") from exc
     if op.expires_at and op.expires_at <= utcnow():
         # An earlier submit may have reached the network even though its response was lost.
+        target = _target(op)  # read off the row before the rollback expires it
         await session.rollback()  # no lock is held while the network is asked
-        landed = await _landed(op)
+        landed = await _landed(target)
         if landed is None:
             raise BlockchainError("The network could not be reached to check this transaction.")
         if not landed:
@@ -597,8 +623,9 @@ async def verify(session: AsyncSession, op_id: uuid.UUID) -> AssetOperationStatu
             status = op.status
             await session.rollback()
             return status
+        target = _target(op, asset)  # read off the rows before the rollback expires them
         await session.rollback()  # the reads below are network I/O: no transaction stays open across them
-        reads = await _read_chain(op, asset)
+        reads = await _read_chain(target)
 
         locked, asset = await _load_pair(session, op_id, for_update=True)
         if locked.status != AssetOperationStatus.SUBMITTED:
@@ -668,8 +695,9 @@ async def sweep(session: AsyncSession, limit: int = 50) -> int:
         .unique()
         .all()
     )
+    targets = [(op.id, _target(op)) for op in stale]  # read off the rows before the rollback expires them
     await session.rollback()  # the reads below are network I/O: nothing is locked across them
-    landings = [(op.id, await _landed(op)) for op in stale]
+    landings = [(op_id, await _landed(target)) for op_id, target in targets]
     for op_id, landed in landings:
         if landed is None:
             continue  # the network is unreachable: decide on a later run

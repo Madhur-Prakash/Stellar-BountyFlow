@@ -1,4 +1,4 @@
-import type { BountySummary, Me, PublicConfig } from '@/lib/api/types'
+import type { BountySummary, Me, PublicConfig, RewardAsset } from '@/lib/api/types'
 
 /** Test-only fixtures shaped exactly like docs/api.md responses. */
 export function makeMe(overrides: Partial<Me> = {}): Me {
@@ -73,6 +73,26 @@ export function makeConfig(overrides: Partial<PublicConfig> = {}): PublicConfig 
     native_asset_contract_id: null,
     arbiter_address: null,
     blockchain_mode: 'testnet',
+    ...overrides,
+  }
+}
+
+/** One entry of the reward-asset registry, as `GET /assets` returns it. */
+export function makeRewardAsset(overrides: Partial<RewardAsset> = {}): RewardAsset {
+  return {
+    id: 'ra_native',
+    asset: {
+      code: 'XLM',
+      issuer: null,
+      type: 'native',
+      contract_id: null,
+      identifier: 'native',
+      decimals: 7,
+    },
+    name: 'Stellar Lumens',
+    is_default: true,
+    requires_trustline: false,
+    faucet_url: null,
     ...overrides,
   }
 }

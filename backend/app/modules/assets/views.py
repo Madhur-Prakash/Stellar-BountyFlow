@@ -45,12 +45,14 @@ async def wallet_assets(session: AsyncSession, user: User) -> list[WalletAssets]
     """Each verified wallet on this network, its XLM, and whether it can receive every enabled reward asset."""
     network = get_network()
     wallets = [w for w in await users_repo.verified_wallets(session, user.id) if w.network == network.network]
-    assets = [
-        r
+    identifiers = [
+        r.identifier
         for r in await registry.load_registry(session)
         if r.is_enabled and r.contract_status == ContractStatus.DEPLOYED and r.kind == AssetKind.CLASSIC
     ]
     rows = [(w.id, w.public_address, w.network) for w in wallets]
+    # Everything below works from these plain values: the rollback expires every row the session holds, and an
+    # expired attribute cannot be refreshed from async code.
     await session.rollback()  # the Horizon reads below run together, with no transaction open
 
     async def load(address: str) -> tuple[AccountState | None, bool | None]:
@@ -78,16 +80,16 @@ async def wallet_assets(session: AsyncSession, user: User) -> list[WalletAssets]
             native_balance = native.balance if native else ZERO
             native_spendable = account.native_spendable
         lines: list[TrustlineStatus] = []
-        for asset in assets:
+        for identifier in identifiers:
             if is_contract_address(address):
                 state, balance = TrustlineState.NOT_REQUIRED, None
             elif account_exists is None:
                 state, balance = TrustlineState.UNKNOWN, None
             else:
-                state, balance = checks.state_from_account(account, asset.identifier)
+                state, balance = checks.state_from_account(account, identifier)
             lines.append(
                 TrustlineStatus(
-                    asset=asset_from_identifier(asset.identifier),
+                    asset=asset_from_identifier(identifier),
                     address=address,
                     state=state,
                     balance=balance,
@@ -135,18 +137,21 @@ async def bounty_trustlines(session: AsyncSession, user: User, bounty_id: uuid.U
     wallets = await users_repo.primary_wallets(session, contributor_ids, network)
     asset = await registry.by_identifier(session, identifier)
     requires_trustline = bool(asset and asset.kind == AssetKind.CLASSIC)
+    # Plain addresses, read while the rows are still loaded: the rollback below expires every instance the
+    # session holds, and an expired attribute cannot be refreshed from async code.
+    addresses = {contributor_id: w.public_address for contributor_id, w in wallets.items()}
     await session.rollback()  # nothing is read from the database while Horizon is being asked
     semaphore = asyncio.Semaphore(_CONCURRENCY)
 
     async def check(contributor_id: uuid.UUID) -> ApplicantTrustline:
-        wallet = wallets.get(contributor_id)
-        if wallet is None:
+        address = addresses.get(contributor_id)
+        if address is None:
             return ApplicantTrustline(
                 contributor_id=contributor_id, address=None, state=TrustlineState.NO_WALLET
             )
         async with semaphore:
-            state, _ = await checks.trustline_state(identifier, wallet.public_address)
-        return ApplicantTrustline(contributor_id=contributor_id, address=wallet.public_address, state=state)
+            state, _ = await checks.trustline_state(identifier, address)
+        return ApplicantTrustline(contributor_id=contributor_id, address=address, state=state)
 
     results = list(await asyncio.gather(*(check(cid) for cid in contributor_ids)))
     return BountyTrustlines(

@@ -3,7 +3,7 @@ import userEvent from '@testing-library/user-event'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 import { BountyFilters } from '@/components/bounty/BountyFilters'
-import { jsonResponse, makeBounty } from '@/test/fixtures'
+import { jsonResponse, makeBounty, makeRewardAsset } from '@/test/fixtures'
 import { renderWithProviders } from '@/test/render'
 
 import {
@@ -113,9 +113,13 @@ describe('MarketplacePage URL sync', () => {
   const fetchMock = vi.fn<(input: string, init: RequestInit) => Promise<Response>>()
   beforeEach(() => {
     fetchMock.mockReset()
-    fetchMock.mockImplementation(async () =>
-      jsonResponse({ items: [makeBounty()], total: 1, page: 1, page_size: 12, pages: 1 }),
-    )
+    // Answer per endpoint: the page reads the bounty list *and* the reward-asset registry, which is a bare
+    // array (GET /assets), not a page.
+    fetchMock.mockImplementation(async (input) => {
+      const { pathname } = new URL(input, 'http://localhost')
+      if (pathname === '/api/v1/assets') return jsonResponse([makeRewardAsset()])
+      return jsonResponse({ items: [makeBounty()], total: 1, page: 1, page_size: 12, pages: 1 })
+    })
     vi.stubGlobal('fetch', fetchMock)
   })
   afterEach(() => vi.unstubAllGlobals())
@@ -128,8 +132,9 @@ describe('MarketplacePage URL sync', () => {
     })
     expect(await screen.findByRole('heading', { level: 1, name: /bounty marketplace/i })).toBeInTheDocument()
     await screen.findByRole('article', { name: /soroban event indexer/i })
-    const url = new URL(fetchMock.mock.calls[0]![0], 'http://localhost')
-    expect(url.pathname).toBe('/api/v1/bounties')
+    const urls = fetchMock.mock.calls.map(([input]) => new URL(input, 'http://localhost'))
+    const url = urls.find((u) => u.pathname === '/api/v1/bounties')!
+    expect(url).toBeDefined()
     expect(url.searchParams.get('q')).toBe('indexer')
     expect(url.searchParams.get('funded_only')).toBe('true')
     expect(url.searchParams.get('category')).toBe('DEVELOPMENT')

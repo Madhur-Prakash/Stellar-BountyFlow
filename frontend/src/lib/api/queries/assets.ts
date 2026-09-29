@@ -4,9 +4,19 @@ import { adminAssetsApi, assetsApi } from '../endpoints'
 import type { AdminRewardAsset, CreateAssetRequest, UpdateAssetRequest } from '../types'
 import { qk } from './keys'
 
-/** Enabled reward assets (XLM, USDC, …). Changes rarely: cached for a minute. */
+/**
+ * Enabled reward assets (XLM, USDC, …). Changes rarely: cached for a minute.
+ *
+ * `GET /assets` answers a bare array. `select` guarantees callers an array even so: a proxy or an error page
+ * that answers something else must not take the marketplace filters down with it.
+ */
 export function useRewardAssets() {
-  return useQuery({ queryKey: qk.assets.registry, queryFn: () => assetsApi.list(), staleTime: 60_000 })
+  return useQuery({
+    queryKey: qk.assets.registry,
+    queryFn: () => assetsApi.list(),
+    select: (data) => (Array.isArray(data) ? data : []),
+    staleTime: 60_000,
+  })
 }
 
 export function useWalletAssets(enabled = true) {

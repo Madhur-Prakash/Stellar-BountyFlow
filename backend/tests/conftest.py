@@ -8,6 +8,8 @@ Layout:
     is not configured or not reachable.
   * Redis: fakeredis, installed for every test so nothing touches a real Redis.
   * Email: a capturing backend (``outbox_mail``) instead of SMTP.
+  * Settings: the root ``.env`` is ignored, so a developer's real signing keys never change what the suite
+    tests (see ``_settings_ignore_dotenv``).
 
 API-level fixtures (httpx AsyncClient against app.main:app) build on ``db_engine`` / ``db_session``.
 """
@@ -29,6 +31,29 @@ from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession, async_sessionmaker
 from app.cache import redis as cache_redis
 from app.db import session as db_session_module
 from app.db.base import Base
+
+# --- Settings -----------------------------------------------------------------------------------
+
+
+@pytest.fixture(scope="session", autouse=True)
+def _settings_ignore_dotenv() -> Iterator[None]:
+    """Build settings from defaults and the process environment only, never the root ``.env``.
+
+    Otherwise the suite reads whatever keys the developer happens to hold, so a feature that is meant to
+    switch itself off without a key (sponsorship, attestations, credentials) looks switched on, and results
+    differ from one machine to the next. Every setting has a default, so dropping the file is safe.
+    ``TEST_DATABASE_URL`` is read separately from the environment and is unaffected."""
+    from app.core import config as config_module
+
+    original = config_module.Settings.model_config.get("env_file")
+    config_module.Settings.model_config["env_file"] = None
+    config_module.get_settings.cache_clear()
+    try:
+        yield
+    finally:
+        config_module.Settings.model_config["env_file"] = original
+        config_module.get_settings.cache_clear()
+
 
 # --- Event loop ---------------------------------------------------------------------------------
 

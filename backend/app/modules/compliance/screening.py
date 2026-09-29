@@ -215,10 +215,10 @@ async def add_manual_entry(
     session: AsyncSession, actor_id: uuid.UUID, address: str, reason: str
 ) -> ScreeningEntry:
     address = address.strip()
-    if not sanctions_list.is_account_id(address):
+    if not sanctions_list.is_screenable_address(address):
         raise ValidationFailed(
-            "Enter a valid Stellar account address (G…).",
-            details=[{"field": "address", "message": "Not a Stellar account address"}],
+            "Enter a valid Stellar address (G… account or C… contract).",
+            details=[{"field": "address", "message": "Not a Stellar address"}],
         )
     existing = await session.scalar(
         select(ScreeningEntry).where(

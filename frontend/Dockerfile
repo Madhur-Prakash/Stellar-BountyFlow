@@ -6,7 +6,9 @@ WORKDIR /app
 ENV PNPM_HOME=/pnpm PATH=/pnpm:$PATH CI=true
 RUN corepack enable
 
-COPY package.json pnpm-lock.yaml ./
+# pnpm-workspace.yaml carries the allowBuilds decisions for the wallet SDK's optional native dependencies.
+# Without it pnpm refuses to install (ERR_PNPM_IGNORED_BUILDS), so it must be copied with the manifest.
+COPY package.json pnpm-lock.yaml pnpm-workspace.yaml ./
 RUN corepack install && pnpm install --frozen-lockfile
 
 COPY . .

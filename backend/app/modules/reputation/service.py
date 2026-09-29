@@ -32,7 +32,8 @@ from datetime import UTC, datetime, timedelta
 from decimal import Decimal
 from typing import Any
 
-from sqlalchemy import Select, and_, exists, func, select
+from sqlalchemy import ARRAY, Select, Uuid, and_, exists, func, select
+from sqlalchemy.dialects.postgresql import aggregate_order_by
 from sqlalchemy.dialects.postgresql import insert as pg_insert
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -298,7 +299,15 @@ async def backfill(session: AsyncSession, limit: int = 100) -> int:
         select(
             PaymentRecord.bounty_id,
             PaymentRecord.contributor_id,
-            func.max(PaymentRecord.blockchain_transaction_id).label("transaction_id"),
+            # The transaction of the most recent confirmed payment. Postgres has no max() for uuid, and the
+            # largest uuid would be arbitrary anyway, so order the ids by settlement and take the first.
+            func.array_agg(
+                aggregate_order_by(
+                    PaymentRecord.blockchain_transaction_id,
+                    PaymentRecord.settled_at.desc().nullslast(),
+                ),
+                type_=ARRAY(Uuid),
+            )[1].label("transaction_id"),
         )
         .join(BlockchainTransaction, BlockchainTransaction.id == PaymentRecord.blockchain_transaction_id)
         .join(

@@ -41,6 +41,14 @@ def is_account_id(value: str) -> bool:
     return StrKey.is_valid_ed25519_public_key(value)
 
 
+def is_screenable_address(value: str) -> bool:
+    """An address screening can act on: an account id (``G…``) or a contract address (``C…``).
+
+    A passkey smart wallet is a contract account that holds and receives funds exactly like an account id, so
+    the denylist has to be able to hold one."""
+    return StrKey.is_valid_ed25519_public_key(value) or StrKey.is_valid_contract(value)
+
+
 def parse(content: str) -> tuple[frozenset[str], str]:
     """Addresses in ``content`` and the detected format."""
     if "Digital Currency Address - " in content:
