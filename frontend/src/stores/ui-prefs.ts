@@ -20,6 +20,33 @@ type UiPrefsState = {
   feedbackPos: { x: number; y: number } | null
   setFeedbackPos: (p: { x: number; y: number }) => void
   resetFeedbackPos: () => void
+  /** How this viewer wants the feedback button to look and behave. */
+  feedbackButton: FeedbackButtonPrefs
+  setFeedbackButton: (patch: Partial<FeedbackButtonPrefs>) => void
+  /** Puts both the appearance and the position back to the defaults. */
+  resetFeedbackButton: () => void
+}
+
+export type FeedbackSize = 'sm' | 'md' | 'lg'
+export type FeedbackStyle = 'outline' | 'solid' | 'subtle'
+
+export type FeedbackButtonPrefs = {
+  size: FeedbackSize
+  style: FeedbackStyle
+  /** False draws it as a disc with the label read but not shown. */
+  showLabel: boolean
+  /** Pull it to the nearer side of the window when a drag ends. */
+  snap: boolean
+  /** Out of the way entirely. Alt+F brings it back. */
+  hidden: boolean
+}
+
+export const FEEDBACK_BUTTON_DEFAULTS: FeedbackButtonPrefs = {
+  size: 'md',
+  style: 'outline',
+  showLabel: true,
+  snap: false,
+  hidden: false,
 }
 
 /** Storage key shared with public/theme-init.js (applies the theme before first paint). */
@@ -47,6 +74,9 @@ export const useUiPrefs = create<UiPrefsState>()(
       feedbackPos: null,
       setFeedbackPos: (feedbackPos) => set({ feedbackPos }),
       resetFeedbackPos: () => set({ feedbackPos: null }),
+      feedbackButton: FEEDBACK_BUTTON_DEFAULTS,
+      setFeedbackButton: (patch) => set({ feedbackButton: { ...get().feedbackButton, ...patch } }),
+      resetFeedbackButton: () => set({ feedbackButton: FEEDBACK_BUTTON_DEFAULTS, feedbackPos: null }),
     }),
     {
       name: UI_PREFS_STORAGE_KEY,
@@ -55,6 +85,7 @@ export const useUiPrefs = create<UiPrefsState>()(
         theme: s.theme,
         marketplaceView: s.marketplaceView,
         feedbackPos: s.feedbackPos,
+        feedbackButton: s.feedbackButton,
       }),
       onRehydrateStorage: () => (state) => {
         if (state) applyTheme(state.theme)

@@ -39,8 +39,6 @@ dev = [
     "fakeredis>=2.38.0",
     # Only scripts/mint_gmail_token.py runs an OAuth consent flow; the server never does.
     "google-auth-oauthlib>=1.2.2",
-    # Only app/scripts/export_onboarding.py writes the onboarding workbook; the server never does.
-    "openpyxl>=3.1.5",
     "mypy>=2.3.1",
     "pytest>=9.1.1",
     "pytest-asyncio>=1.4.0",

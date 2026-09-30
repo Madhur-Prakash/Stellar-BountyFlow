@@ -22,8 +22,8 @@ beforeAll(async () => {
 }, 30_000)
 
 beforeEach(() => {
-  // The position is persisted, so each test starts from the default corner.
-  useUiPrefs.getState().resetFeedbackPos()
+  // Position and appearance are both persisted, so each test starts from the defaults.
+  useUiPrefs.getState().resetFeedbackButton()
   fetchMock.mockReset()
   fetchMock.mockImplementation(async (url) => {
     if (url.includes('/feedback')) return jsonResponse({ id: 'f_1' }, { status: 201 })
@@ -63,14 +63,16 @@ describe('FeedbackLauncher', () => {
     renderWithProviders(<FeedbackLauncher />, { me: null })
     const button = screen.getByRole('button', { name: 'Feedback' })
 
+    // The positioned element is the wrapper the button and its menu share.
+    const frame = button.parentElement!
     // Before it is moved it hangs off the bottom-right corner rather than a fixed coordinate.
-    expect(button.style.left).toBe('')
-    expect(button.style.right).not.toBe('')
+    expect(frame.style.left).toBe('')
+    expect(frame.style.right).not.toBe('')
 
     await act(async () => dragBy(button, -300, -200))
-    await waitFor(() => expect(button.style.left).not.toBe(''))
-    expect(button.style.top).not.toBe('')
-    expect(button.style.right).toBe('')
+    await waitFor(() => expect(frame.style.left).not.toBe(''))
+    expect(frame.style.top).not.toBe('')
+    expect(frame.style.right).toBe('')
     expect(useUiPrefs.getState().feedbackPos).not.toBeNull()
 
     // The drag must not be read as a request to open the dialog.
@@ -92,7 +94,42 @@ describe('FeedbackLauncher', () => {
 
     await user.keyboard('{Alt>}0{/Alt}')
     await waitFor(() => expect(useUiPrefs.getState().feedbackPos).toBeNull())
-    expect(button.style.left).toBe('')
+    expect(button.parentElement!.style.left).toBe('')
+  })
+
+  it('can be restyled, hidden and brought back from its own menu', async () => {
+    const user = userEvent.setup()
+    renderWithProviders(<FeedbackLauncher />, { me: null })
+    const button = screen.getByRole('button', { name: 'Feedback' })
+
+    // Right-click, the keyboard menu key and a long press all raise a contextmenu event.
+    await act(async () => {
+      button.dispatchEvent(new MouseEvent('contextmenu', { bubbles: true, cancelable: true }))
+    })
+    const menu = await screen.findByRole('menu')
+
+    await user.click(within(menu).getByRole('menuitemradio', { name: 'Large' }))
+    expect(useUiPrefs.getState().feedbackButton.size).toBe('lg')
+
+    await act(async () => {
+      button.dispatchEvent(new MouseEvent('contextmenu', { bubbles: true, cancelable: true }))
+    })
+    await user.click(
+      within(await screen.findByRole('menu')).getByRole('menuitemcheckbox', { name: /Show the word/ }),
+    )
+    expect(useUiPrefs.getState().feedbackButton.showLabel).toBe(false)
+    // The name survives icon-only, because the label is hidden visually rather than removed.
+    expect(screen.getByRole('button', { name: 'Feedback' })).toBeInTheDocument()
+
+    await act(async () => {
+      button.dispatchEvent(new MouseEvent('contextmenu', { bubbles: true, cancelable: true }))
+    })
+    await user.click(within(await screen.findByRole('menu')).getByRole('menuitem', { name: /Hide it/ }))
+    await waitFor(() => expect(screen.queryByRole('button', { name: 'Feedback' })).not.toBeInTheDocument())
+
+    // Hiding cannot be a one-way door.
+    await user.keyboard('{Alt>}f{/Alt}')
+    expect(await screen.findByRole('button', { name: 'Feedback' })).toBeInTheDocument()
   })
 
   it('opens the dialog from the floating button and closes it back onto the button', async () => {

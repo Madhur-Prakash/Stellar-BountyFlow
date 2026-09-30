@@ -69,29 +69,26 @@ recovery phrase — BountyFlow is non-custodial and nothing about it needs one. 
 ## Export the responses to Excel
 
 The committed record is a single workbook,
-[`docs/onboarding/bountyflow-onboarding.xlsx`](onboarding/bountyflow-onboarding.xlsx), built by
-`backend/app/scripts/export_onboarding.py`. It keeps form responses and in-product feedback on separate sheets,
-because they are not the same evidence, and adds a participant sheet from the database.
+[`docs/onboarding/bountyflow-onboarding.xlsx`](onboarding/bountyflow-onboarding.xlsx), taken straight from the
+responses Sheet.
 
-1. In the responses Sheet: **File → Download → Comma-separated values (.csv)**.
-2. From `backend/`, merge that export with the in-product feedback:
+1. Open the responses Sheet.
+2. **File → Download → Microsoft Excel (.xlsx)**.
+3. Save it over `docs/onboarding/bountyflow-onboarding.xlsx` and commit it.
 
-   ```bash
-   uv run python -m app.scripts.export_onboarding --form-csv ~/Downloads/responses.csv
-   ```
-
-   Without `--form-csv` the form sheet is written with headers and a note saying no export was supplied —
-   nothing is invented to fill it.
-3. Commit the resulting workbook, and re-run it whenever a meaningful batch of responses lands.
-
-For the raw Sheet on its own, without the merge, use **File → Download → Microsoft Excel (.xlsx)** or hit the
-export URL the Apps Script prints — replace `SPREADSHEET_ID` with the id from the Sheet's own URL:
+Or hit the export URL directly — replace `SPREADSHEET_ID` with the id from the Sheet's own URL:
 
 ```
 https://docs.google.com/spreadsheets/d/SPREADSHEET_ID/export?format=xlsx
 ```
 
-Committing the workbook means the record survives independently of the Google account that owns the Sheet.
+Re-export whenever a meaningful batch of responses lands. Committing the workbook means the record survives
+independently of the Google account that owns the Sheet.
+
+In-product feedback is a **separate** stream and is not merged into this file: it lives in the `feedback`
+table and is triaged in the admin console at `/admin/feedback`. Form answers and in-app notes use the same
+four categories, so they can be read together without being mixed into one sheet, where it would stop being
+clear which evidence came from where.
 
 > Responses contain email addresses. Keep the Sheet itself restricted (do **not** share it as *Anyone with the
 > link*), and before committing an export, confirm you are willing to publish those rows — a committed file is

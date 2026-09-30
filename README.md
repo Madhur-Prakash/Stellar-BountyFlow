@@ -544,15 +544,12 @@ record-keeping, and the themes that come out of it set what gets built next.
 
 The nine questions, their validation rules, the settings to change from Google's defaults and the export steps
 are all in **[docs/user-onboarding.md](docs/user-onboarding.md)** — that page is the specification, so it changes
-in the same commit as the form does. Responses are downloaded as CSV and merged with in-product feedback into the
-committed workbook by [`app/scripts/export_onboarding.py`](backend/app/scripts/export_onboarding.py):
+in the same commit as the form does. Responses are exported from the Sheet with **File → Download → Microsoft
+Excel** and committed, so the record survives independently of the Google account that owns it.
 
-```bash
-cd backend && uv run python -m app.scripts.export_onboarding --form-csv ~/Downloads/responses.csv
-```
-
-Without `--form-csv` it still writes everything the database holds, and the form sheet carries a note saying no
-export was supplied. Nothing is ever invented to fill it.
+In-product feedback is a separate stream, kept separate on purpose: it lives in the `feedback` table and is
+triaged at `/admin/feedback`. Both use the same four categories — Bug, Idea, Praise, Other — so they read
+together without being merged into one sheet where it would stop being clear which evidence came from where.
 
 The form asks for a **public key only**. No question on it, and no part of BountyFlow, ever asks for a secret key
 or a recovery phrase.
