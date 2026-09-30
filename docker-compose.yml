@@ -68,8 +68,9 @@ services:
       KAFKA_AUTO_CREATE_TOPICS_ENABLE: "false"
       KAFKA_NUM_PARTITIONS: 3
       KAFKA_LOG_DIRS: /var/lib/kafka/data
-      KAFKA_HEAP_OPTS: "-Xmx192m -Xms192m -XX:MaxMetaspaceSize=96m"
-    mem_limit: 300m
+      KAFKA_LOG_CLEANER_DEDUPE_BUFFER_SIZE: 33554432
+      KAFKA_HEAP_OPTS: "-Xmx256m -Xms256m -XX:MaxMetaspaceSize=96m -XX:MaxDirectMemorySize=128m"
+    mem_limit: 600m
     volumes:
       - kafka-data:/var/lib/kafka/data
     ports:
