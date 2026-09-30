@@ -64,9 +64,9 @@ frontend-dev: ## Run the Vite dev server
 
 # --- Docker Compose ---------------------------------------------------------------------------
 
-up: env ## Build and start the full stack in Docker (app on http://localhost:3000)
+up: env ## Build and start the full stack in Docker (app on http://localhost:5173)
 	$(COMPOSE) up -d --build
-	@echo "App http://localhost:3000 · API http://localhost:8000/api/docs · Mail http://localhost:8025"
+	@echo "App http://localhost:5173 · API http://localhost:8000/api/docs · Mail http://localhost:8025"
 
 up-tools: ## Start the stack plus Kafka UI (http://localhost:8080)
 	$(COMPOSE) --profile tools up -d --build

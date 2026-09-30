@@ -1,7 +1,9 @@
 # BountyFlow local development stack.
 #
 #   make up        # build + start everything
-#   make infra     # only postgres, redis, kafka, mailpit (run api/worker/frontend on the host)
+#   make infra     # everything except the frontend and the backend (API, worker, migrations),
+#                  # so you can run those on the host. Defined by exclusion, so a service added
+#                  # below is picked up automatically.
 #
 # Infrastructure ports are bound to 127.0.0.1 only; nothing is exposed publicly by default.
 # Secrets come from .env (copy .env.example); none are hardcoded here.
@@ -179,7 +181,8 @@ services:
       api:
         condition: service_healthy
     ports:
-      - "127.0.0.1:${FRONTEND_HOST_PORT:-3000}:80"
+      # Matches the dev server's port so a link in an email resolves whichever way the app is served.
+      - "127.0.0.1:${FRONTEND_HOST_PORT:-5173}:80"
 
 volumes:
   postgres-data:
