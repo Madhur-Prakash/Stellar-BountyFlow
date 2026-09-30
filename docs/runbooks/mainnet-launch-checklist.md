@@ -117,9 +117,10 @@ The sponsor spends real XLM, so the caps must be deliberate rather than the deve
 - [ ] `SANCTIONS_SCREENING_ENABLED=true`.
 - [ ] `SANCTIONS_LIST_PATH` or `SANCTIONS_LIST_URL` points at a real sanctions list.
 
-> `.env.example` does not currently document `ALLOW_MAINNET`, `PUBLIC_API_URL`, `AUDITED_DEPLOYMENTS_FILE`,
-> `METRICS_TOKEN` or the `SANCTIONS_*` settings. They exist in `app/core/config.py` and are enforced here.
-> Add them to `.env.example` before launch so nobody has to read the source to find them.
+> `ALLOW_MAINNET`, `PUBLIC_API_URL`, `AUDITED_DEPLOYMENTS_FILE`, `METRICS_TOKEN` and the `SANCTIONS_*`
+> settings are all documented in [`.env.example`](../../.env.example), alongside the optional tunables.
+> Every setting in `app/core/config.py` appears there except `APP_VERSION` and `JWT_ALGORITHM`, which are
+> build metadata and a cryptographic constant rather than deployment configuration.
 
 ---
 
