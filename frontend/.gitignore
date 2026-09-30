@@ -6,9 +6,9 @@ playwright-report
 test-results
 blob-report
 *.local
+# The project keeps one .env, at the repository root. Nothing env-shaped belongs in here.
 .env
 .env.*
-!.env.example
 *.log
 .DS_Store
 *.tsbuildinfo

@@ -307,11 +307,23 @@ register your own. Alternatively, run everything in containers with `make up` �
 
 ## Environment configuration
 
-Everything is documented in [`.env.example`](.env.example). Settings are validated at startup, and production
-refuses weak secrets and insecure cookies.
+**One `.env`, at the repository root**, shared by the backend, Docker Compose and the frontend — there is no
+`frontend/.env`. Everything is documented in [`.env.example`](.env.example), settings are validated at startup,
+and production refuses weak secrets and insecure cookies.
+
+| Consumer | Reads |
+|---|---|
+| **Frontend** | The four `VITE_*` keys only. Vite sets `envDir` to the repository root and `envPrefix: 'VITE_'`, so no backend variable is read at build time |
+| **Backend** | Everything else, through `Settings` in `app/core/config.py` |
+| **Docker Compose** | `API_HOST_PORT`, `FRONTEND_HOST_PORT`, `POSTGRES_USER`, `POSTGRES_PASSWORD`, `POSTGRES_DB` |
+| **Tests only** | `TEST_DATABASE_URL`, `E2E_ARBITER_SECRETS` |
+
+Every `VITE_` variable is inlined into the browser bundle and is public forever. Never put a secret behind one.
+The split is laid out in full in [docs/development.md](docs/development.md#environment).
 
 | Variable | Purpose |
 |---|---|
+| `VITE_API_BASE_URL`, `VITE_GITHUB_URL` | The only two variables that reach the browser (`VITE_API_PROXY_TARGET` and `VITE_ENABLE_TEST_WALLET` are dev/test only) |
 | `BLOCKCHAIN_MODE` | `testnet` (default) · `mainnet` (separate, audited future deployment) |
 | `SOROBAN_CONTRACT_ID`, `STELLAR_NATIVE_ASSET_CONTRACT_ID`, `STELLAR_ARBITER_ADDRESS` | Deployed escrow, native XLM SAC, dispute arbiter |
 | `STELLAR_NETWORK_PASSPHRASE`, `STELLAR_HORIZON_URL`, `STELLAR_SOROBAN_RPC_URL`, `STELLAR_EXPLORER_BASE_URL` | Explicit network configuration |

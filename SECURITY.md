@@ -129,12 +129,15 @@ first, including an independent audit of the escrow contract.
 
 ## Handling secrets
 
-- **Never commit `.env` files.** `.gitignore` excludes `.env` and `.env.*`, except the two templates.
-- Start from the templates: [`.env.example`](.env.example) for the backend and Docker Compose, and
-  [`frontend/.env.example`](frontend/.env.example) for the frontend. `make env` (also run by `make install`)
-  creates `.env` with a fresh `JWT_SECRET` and never overwrites an existing file.
+- **Never commit `.env` files.** `.gitignore` excludes `.env` and `.env.*`, except the template.
+- There is **one** `.env`, at the repository root, shared by the backend, Docker Compose and the frontend.
+  Start from [`.env.example`](.env.example); `make env` (also run by `make install`) creates `.env` with a
+  fresh `JWT_SECRET` and never overwrites an existing file.
 - Values marked `REPLACE` in `.env.example` are placeholders. The API rejects them in production.
-- Every `VITE_` variable is embedded in the browser bundle and is public. Never put a secret in one.
+- **Every `VITE_` variable is embedded in the browser bundle and is public. Never put a secret in one.**
+  That file also holds backend secrets, so the boundary is enforced rather than trusted: Vite is configured
+  with `envPrefix: 'VITE_'` and its config reads `loadEnv(..., 'VITE_')`, so no other variable is read at
+  build time, let alone shipped.
 - Stellar deployer and arbiter secret keys stay in the local Stellar CLI key store. The deploy scripts write only
   public data to `contracts/deployments/testnet.json`.
 - If a secret is ever committed, rotate it straight away. Removing it from the history is not enough.

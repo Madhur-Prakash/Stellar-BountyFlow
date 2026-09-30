@@ -170,7 +170,31 @@ capture and keeps its generic fallback skeleton. Colours and animation are set i
 
 ## Environment
 
-All variables are documented in [`.env.example`](../.env.example). Key switches:
+**One file, at the repository root.** The backend, Docker Compose and the frontend all read the same `.env`,
+documented in [`.env.example`](../.env.example). There is no `frontend/.env`.
+
+### Which side reads what
+
+| Consumer | Variables | Notes |
+|---|---|---|
+| **Frontend** | The four `VITE_*` keys, and nothing else | Vite is configured with `envDir` pointing at the repository root and `envPrefix: 'VITE_'`, so it reads the `VITE_` prefix alone — no backend variable is loaded at build time, let alone shipped |
+| **Backend** | Everything else except the eight below | Read by `Settings` in `app/core/config.py` and validated at startup |
+| **Docker Compose** | `API_HOST_PORT`, `FRONTEND_HOST_PORT`, `POSTGRES_USER`, `POSTGRES_PASSWORD`, `POSTGRES_DB` | Port mappings and the Postgres container's own init; neither application reads them |
+| **Tests only** | `TEST_DATABASE_URL`, `E2E_ARBITER_SECRETS` | Never used by a running app |
+
+### The frontend's four
+
+| Variable | In the bundle? | Effect |
+|---|---|---|
+| `VITE_API_BASE_URL` | **Yes** | API base as the browser sees it. Default `/api/v1` — same origin, proxied by Vite in development and nginx in Docker. In Docker it is baked in at image build (`frontend/Dockerfile` `ARG`), so changing it needs a rebuild |
+| `VITE_GITHUB_URL` | **Yes** | Public repository URL shown in the footer |
+| `VITE_API_PROXY_TARGET` | No | Development server only: where Vite proxies `/api` and `/health` |
+| `VITE_ENABLE_TEST_WALLET` | No | End-to-end tests only. A production `vite build` **refuses to run** with it set |
+
+Anything prefixed `VITE_` is inlined into the JavaScript bundle at build time and is therefore public
+forever. Never put a secret behind one.
+
+### Key backend switches
 
 | Variable | Effect |
 |---|---|

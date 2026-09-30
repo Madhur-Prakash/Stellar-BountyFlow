@@ -3,9 +3,20 @@ import tailwindcss from '@tailwindcss/vite'
 import react from '@vitejs/plugin-react'
 import { defineConfig, loadEnv } from 'vite'
 
+/**
+ * The project keeps one `.env`, at the repository root, shared with the backend — so there is a single
+ * file to fill in rather than two that drift apart.
+ *
+ * That file also holds backend secrets, so the prefix matters: Vite only ever exposes `VITE_`-prefixed
+ * variables to client code, and `loadEnv` is asked for that prefix alone, so nothing else is read here
+ * even at build time.
+ */
+const ENV_DIR = path.resolve(import.meta.dirname, '..')
+const ENV_PREFIX = 'VITE_'
+
 // https://vite.dev/config/
 export default defineConfig(({ mode }) => {
-  const env = loadEnv(mode, process.cwd(), '')
+  const env = loadEnv(mode, ENV_DIR, ENV_PREFIX)
   const proxyTarget = env.VITE_API_PROXY_TARGET || 'http://localhost:8000'
 
   // The E2E test wallet provider must never ship: refuse to build production bundles with it enabled.
@@ -17,6 +28,8 @@ export default defineConfig(({ mode }) => {
   }
 
   return {
+    envDir: ENV_DIR,
+    envPrefix: ENV_PREFIX,
     plugins: [react(), tailwindcss()],
     resolve: {
       alias: {
