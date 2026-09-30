@@ -32,9 +32,13 @@ def create_app() -> FastAPI:
             "Authentication uses HttpOnly cookies; mutating requests require the `X-CSRF-Token` header "
             "matching the `bf_csrf` cookie."
         ),
-        docs_url="/api/docs",
-        redoc_url="/api/redoc",
-        openapi_url="/api/openapi.json",
+        # Security: the schema is off in staging and production. It is a map of every route, parameter and
+        # error shape, which is exactly what someone probing the API would like to start from. Setting the
+        # URLs to None removes the routes themselves, so /api/docs and /api/openapi.json 404 rather than
+        # being served to anyone who guesses them.
+        docs_url=None if settings.is_production else "/api/docs",
+        redoc_url=None if settings.is_production else "/api/redoc",
+        openapi_url=None if settings.is_production else "/api/openapi.json",
         lifespan=lifespan,
     )
     register_exception_handlers(app)

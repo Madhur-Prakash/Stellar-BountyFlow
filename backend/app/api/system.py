@@ -18,16 +18,48 @@ from app.core.schemas import APIModel
 from app.db.health import check_database
 from app.messaging.kafka import check_kafka
 
+root_router = APIRouter(tags=["root"])
 health_router = APIRouter(tags=["health"])
 config_router = APIRouter(tags=["config"])
 
 Check = Literal["ok", "error", "disabled"]
 
 
+class Root(APIModel):
+    """What the API is, and where to go next. Deliberately says nothing a caller cannot already see."""
+
+    service: str
+    version: str
+    status: Literal["ok"]
+    docs: str | None
+    health: str
+    api: str
+
+
 class Health(APIModel):
     status: Literal["ok"]
     service: str
     version: str
+
+
+@root_router.get("/", response_model=Root, summary="What this service is")
+async def root() -> Root:
+    """The API root.
+
+    Someone who opens the bare host should get an answer rather than a 404 — including load balancers and
+    uptime checks pointed at `/` by default. It carries no configuration: the network, contract ids and
+    feature flags belong to `/api/v1/config/public`, which is the endpoint the frontend actually reads.
+    """
+    s = get_settings()
+    return Root(
+        service="bountyflow-api",
+        version=s.app_version,
+        status="ok",
+        # None in staging and production, where the schema is not served at all.
+        docs=None if s.is_production else "/api/docs",
+        health="/health",
+        api=s.api_prefix,
+    )
 
 
 class Readiness(APIModel):
