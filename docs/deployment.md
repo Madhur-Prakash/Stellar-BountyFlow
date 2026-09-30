@@ -32,6 +32,17 @@ file has neither key.
 
 **Project settings:** set **Root Directory** to `frontend`. Everything else comes from the file.
 
+**If a deep link 404s**, the single-page fallback is not reaching the request. The app itself never produces
+that page: a route it does not know renders its own "page not found", so Vercel's black `404 NOT_FOUND` screen
+means the rewrite never ran. Most links inside the app are client-side navigations and hide the problem; the
+ones that surface it are the full document loads — a refresh, a pasted URL, and the terms and privacy links on
+the sign-up form, which open in a new tab. Check, in order:
+
+1. **Root Directory is `frontend`.** Vercel reads `vercel.json` only from the root directory, so a project
+   rooted at the repository never sees the rewrite.
+2. **The deployment is newer than the commit that added `frontend/vercel.json`.** It arrived late; a build from
+   before it has no fallback baked in. Redeploy from the dashboard with the build cache cleared.
+
 ### What the browser needs
 
 There is no `.env` on Vercel — `.env` is git-ignored. Vite reads `VITE_`-prefixed variables from the

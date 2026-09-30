@@ -176,9 +176,12 @@ export default function RegisterPage() {
                   <FormLabel className="text-[0.8125rem] leading-snug font-normal text-muted-foreground">
                     <span>
                       I agree to the{' '}
+                      {/* A new tab, so a half-filled form survives the detour. Both are full document
+                          loads, which is what the host's single-page fallback has to answer. */}
                       <Link
                         to="/terms"
                         target="_blank"
+                        rel="noopener noreferrer"
                         className="text-foreground underline underline-offset-4"
                       >
                         terms
@@ -187,6 +190,7 @@ export default function RegisterPage() {
                       <Link
                         to="/privacy"
                         target="_blank"
+                        rel="noopener noreferrer"
                         className="text-foreground underline underline-offset-4"
                       >
                         privacy notice

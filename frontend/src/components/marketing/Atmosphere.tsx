@@ -8,9 +8,10 @@ import { cn } from '@/lib/utils'
  * - `dune`: evening sky over warm sand;
  * - `ember`: slate cloud catching a rust sunset;
  * - `night`: deep blue with a glow of the brand colour rising from below.
+ * - `dawn`: first light in the brand blue, cooling the top of the panel and settling into warm paper.
  * Each has a light version (the same scene on warm paper) and a dark one.
  */
-export type AtmosphereTone = 'dusk' | 'dune' | 'ember' | 'night'
+export type AtmosphereTone = 'dusk' | 'dune' | 'ember' | 'night' | 'dawn'
 
 const LIGHT: Record<AtmosphereTone, string> = {
   dusk: [
@@ -36,6 +37,12 @@ const LIGHT: Record<AtmosphereTone, string> = {
     'radial-gradient(40% 45% at 88% 0%, rgb(160 176 236 / 0.35), transparent 70%)',
     'linear-gradient(180deg, #eef1f8 0%, #e4e9f7 100%)',
   ].join(', '),
+  dawn: [
+    'radial-gradient(78% 72% at 6% 0%, rgb(118 148 232 / 0.5), transparent 72%)',
+    'radial-gradient(62% 62% at 98% 102%, rgb(232 214 182 / 0.55), transparent 70%)',
+    'radial-gradient(45% 42% at 58% 34%, rgb(255 255 255 / 0.55), transparent 70%)',
+    'linear-gradient(155deg, #e4eaf8 0%, #edeff6 46%, #f2eee4 100%)',
+  ].join(', '),
 }
 
 const DARK: Record<AtmosphereTone, string> = {
@@ -60,6 +67,12 @@ const DARK: Record<AtmosphereTone, string> = {
     'radial-gradient(70% 80% at 50% 115%, rgb(58 98 228 / 0.42), transparent 70%)',
     'radial-gradient(40% 45% at 88% 0%, rgb(110 130 210 / 0.16), transparent 70%)',
     'linear-gradient(180deg, #0b0e1a 0%, #0e142b 60%, #121a3c 100%)',
+  ].join(', '),
+  dawn: [
+    'radial-gradient(78% 72% at 6% 0%, rgb(53 99 233 / 0.4), transparent 72%)',
+    'radial-gradient(62% 62% at 98% 102%, rgb(126 106 72 / 0.34), transparent 70%)',
+    'radial-gradient(45% 42% at 58% 34%, rgb(76 96 176 / 0.22), transparent 70%)',
+    'linear-gradient(155deg, #0c1122 0%, #111832 48%, #1c1b26 100%)',
   ].join(', '),
 }
 
