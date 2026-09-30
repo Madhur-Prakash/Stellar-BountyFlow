@@ -26,6 +26,7 @@ import { Textarea } from '@/components/ui/textarea'
 import { FormErrorAlert } from '@/features/auth/AuthCard'
 import { CATEGORIES, DIFFICULTIES, type BountyStatus, type CreateBountyRequest } from '@/lib/api/types'
 import { CATEGORY_LABELS, DIFFICULTY_LABELS, formatDate } from '@/lib/format'
+import { motionAllowed } from '@/hooks/useReducedMotion'
 import { applyApiErrors } from '@/lib/form-errors'
 import { formatAmount, isValidAmount, multiplyAmount } from '@/lib/money'
 
@@ -175,6 +176,9 @@ export function BountyForm({
     resolver: zodResolver(bountyFormSchema),
     defaultValues,
     mode: 'onTouched',
+    // Focus and scrolling are handled together in `revealFirstError`; react-hook-form's own focus
+    // jumps without scrolling, which on this long form lands the field under the sticky bar.
+    shouldFocusError: false,
   })
   const [reward, positions, description, rewardAsset] = useWatch({
     control: form.control,
@@ -186,6 +190,31 @@ export function BountyForm({
       ? multiplyAmount(reward, Number(positions))
       : null
   const busy = pending || form.formState.isSubmitting
+
+  /**
+   * Brings the first problem into view after a failed submit.
+   *
+   * The form is long enough that the submit bar sits far below the fields, so a rejected submit used
+   * to leave the reader looking at an unchanged screen. The rendered message is the anchor rather
+   * than the field name: it exists only where there is an error, and it also covers the select
+   * controls, which carry no `name` attribute to query by.
+   */
+  const revealFirstError = () => {
+    requestAnimationFrame(() => {
+      const message = document.querySelector<HTMLElement>('[data-slot="form-message"]')
+      // Falling back to the summary alert, for a rejection that names no field at all.
+      const target =
+        message?.closest<HTMLElement>('[data-slot="form-item"]') ??
+        message ??
+        document.querySelector<HTMLElement>('[data-slot="alert"]')
+      if (!target) return
+      target.scrollIntoView({ behavior: motionAllowed() ? 'smooth' : 'auto', block: 'center' })
+      // preventScroll: the scroll above is the one that should happen, not the browser's jump.
+      target
+        .querySelector<HTMLElement>('input, textarea, select, [role="combobox"]')
+        ?.focus({ preventScroll: true })
+    })
+  }
 
   const submit = form.handleSubmit(async (values) => {
     setFormError(null)
@@ -201,8 +230,10 @@ export function BountyForm({
       await onSubmit(body)
     } catch (e) {
       setFormError(applyApiErrors(e, form.setError, FIELDS))
+      // The API can reject a field the client accepted, so the same reveal applies.
+      revealFirstError()
     }
-  })
+  }, revealFirstError)
 
   const textField = (
     name: FieldPathByValue<BountyFormValues, string>,
