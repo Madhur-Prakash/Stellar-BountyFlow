@@ -1,5 +1,9 @@
 # Smart contracts
 
+<!-- nav -->
+[Documentation](README.md) &middot; [Readme](../README.md) &middot; [Blockchain](blockchain.md) &middot; [Contract interface](../contracts/README.md) &middot; [Security](security.md)
+<!-- nav -->
+
 The escrow contract lives in [`contracts/bounty_escrow`](../contracts/bounty_escrow). Its full reference covers the
 interface, storage schema, event schema, error codes, and build/test/deploy commands; see
 [`contracts/README.md`](../contracts/README.md). This page summarises the design and how the backend uses it.

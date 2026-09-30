@@ -1,5 +1,9 @@
 # Discovery: saved searches and skill-graph recommendations
 
+<!-- nav -->
+[Documentation](README.md) &middot; [Readme](../README.md) &middot; [API](api.md) &middot; [Database](database.md) &middot; [Roadmap](product-roadmap.md)
+<!-- nav -->
+
 Two features share this module (`backend/app/modules/discovery`): **saved searches**, which watch the marketplace
 and alert their owner when a new bounty matches, and **recommendations**, which rank open bounties against what a
 contributor has shown they work on.

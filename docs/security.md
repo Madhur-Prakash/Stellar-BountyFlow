@@ -1,5 +1,9 @@
 # Security
 
+<!-- nav -->
+[Documentation](README.md) &middot; [Readme](../README.md) &middot; [Compliance](compliance.md) &middot; [Blockchain](blockchain.md) &middot; [GitHub](github.md) &middot; [Reporting a vulnerability](../SECURITY.md)
+<!-- nav -->
+
 This document describes how BountyFlow protects accounts, money and data, and records the results of the
 security review of 2026-09-26 (backend and escrow contract). It is the reference for the security regression
 suite in `backend/tests/integration/security/`.

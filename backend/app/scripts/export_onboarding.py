@@ -44,16 +44,19 @@ logger = get_logger(__name__)
 HEADER_FILL = PatternFill("solid", fgColor="1B1A17")
 HEADER_FONT = Font(color="FFFFFF", bold=True, size=11)
 
-# The columns a Google Form built to the spec in docs/onboarding/README.md exports.
+# The columns a Google Form built to the spec in docs/user-onboarding.md exports.
 FORM_COLUMNS = [
     "Timestamp",
-    "Name",
-    "Email",
-    "Stellar wallet address",
-    "How would you rate BountyFlow?",
-    "What worked well?",
-    "What got in your way?",
-    "What should we build next?",
+    "Full name",
+    "Email address",
+    "Stellar wallet address (public key)",
+    "How did you use BountyFlow?",
+    "Overall rating",
+    "Ease of connecting a wallet and moving money",
+    "Likelihood to recommend",
+    "Kind of feedback",
+    "What worked, and what did not?",
+    "If you could change one thing, what would it be?",
 ]
 
 

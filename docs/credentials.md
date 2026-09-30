@@ -1,5 +1,9 @@
 # Verifiable credentials
 
+<!-- nav -->
+[Documentation](README.md) &middot; [Readme](../README.md) &middot; [Blockchain](blockchain.md) &middot; [Smart contracts](smart-contracts.md) &middot; [GitHub](github.md)
+<!-- nav -->
+
 A contributor whose completion is attested on-chain can download a **W3C Verifiable Credential 2.0** for it and
 show it anywhere. Anyone can check one at `/credentials/verify` without an account: the page reports the
 signature, the issuer, the validity period, the revocation status and a live read of the on-chain attestation.

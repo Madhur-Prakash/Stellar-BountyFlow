@@ -1,5 +1,9 @@
 # Architecture
 
+<!-- nav -->
+[Documentation](README.md) &middot; [Readme](../README.md) &middot; [API](api.md) &middot; [Database](database.md) &middot; [Events](kafka-events.md) &middot; [Blockchain](blockchain.md)
+<!-- nav -->
+
 BountyFlow is a **modular monolith** with dedicated background workers. A single FastAPI service owns the HTTP API
 and domain logic. A worker process runs Kafka consumers, the outbox relay and scheduled jobs. PostgreSQL is the
 source of truth. Stellar Soroban holds the funds.

@@ -1,5 +1,9 @@
 # Testing
 
+<!-- nav -->
+[Documentation](README.md) &middot; [Readme](../README.md) &middot; [Development](development.md) &middot; [Contributing](../CONTRIBUTING.md)
+<!-- nav -->
+
 | Suite | Command | Needs | What it covers |
 |---|---|---|---|
 | Backend unit | `make test-api-unit` | nothing | Money, RBAC matrix, state machine, event schemas, retry/backoff/DLQ decisions, notification mapping, email rendering, preferences, analytics rules, outbox relay |

@@ -15,8 +15,12 @@ from app.blockchain.config import get_network
 from app.core.security import utcnow
 from app.modules.analytics import service as analytics
 from app.modules.applications.models import BountyApplication
-from app.modules.bounties.models import Bounty, BountyStatus
-from app.modules.payments.models import BlockchainTransaction, TxType
+from app.modules.bounties.models import Bounty, BountyBookmark, BountyStatus
+from app.modules.discovery.models import SavedSearch
+from app.modules.feedback.models import Feedback
+from app.modules.notifications.models import Notification
+from app.modules.payments.models import BlockchainTransaction, BountyEscrow, PaymentRecord, TxType
+from app.modules.qa.models import BountyQAPost
 from app.modules.users.models import User
 from tests.integration.factories import make_bounty, make_tx, make_user
 from tests.support.fake_chain import FakeStellarChain
@@ -44,34 +48,46 @@ async def test_daily_bounties_funded_counts_funding_by_create_escrow(db_session:
     assert (await analytics.compute_daily_metrics(db_session, tomorrow.date()))["bounties_funded"] == 0
 
 
-async def _counts(session: AsyncSession) -> tuple[int, int, int]:
-    users = int(await session.scalar(select(func.count(User.id))) or 0)
-    bounties = int(await session.scalar(select(func.count(Bounty.id))) or 0)
-    txs = int(await session.scalar(select(func.count(BlockchainTransaction.id))) or 0)
-    return users, bounties, txs
+async def _counts(session: AsyncSession) -> dict[str, int]:
+    """Every table the seed writes to, plus the chain tables it must never write to."""
+    models = {
+        "users": User.id,
+        "bounties": Bounty.id,
+        "applications": BountyApplication.id,
+        "questions": BountyQAPost.id,
+        "bookmarks": BountyBookmark.id,
+        "saved_searches": SavedSearch.id,
+        "feedback": Feedback.id,
+        "notifications": Notification.id,
+        "transactions": BlockchainTransaction.id,
+        "escrows": BountyEscrow.id,
+        "payments": PaymentRecord.id,
+    }
+    return {
+        name: int(await session.scalar(select(func.count(column))) or 0) for name, column in models.items()
+    }
 
 
 async def test_seed_is_idempotent_and_never_fabricates_chain_history(
     chain: FakeStellarChain, db: Any, db_session: AsyncSession
 ) -> None:
-    from app.scripts.seed import BOUNTIES, USERS, seed
+    from app.scripts.seed import BOUNTIES, FEEDBACK, USERS, seed
 
     first = await seed()
     assert first["users"] == len(USERS) and first["bounties_created"] == len(BOUNTIES)
+    assert first["feedback"] == len(FEEDBACK)
     after_first = await _counts(db_session)
-    assert after_first[2] == 0  # no chain history is ever fabricated on a real network
+    # No chain history is ever fabricated: funding, payouts and attestations need a real signed transaction.
+    assert (after_first["transactions"], after_first["escrows"], after_first["payments"]) == (0, 0, 0)
     second = await seed()
-    assert second == {
-        "users": 0,
-        "users_updated": 0,
-        "bounties_created": 0,
-        "bounties_existing": len(BOUNTIES),
-    }
+    assert second["bounties_existing"] == len(BOUNTIES)
+    assert all(count == 0 for key, count in second.items() if key != "bounties_existing")
     assert await _counts(db_session) == after_first
     rows = (await db_session.execute(select(Bounty.metadata_["seed_key"].astext, Bounty.status))).all()
-    statuses = {key: status for key, status in rows}
-    assert statuses.pop("draft-mobile-app") == BountyStatus.DRAFT
-    assert set(statuses.values()) == {BountyStatus.OPEN}  # anything beyond OPEN needs a real signed funding
+    drafts = {b.key for b in BOUNTIES if b.stage == "draft"}
+    assert {key for key, status in rows if status == BountyStatus.DRAFT} == drafts
+    # Anything beyond OPEN needs a real signed funding transaction.
+    assert {status for key, status in rows if key not in drafts} == {BountyStatus.OPEN}
     applications = int(await db_session.scalar(select(func.count(BountyApplication.id))) or 0)
     assert applications == sum(len(b.applicants) for b in BOUNTIES if b.stage != "draft")
     assert chain.submitted == [] and chain.storage == {}  # the seed never touches the chain
@@ -124,7 +140,8 @@ async def test_seed_continues_after_one_bounty_fails(
 
     good = next(b for b in seed_module.BOUNTIES if b.key == "grafana-dashboards")
     broken = dataclasses.replace(
-        next(b for b in seed_module.BOUNTIES if b.key == "i18n-support"), applicants=["no-such-user"]
+        next(b for b in seed_module.BOUNTIES if b.key == "i18n-support"),
+        applicants=[seed_module.SeedApplication("no-such-user", "This applicant does not exist.")],
     )
     monkeypatch.setattr(seed_module, "BOUNTIES", [broken, good])
     await seed_module.seed()

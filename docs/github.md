@@ -1,5 +1,9 @@
 # GitHub integration
 
+<!-- nav -->
+[Documentation](README.md) &middot; [Readme](../README.md) &middot; [Security](security.md) &middot; [API](api.md) &middot; [Credentials](credentials.md)
+<!-- nav -->
+
 BountyFlow links a GitHub account to a BountyFlow account, and verifies the pull requests a contributor attaches
 to a submission. It reads **only public data** from the GitHub REST API, never writes to GitHub, and never asks
 for repository access.
@@ -83,7 +87,7 @@ pull requests from the stored author id, without calling GitHub.
   to the contributor, the requester and staff, rate limited to 20 per 5 minutes per user, with a 20-second
   cooldown per pull request so repeated clicks do not spend GitHub requests.
 * **Webhook** — `POST /api/v1/github/webhook`, off unless `GITHUB_WEBHOOK_SECRET` is set (404 while empty). Every
-  delivery must carry a valid `X-Hub-Signature-256` (see [security.md](security.md#github-webhook)). The payload
+  delivery must carry a valid `X-Hub-Signature-256` (see [security.md](security.md#webhook)). The payload
   is used **only to decide which rows to mark due**; the state itself always comes from the REST API afterwards.
 
 Every check runs outside a database transaction: the plan is read in one joined query, the transaction ends, the

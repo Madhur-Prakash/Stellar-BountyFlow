@@ -1,5 +1,9 @@
 # Development
 
+<!-- nav -->
+[Documentation](README.md) &middot; [Readme](../README.md) &middot; [Testing](testing.md) &middot; [Database](database.md) &middot; [Deployment](deployment.md)
+<!-- nav -->
+
 ## Prerequisites
 
 | Tool | Version | Needed for |
@@ -29,7 +33,9 @@ Alternatively, run everything in containers with `make up` (app on http://localh
 
 ### Seeded accounts
 
-The seed creates regular accounts that sign in through the normal login form at http://localhost:5173/login:
+The seed creates 64 regular accounts that sign in through the normal login form at
+http://localhost:5173/login. These eight are the ones worth knowing — one of every role, plus both sides of the
+marketplace — and they are the ones `make seed` prints:
 
 | Email | Role | What the account has |
 |---|---|---|
@@ -42,7 +48,12 @@ The seed creates regular accounts that sign in through the normal login form at 
 | `priya.nair@bountyflow.test` | Moderator | Moderation queue, disputes |
 | `morgan.reyes@bountyflow.test` | Admin | Admin console, users, roles, audit log |
 
-Every account uses the password in `SEED_USER_PASSWORD` (default `BountyFlow!2026`). `make seed` prints this list.
+The other 56 accounts are requesters and contributors who fill the marketplace, the application queues and the
+feedback inbox. Their addresses follow the same pattern (`first.last@bountyflow.test`) and you can read them off
+a bounty, a profile page or the admin user list.
+
+Every account uses the password in `SEED_USER_PASSWORD` (default `BountyFlow!2026`). `make seed` prints the
+eight above.
 
 To try the full escrow flow, sign in as Ada, connect a funded Testnet wallet, and fund one of her bounties.
 Then sign in as Kai in another browser profile to apply, submit work, and receive the payout.
@@ -52,11 +63,15 @@ Then sign in as Kai in another browser profile to apply, submit work, and receiv
 `make seed` (or `SEED_ON_STARTUP=true`) is **idempotent**: existing records are kept and only missing accounts and
 bounties are created. Accounts created by an older seed are renamed in place to the current usernames and emails.
 
-- It creates users, profiles, open and draft bounties, and applications. They are ordinary records with no special
-  flag.
+- It creates 64 users with profiles and skills, 70 bounties across every category and difficulty (61 open, 9
+  draft), 154 applications, Q&A threads, bookmarks, saved searches, product feedback and a few announcements.
+  They are ordinary records with no special flag.
+- Bounties are keyed by `metadata.seed_key` and everything else by a deterministic UUID, so a second run creates
+  nothing.
 - It refuses to run in staging or production.
-- It never fabricates chain history. Funding and payouts happen only when a real wallet signs a Stellar
-  transaction.
+- It never fabricates chain history. No escrow, payment, blockchain transaction or attestation row is ever
+  written, and a seeded bounty never gets past `open`. Funding and payouts happen only when a real wallet signs
+  a Stellar transaction.
 
 ### Using Testnet
 

@@ -1,5 +1,9 @@
 # User onboarding: the feedback form and what happens to the answers
 
+<!-- nav -->
+[Documentation](README.md) &middot; [Readme](../README.md) &middot; [Compliance](compliance.md) &middot; [Security](security.md) &middot; [Roadmap](product-roadmap.md)
+<!-- nav -->
+
 BountyFlow collects onboarding details and product feedback through a Google Form. Responses land in a linked
 Google Sheet, which is exported to `.xlsx` for analysis and record-keeping, and the themes that come out of it
 set the next development phase.
@@ -12,29 +16,25 @@ set the next development phase.
 
 ## Create the form
 
-The form is defined as code in
-[`scripts/google-form/create-onboarding-form.gs`](../scripts/google-form/create-onboarding-form.gs) so that it is
-reviewable and reproducible rather than click-assembled.
+The form lives in the Google account that owns it; it is not provisioned from this repository. Build it once
+from the specification in [What the form asks](#what-the-form-asks) — that table is the source of truth, so
+change it here in the same commit as any change to the form itself.
 
-1. Open [script.google.com](https://script.google.com) signed in as the account that should own the form, and
-   create a **New project**.
-2. Replace the contents of `Code.gs` with the script, and save.
-3. Pick `createBountyFlowOnboardingForm` in the function dropdown, then **Run**.
-4. Approve the Forms/Drive authorisation prompt the first time. It is your own account creating a form and a
-   sheet in your own Drive — no data leaves it.
-5. Open **Execution log**. It prints four URLs:
+1. Open [forms.new](https://forms.new) signed in as the account that should own the form.
+2. Title it **BountyFlow — user onboarding**, and add the nine questions in the order listed below, with the
+   types and validation given.
+3. Split it into two sections — *About you* (questions 1–4) and *How it went* (5–9) — so the wallet field is
+   not the first thing a browser-only visitor is confronted with.
+4. Under **Settings**, leave *Collect email addresses* and *Limit to 1 response* **off**. Question 2 already
+   asks for an address, and requiring a sign-in would exclude anyone without a Google account.
+5. In **Responses**, use *Link to Sheets* to create the responses spreadsheet.
+6. **Send → link**, and turn on *Shorten URL* if you want a tidier link to share.
 
-   | Line | What it is |
-   |---|---|
-   | `Live form` | The public URL to share with users |
-   | `Edit the form` | The Forms editor, for later wording changes |
-   | `Responses spreadsheet` | The Sheet every submission is appended to |
-   | `Download as .xlsx` | A direct Excel export of that Sheet |
-
-6. In the Forms editor, **Send → link** and turn on **Shorten URL** if you want a tidier link to share.
-
-Running the script again creates a *second*, independent form. Once responses exist, change wording in the Forms
-editor instead of re-running — and mirror the change back into the `.gs` file so the two do not drift.
+| Setting | Value | Why |
+|---|---|---|
+| Collect email addresses | Off | Question 2 asks, and the Google account address is often not the one they use here |
+| Limit to 1 response | Off | It forces a Google sign-in |
+| Response receipts | Off | Nothing is promised in return |
 
 ## What the form asks
 

@@ -329,16 +329,19 @@ refuses weak secrets and insecure cookies.
 ```bash
 make migrate                       # alembic upgrade head
 make migration m="describe change" # autogenerate a revision
-make seed                          # idempotent: creates only missing accounts and bounties
+make seed                          # idempotent: creates only the records that are missing
 make reset-db                      # DESTRUCTIVE (asks for confirmation)
 ```
 
-The seed creates regular accounts with full profiles, plus bounties across every category, applications and
-notifications. They are ordinary accounts and bounties: nothing is flagged or treated differently from data
-created through the app. The seed never fabricates chain activity. Funding and payouts only happen when a real
-wallet signs them. See [docs/database.md](docs/database.md).
+The seed creates 64 regular accounts with full profiles, 70 bounties across every category and difficulty (61
+open, 9 draft), 154 applications, Q&A threads, bookmarks, saved searches, product feedback and notifications.
+They are ordinary accounts and bounties: nothing is flagged or treated differently from data created through the
+app. The seed never fabricates chain activity — no escrow, payment or attestation row is written and a seeded
+bounty never gets past `open`. Funding and payouts only happen when a real wallet signs them. See
+[docs/database.md](docs/database.md).
 
-Seeded accounts (sign in at `/login`):
+These eight accounts are the ones `make seed` prints — one of every role, plus both sides of the marketplace
+(sign in at `/login`):
 
 | Email | Role | What the account has |
 |---|---|---|
@@ -351,7 +354,9 @@ Seeded accounts (sign in at `/login`):
 | `priya.nair@bountyflow.test` | Moderator | Moderation queue, disputes |
 | `morgan.reyes@bountyflow.test` | Admin | Admin console, users, roles, audit log |
 
-Every account uses the password in `SEED_USER_PASSWORD` (default `BountyFlow!2026`). `make seed` prints this list.
+The other 56 accounts are the requesters and contributors who fill the marketplace, the application queues and
+the feedback inbox; their addresses follow the same `first.last@bountyflow.test` pattern. Every account uses the
+password in `SEED_USER_PASSWORD` (default `BountyFlow!2026`).
 
 ## Makefile commands
 
@@ -455,8 +460,12 @@ More in [docs/development.md](docs/development.md).
 
 ## Documentation
 
+Every document is indexed by task in **[docs/README.md](docs/README.md)**, and each one carries a navigation
+line back to that index and on to its nearest neighbours.
+
 | Document | What it covers |
 |---|---|
+| [docs/README.md](docs/README.md) | The index: which document answers which question |
 | [docs/architecture.md](docs/architecture.md) | System overview, request lifecycle, module layout, funding and payout sequence, key decisions |
 | [docs/api.md](docs/api.md) | REST contract under `/api/v1`: conventions, enums, shared shapes, endpoints |
 | [docs/database.md](docs/database.md) | Entity relationships, tables, concurrency, search |
@@ -529,16 +538,21 @@ record-keeping, and the themes that come out of it set what gets built next.
 
 | | Link |
 |---|---|
-| **Onboarding form** — share this with users | *(add the live form URL after running the script)* |
-| **Responses (Google Sheet)** — live, access-controlled | *(add the Sheet URL after running the script)* |
+| **Onboarding form** — share this with users | *(add the live form URL once the form exists)* |
+| **Responses (Google Sheet)** — live, access-controlled | *(add the Sheet URL once the form exists)* |
 | **Exported responses (Excel)** | [`docs/onboarding/bountyflow-onboarding.xlsx`](docs/onboarding/bountyflow-onboarding.xlsx) |
 
-The form is defined as code in
-[`scripts/google-form/create-onboarding-form.gs`](scripts/google-form/create-onboarding-form.gs) — run it once
-from [script.google.com](https://script.google.com) and it builds the form, the response sheet and the `.xlsx`
-export link in one go. Question list, validation rules and the export steps are in
-[docs/user-onboarding.md](docs/user-onboarding.md). Responses are exported to CSV and merged with in-product
-feedback into the committed workbook by `backend/app/scripts/export_onboarding.py`.
+The nine questions, their validation rules, the settings to change from Google's defaults and the export steps
+are all in **[docs/user-onboarding.md](docs/user-onboarding.md)** — that page is the specification, so it changes
+in the same commit as the form does. Responses are downloaded as CSV and merged with in-product feedback into the
+committed workbook by [`app/scripts/export_onboarding.py`](backend/app/scripts/export_onboarding.py):
+
+```bash
+cd backend && uv run python -m app.scripts.export_onboarding --form-csv ~/Downloads/responses.csv
+```
+
+Without `--form-csv` it still writes everything the database holds, and the form sheet carries a note saying no
+export was supplied. Nothing is ever invented to fill it.
 
 The form asks for a **public key only**. No question on it, and no part of BountyFlow, ever asks for a secret key
 or a recovery phrase.

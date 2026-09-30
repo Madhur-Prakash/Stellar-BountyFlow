@@ -1,5 +1,9 @@
 # Design system
 
+<!-- nav -->
+[Documentation](README.md) &middot; [Readme](../README.md) &middot; [Development](development.md) &middot; [Testing](testing.md)
+<!-- nav -->
+
 BountyFlow reads as a calm, premium product: a marketplace people trust with money. Headlines are set large and
 bold in Bricolage Grotesque over warm neutrals, with hairline grids and small monospace labels. Every screen shows
 real data, and motion explains what happens to a bounty rather than decorating the page.

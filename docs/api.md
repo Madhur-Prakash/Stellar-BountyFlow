@@ -1,5 +1,9 @@
 # BountyFlow REST API
 
+<!-- nav -->
+[Documentation](README.md) &middot; [Readme](../README.md) &middot; [Architecture](architecture.md) &middot; [Database](database.md) &middot; [Security](security.md)
+<!-- nav -->
+
 Base path: `/api/v1`. Interactive OpenAPI docs are served by the API at `/api/docs` (Swagger UI) and `/api/openapi.json`.
 
 This document is the contract between the frontend, backend, and workers. All shapes below are JSON.

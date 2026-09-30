@@ -1,5 +1,9 @@
 # Kafka events
 
+<!-- nav -->
+[Documentation](README.md) &middot; [Readme](../README.md) &middot; [Architecture](architecture.md) &middot; [Database](database.md) &middot; [Runbooks](runbooks/README.md)
+<!-- nav -->
+
 Domain events are written to the **transactional outbox** (`outbox_events`) in the same database transaction as
 the state change. The worker's **outbox relay** publishes them to Kafka. Consumers apply their effects
 idempotently.

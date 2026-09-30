@@ -1,5 +1,9 @@
 # Database
 
+<!-- nav -->
+[Documentation](README.md) &middot; [Readme](../README.md) &middot; [Architecture](architecture.md) &middot; [API](api.md) &middot; [Development](development.md)
+<!-- nav -->
+
 PostgreSQL 17 is the source of truth. The schema is managed with **Alembic**
 (`backend/migrations/versions`). The API never calls `create_all` outside tests.
 

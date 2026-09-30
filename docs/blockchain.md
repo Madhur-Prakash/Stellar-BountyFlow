@@ -1,5 +1,9 @@
 # Stellar & Soroban integration
 
+<!-- nav -->
+[Documentation](README.md) &middot; [Readme](../README.md) &middot; [Smart contracts](smart-contracts.md) &middot; [Credentials](credentials.md) &middot; [Security](security.md)
+<!-- nav -->
+
 ## Networks
 
 | Setting | Testnet (default) |

@@ -1,5 +1,9 @@
 # Product roadmap
 
+<!-- nav -->
+[Documentation](README.md) &middot; [Readme](../README.md) &middot; [Onboarding](user-onboarding.md) &middot; [Compliance](compliance.md) &middot; [Smart contracts](smart-contracts.md)
+<!-- nav -->
+
 ## Shipped (MVP)
 
 - Bounty marketplace: search, filters, sorting, bookmarks, reports.

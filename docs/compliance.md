@@ -1,5 +1,9 @@
 # Compliance review
 
+<!-- nav -->
+[Documentation](README.md) &middot; [Readme](../README.md) &middot; [Security](security.md) &middot; [Onboarding](user-onboarding.md) &middot; [Roadmap](product-roadmap.md)
+<!-- nav -->
+
 This is an honest review of BountyFlow's compliance posture, written for whoever operates BountyFlow and for
 the lawyers it is taken to. BountyFlow is maintained by one person, so every control described here is one that
 a single operator can actually run. It records what the product does today on Stellar **Testnet**, what changes when real money moves, and
