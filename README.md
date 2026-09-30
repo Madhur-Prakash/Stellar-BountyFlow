@@ -35,6 +35,7 @@
   <a href="#quick-start">Quick start</a> ·
   <a href="#makefile-commands">Commands</a> ·
   <a href="#documentation">Documentation</a> ·
+  <a href="#user-onboarding--feedback">Feedback</a> ·
   <a href="#security">Security</a> ·
   <a href="#contributing">Contributing</a> ·
   <a href="#license">License</a>
@@ -73,6 +74,7 @@ https://github.com/user-attachments/assets/879c7bd7-2359-46dd-a53e-9928a8acb115
 | Before you trust it | | |
 |---|---|---|
 | [Security](#security) | [Known limitations](#known-limitations) | [Roadmap](#roadmap) |
+| [User onboarding & feedback](#user-onboarding--feedback) | | |
 | [Contributing](#contributing) | [License](#license) | |
 
 ## Problem & solution
@@ -518,6 +520,53 @@ not a public issue. The policy, scope and security model summary are in [SECURIT
 | **Escrow** | An on-chain pause for emergencies | The contract is permissionless by design today |
 
 Full detail in [docs/product-roadmap.md](docs/product-roadmap.md).
+
+## User onboarding & feedback
+
+Real users are onboarded through a short Google Form that collects their name, email, Stellar wallet address and
+a rating of the product. Responses append to a linked Google Sheet, which is exported to Excel for analysis and
+record-keeping, and the themes that come out of it set what gets built next.
+
+| | Link |
+|---|---|
+| **Onboarding form** — share this with users | *(add the live form URL after running the script)* |
+| **Responses (Google Sheet)** — live, access-controlled | *(add the Sheet URL after running the script)* |
+| **Exported responses (Excel)** | [`docs/onboarding/bountyflow-onboarding.xlsx`](docs/onboarding/bountyflow-onboarding.xlsx) |
+
+The form is defined as code in
+[`scripts/google-form/create-onboarding-form.gs`](scripts/google-form/create-onboarding-form.gs) — run it once
+from [script.google.com](https://script.google.com) and it builds the form, the response sheet and the `.xlsx`
+export link in one go. Question list, validation rules and the export steps are in
+[docs/user-onboarding.md](docs/user-onboarding.md). Responses are exported to CSV and merged with in-product
+feedback into the committed workbook by `backend/app/scripts/export_onboarding.py`.
+
+The form asks for a **public key only**. No question on it, and no part of BountyFlow, ever asks for a secret key
+or a recovery phrase.
+
+### How the next phase is built from this feedback
+
+Feedback is grouped by theme rather than counted by response: several people describing the same confusing step
+is one problem. Two things earn a place in the next phase — a theme that recurs across responses, or a single
+response describing something genuinely broken. Everything that ships is linked to the commit that shipped it,
+so a reader can trace a piece of feedback to the diff that answered it.
+
+| Signal from users | What changes next | Commit |
+|---|---|---|
+| Feedback arrived over DMs and issues, so it was never counted or triaged | An in-product feedback widget on every page, with typed categories (Bug / Idea / Praise / Other) feeding an admin triage queue — the same categories the form uses, so both sources land in one queue | [`2467777`](https://github.com/Madhur-Prakash/Stellar-BountyFlow/commit/246777717e5b371faf3c02b419e17caca5301a36) |
+| People lost their place in the bounty → application → submission → payout flow | Breadcrumbs on every nested page, so the current step and the way back are always on screen | [`ff44f42`](https://github.com/Madhur-Prakash/Stellar-BountyFlow/commit/ff44f42c9eab5bf3e556cf9f943fd125290379c9), [`3372431`](https://github.com/Madhur-Prakash/Stellar-BountyFlow/commit/3372431608843b00825845b7180f8c151ec93c94) |
+| Contributors could not tell what was maintained, or how quickly a PR would be looked at | Maintenance and contribution expectations stated plainly — one maintainer, no schedule, small changes land fast | [`3b848e3`](https://github.com/Madhur-Prakash/Stellar-BountyFlow/commit/3b848e3974f0bf83fb0b9002fb2e932af40603a4) |
+
+Where the ratings point next, in priority order:
+
+1. **A low score on question 6** (*ease of connecting a wallet and moving money*) against a high overall rating
+   means the product is wanted but the money path is hard. That ordering puts **sponsoring a trustline's reserve**
+   first, so a contributor holding no XLM can still be paid in USDC.
+2. **Bug-category responses** are triaged ahead of everything else, each as its own issue, each closed by a
+   commit linked back into the table above.
+3. **Idea-category themes** are weighed against the [Roadmap](#roadmap) — a recurring one is promoted into
+   *Next*, a one-off is recorded in [docs/product-roadmap.md](docs/product-roadmap.md) and left there.
+
+Commits landing after this table is written are appended to it in the same shape, one row per shipped response.
 
 ## Contributing
 
