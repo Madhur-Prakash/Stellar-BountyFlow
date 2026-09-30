@@ -38,11 +38,12 @@ install: env ## Install backend (uv) and frontend (pnpm) dependencies
 
 # --- Local development ----------------------------------------------------------------------
 
-# Named by what it leaves out rather than what it starts, so a service added to docker-compose.yml is
-# included automatically instead of being silently missed here. The frontend and the backend (API,
-# worker and the migration job) are the pieces you run yourself during development.
-infra: ## Start every service except the frontend and the backend (API, worker, migrations)
-	$(COMPOSE) up -d --scale frontend=0 --scale api=0 --scale worker=0 --scale migrate=0 --scale kafka-init=0
+# The infrastructure services are named explicitly rather than excluded with `--scale api=0`: scaling a
+# service to zero does not take it out of the project, so Compose still resolves its image, and on a machine
+# that has never built `bountyflow-api:local` it tries to pull that name from Docker Hub and fails. Naming
+# only these four means the application images are never looked at. Add a service here if you add one below.
+infra: ## Start PostgreSQL, Redis, Kafka (+ topics) and Mailpit — everything except the frontend and backend
+	$(COMPOSE) up -d postgres redis kafka mailpit
 	$(COMPOSE) up kafka-init
 
 dev: infra migrate seed ## Run infra in Docker and API + worker + frontend on the host (Ctrl+C stops all)

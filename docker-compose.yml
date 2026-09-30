@@ -1,9 +1,8 @@
 # BountyFlow local development stack.
 #
 #   make up        # build + start everything
-#   make infra     # everything except the frontend and the backend (API, worker, migrations),
-#                  # so you can run those on the host. Defined by exclusion, so a service added
-#                  # below is picked up automatically.
+#   make infra     # postgres, redis, kafka (+ topics) and mailpit only, so you can run the API,
+#                  # the worker and the frontend on the host
 #
 # Infrastructure ports are bound to 127.0.0.1 only; nothing is exposed publicly by default.
 # Secrets come from .env (copy .env.example); none are hardcoded here.

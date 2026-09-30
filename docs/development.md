@@ -33,10 +33,11 @@ Alternatively, run everything in containers with `make up`. It serves the app on
 http://localhost:5173 too — the same address as the dev server, so a link in a verification email resolves
 whichever way the app is running (`FRONTEND_HOST_PORT`).
 
-To run the application yourself against containerised infrastructure, `make infra` starts every service
-**except** the frontend and the backend (the API, the worker and the migration job). It is defined by
-exclusion, so a service added to `docker-compose.yml` is included without anyone having to remember to
-update the target.
+To run the application yourself against containerised infrastructure, `make infra` starts PostgreSQL, Redis,
+Kafka (with its topics) and Mailpit — everything except the frontend and the backend. Those four are named
+explicitly rather than excluded with `--scale api=0`, because scaling a service to zero does not remove it
+from the project: Compose still resolves its image, and on a machine that has never built
+`bountyflow-api:local` it tries to pull that name from Docker Hub and fails.
 
 ### Seeded accounts
 

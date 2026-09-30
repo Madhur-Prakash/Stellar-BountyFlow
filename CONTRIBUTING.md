@@ -56,8 +56,8 @@ make dev       # Postgres, Redis, Kafka (+ topics) and Mailpit in Docker; migrat
 
 To run everything in containers instead, use `make up` (app on http://localhost:5173, the same address as the
 dev server). `make up-tools` adds Kafka UI, and `make down`, `make restart`, `make logs` and `make ps` manage the
-stack. To run pieces separately: `make infra` — every service **except** the frontend and the backend (API,
-worker, migrations), so you can run those on the host — then `make api`, `make worker` and `make frontend-dev`.
+stack. To run pieces separately: `make infra` — PostgreSQL, Redis, Kafka and Mailpit, so you can run the rest
+on the host — then `make api`, `make worker` and `make frontend-dev`.
 
 On Windows, start the API with `make api` (or `uv run python -m app.serve`), not plain uvicorn: psycopg's async
 driver cannot use the default Proactor event loop.
