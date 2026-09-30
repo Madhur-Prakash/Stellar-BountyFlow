@@ -1,22 +1,36 @@
-import { Check, ExternalLink, KeyRound, Scale, ShieldCheck, X } from 'lucide-react'
-import type { ReactNode } from 'react'
+import { Check, ExternalLink, KeyRound, Scale, Search, ShieldCheck, X } from 'lucide-react'
+import type { CSSProperties, ReactNode } from 'react'
 import { Link } from 'react-router'
 
-import { GithubMark } from '@/components/brand/GithubMark'
 import { PageBreadcrumbs } from '@/components/layout/PageBreadcrumbs'
 import { PageContainer } from '@/components/layout/PageContainer'
 import { AppWindow, Atmosphere, MonoLabel } from '@/components/marketing'
+import { Scene } from '@/components/three/Scene'
 import { Button } from '@/components/ui/button'
 import { Skeleton } from '@/components/ui/skeleton'
+import { useMediaQuery } from '@/hooks/useMediaQuery'
 import { usePublicStats } from '@/lib/api/queries/analytics'
 import { usePublicConfig } from '@/lib/api/queries/config'
 import { formatNumber } from '@/lib/format'
 import { formatAmount } from '@/lib/money'
-import { SITE } from '@/lib/site'
 import { contractExplorerUrl, networkDisplayName } from '@/lib/stellar/explorer'
 
 import { CallToAction } from './landing/CallToAction'
 import { SectionHeading } from './landing/SectionHeading'
+
+/**
+ * The network drifts behind the headline and thins out to the right, where the argument is set, and towards
+ * the band below. The ellipse keeps it off the display type itself, so nothing competes with the words.
+ */
+const HERO_SCENE_MASK: CSSProperties = {
+  maskImage: [
+    'linear-gradient(to bottom, black 56%, transparent 95%)',
+    'linear-gradient(to right, black 34%, rgb(0 0 0 / 0.22) 70%, transparent 97%)',
+    'radial-gradient(ellipse 30% 26% at 20% 56%, rgb(0 0 0 / 0.25), black 100%)',
+  ].join(', '),
+  maskComposite: 'intersect',
+  WebkitMaskComposite: 'source-in',
+}
 
 const PRINCIPLES = [
   {
@@ -198,11 +212,25 @@ function List({
 }
 
 export default function AboutPage() {
+  const small = useMediaQuery('(max-width: 767px)')
   return (
     <>
       {/* The headline sits beside the argument for the product, so the first screen reads as one thought
           rather than a title next to an unrelated panel. */}
-      <section aria-labelledby="about-title">
+      <section aria-labelledby="about-title" className="relative isolate overflow-clip">
+        {/* A wash of the brand colour rising behind the headline. */}
+        <div
+          aria-hidden
+          className="pointer-events-none absolute inset-x-0 top-0 -z-10 h-128 bg-[radial-gradient(58%_62%_at_16%_0%,color-mix(in_oklab,var(--primary)_10%,transparent),transparent)]"
+        />
+        {/* The same live network as the landing hero and the sign-in screens, weighted to the headline side.
+            It loads only where WebGL runs and stands still under reduced motion. */}
+        <Scene
+          name="constellation"
+          density={small ? 80 : 150}
+          className="pointer-events-none absolute inset-x-0 top-0 -z-10 h-128 animate-in duration-1000 fade-in-0 sm:h-152"
+          style={HERO_SCENE_MASK}
+        />
         <PageContainer className="pt-12 pb-10 sm:pt-20 sm:pb-14">
           <PageBreadcrumbs items={[{ label: 'Home', to: '/' }, { label: 'About' }]} className="mb-6" />
           <div className="grid gap-x-16 gap-y-8 lg:grid-cols-[minmax(0,1.05fr)_minmax(0,1fr)] lg:items-end">
@@ -230,13 +258,13 @@ export default function AboutPage() {
                 <Button asChild variant="inverse" size="pill">
                   <Link to="/how-it-works">See how it works</Link>
                 </Button>
-                {SITE.githubUrl && (
-                  <Button asChild variant="outline" size="pill">
-                    <a href={SITE.githubUrl} target="_blank" rel="noopener noreferrer nofollow">
-                      <GithubMark /> View the source
-                    </a>
-                  </Button>
-                )}
+                {/* The argument above is abstract; this is the thing itself. The source link keeps its
+                    place in the footer. */}
+                <Button asChild variant="outline" size="pill">
+                  <Link to="/bounties">
+                    <Search /> Browse bounties
+                  </Link>
+                </Button>
               </div>
             </div>
           </div>
