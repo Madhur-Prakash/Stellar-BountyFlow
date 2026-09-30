@@ -30,7 +30,7 @@ import { formatRelative } from '@/lib/format'
 import { ApplicantTrustlineBadge } from '../assets/ApplicantTrustlineBadge'
 import { ManageBountyNav, ManageStats } from './ManageBountyNav'
 
-/** Accept errors about the contributor's wallet, shown on the card rather than as a toast. */
+/** Accept errors about the contributor's wallet: toasted, and also kept on the card as a standing note. */
 const RECEIVE_ERRORS = new Set(['contributor_wallet_missing', 'trustline_missing', 'trustline_unauthorized'])
 
 /** Whether this accepted contributor is already assigned in the escrow contract. */
@@ -195,8 +195,15 @@ function ApplicationCard({
                 toast.success('Applicant accepted')
               },
               onError: (e) => {
-                if (isApiError(e) && RECEIVE_ERRORS.has(String(e.code))) setWalletError(errorMessage(e))
-                else toast.error(errorMessage(e))
+                const message = errorMessage(e)
+                toast.error(message)
+                if (isApiError(e) && RECEIVE_ERRORS.has(String(e.code))) {
+                  // The card keeps the explanation, because it is a condition the requester has to
+                  // resolve rather than a passing failure. The dialog stays open on a rejected
+                  // promise though, and would cover it — so close it and let the card be read.
+                  setWalletError(message)
+                  setDialog(null)
+                }
               },
             },
           )
