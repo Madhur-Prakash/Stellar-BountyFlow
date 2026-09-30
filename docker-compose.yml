@@ -68,6 +68,13 @@ services:
       KAFKA_AUTO_CREATE_TOPICS_ENABLE: "false"
       KAFKA_NUM_PARTITIONS: 3
       KAFKA_LOG_DIRS: /var/lib/kafka/data
+      # A JVM sizes its heap from the memory it can see, so Kafka defaulted to roughly 1 GB and sat at
+      # ~760 MiB. Capping the container alone would not have helped: the JVM would still grow into the
+      # limit and be OOM-killed. The heap is therefore set well under `mem_limit`, leaving room for
+      # metaspace, thread stacks and network buffers, which live outside it. Kafka reads mostly from
+      # the OS page cache rather than the heap, so a small heap costs little at development volumes.
+      KAFKA_HEAP_OPTS: "-Xmx192m -Xms192m -XX:MaxMetaspaceSize=96m"
+    mem_limit: 300m
     volumes:
       - kafka-data:/var/lib/kafka/data
     ports:
@@ -148,6 +155,8 @@ services:
         condition: service_completed_successfully
     ports:
       - "127.0.0.1:${API_HOST_PORT:-8000}:8000"
+    # A ceiling, as for the worker. The API serves requests, so it is given the same headroom.
+    mem_limit: 512m
     healthcheck:
       test: ["CMD", "python", "-c", "import urllib.request,sys; sys.exit(0 if urllib.request.urlopen('http://localhost:8000/health/live').status==200 else 1)"]
       interval: 10s
@@ -171,6 +180,11 @@ services:
         condition: service_completed_successfully
     stop_grace_period: 30s
     restart: unless-stopped
+    # Python has no fixed heap to cap, so this is a ceiling rather than a target: it holds one runaway
+    # consumer back without starving the rest. Kept generous because being OOM-killed part way through
+    # relaying the outbox is far worse than using a little more memory. Measure with
+    # `docker stats` and lower it if your own runs sit well below.
+    mem_limit: 512m
 
   frontend:
     build:
