@@ -15,6 +15,57 @@
 `docker-compose.yml` wires these images together with pinned infrastructure images and health checks, and binds
 every port to `127.0.0.1`. It is the reference for a single-host deployment.
 
+## Hosting the frontend separately (Vercel)
+
+The frontend is a static bundle, so it can be served from a CDN with the API on its own host.
+[`frontend/vercel.json`](../frontend/vercel.json) holds the build settings, the single-page fallback, cache
+policy and the security headers — nginx sets equivalents in the Docker image, and Vercel adds none of them on
+its own.
+
+**It is committed on purpose, and it is safe in a public repository.** It carries no credentials: build
+commands, a rewrite and response headers are all things a visitor can observe from the outside anyway. It also
+has to be in the repository to work, because Vercel reads it from the checkout at build time — there is no
+dashboard equivalent for rewrites or headers. The rule is narrower than "don't commit config": **never put a
+value in `vercel.json` that you would not publish.** Its `env` and `build.env` keys can hold literals, so a
+secret pasted there ships to anyone who can read the repo. Secrets belong in the dashboard, which is why this
+file has neither key.
+
+**Project settings:** set **Root Directory** to `frontend`. Everything else comes from the file.
+
+### What the browser needs
+
+There is no `.env` on Vercel — `.env` is git-ignored. Vite reads `VITE_`-prefixed variables from the
+environment, which is exactly what the dashboard injects.
+
+| Set in the Vercel dashboard | Value |
+|---|---|
+| `VITE_API_BASE_URL` | `https://api.example.com/api/v1` — the API's public origin, including the version prefix |
+| `VITE_GITHUB_URL` | Optional; the footer link |
+
+Never set `VITE_ENABLE_TEST_WALLET`: a production `vite build` **refuses to run** with it present. Never set a
+backend variable there either — it would not be read, and a secret in one more place is a secret in one more
+place.
+
+### What the API must be told in return
+
+The browser now sends session and CSRF cookies to a different origin, so the API has to permit it:
+
+| Backend variable | Value | Why |
+|---|---|---|
+| `CORS_ORIGINS` | `https://yourapp.vercel.app` | Explicit only. `*` is rejected, because CORS runs with `allow_credentials=True` and a reflected origin would let any site read authenticated responses |
+| `COOKIE_SECURE` | `true` | Required in production; the API refuses to start otherwise |
+| `COOKIE_SAMESITE` | `none` | `lax` does not send cookies cross-site, so sign-in fails silently |
+| `FRONTEND_URL` | `https://yourapp.vercel.app` | Where email links point |
+| `CREDENTIAL_ISSUER_DOMAIN` | The **API** host | The API serves `/.well-known/did.json`; it is not a frontend route, and the default derives from `FRONTEND_URL` |
+
+Add every preview domain you intend to sign in from to `CORS_ORIGINS`: Vercel gives each deployment its own
+hostname, and an unlisted one fails auth rather than failing loudly.
+
+> **Know the cost of `SameSite=none`.** It makes the session a third-party cookie. Safari blocks those by
+> default under Intelligent Tracking Prevention and Chrome restricts them, so a share of visitors will not stay
+> signed in. Serving both under one parent domain (`app.example.com`, `api.example.com`) with
+> `COOKIE_DOMAIN=.example.com` and `COOKIE_SAMESITE=lax` avoids it entirely, with no code change.
+
 ## Production checklist
 
 The API refuses to start in `staging`/`production` unless all of the following are true:
