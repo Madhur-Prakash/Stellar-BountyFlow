@@ -9,8 +9,26 @@ import type { ApiErrorCode, ErrorEnvelope, ValidationErrorDetail } from './types
  *   then one retry; if the refresh fails the registered auth-failure handler runs.
  */
 
-const RAW_BASE = (import.meta.env.VITE_API_BASE_URL as string | undefined)?.trim()
-export const API_BASE_URL = (RAW_BASE && RAW_BASE.length > 0 ? RAW_BASE : '/api/v1').replace(/\/+$/, '')
+/** The versioned prefix every endpoint lives under. Matches the API's own `API_PREFIX`. */
+const API_PREFIX = (import.meta.env.VITE_API_V1_PREFIX as string | undefined)?.trim() || '/api/v1'
+
+/**
+ * Where the API lives, from `VITE_API_BASE_URL`.
+ *
+ * The value may be either a full base (`/api/v1`, `https://api.example.com/api/v1`) or just an origin
+ * (`https://api.example.com`), because giving the origin alone is the obvious thing to do and silently
+ * produced requests to `/config/public` — every one a 404. So a value carrying no path of its own gets
+ * the prefix appended, and one that already has a path is left exactly as written.
+ */
+function resolveBase(raw: string | undefined): string {
+  const value = raw?.trim().replace(/\/+$/, '')
+  if (!value) return API_PREFIX
+  if (!/^https?:\/\//i.test(value)) return value // a path such as "/api/v1"
+  const { origin, pathname } = new URL(value)
+  return pathname === '/' ? `${origin}${API_PREFIX}` : value
+}
+
+export const API_BASE_URL = resolveBase(import.meta.env.VITE_API_BASE_URL as string | undefined)
 
 /** Health endpoints are not versioned; they live at the API origin root. */
 export const HEALTH_BASE_URL = /^https?:\/\//i.test(API_BASE_URL) ? new URL(API_BASE_URL).origin : ''
@@ -143,16 +161,40 @@ export function readCookie(name: string): string | null {
 }
 
 /**
- * Makes sure a `bf_csrf` cookie exists before a mutating request from someone who is not signed in.
- * Signing in mints one; a visitor gets theirs from any safe request (the API sets it on the response).
+ * The token last seen in an `X-CSRF-Token` response header.
+ *
+ * Same-origin, reading the `bf_csrf` cookie is enough. Served from a different origin to the API it is
+ * not: cookies are readable only by their own domain, so `document.cookie` here never contains the
+ * API's cookie, and the double submit could never be completed. The API therefore also returns the
+ * token in a header, which CORS exposes to the configured origins alone. Held in memory rather than
+ * storage — it is a per-session value, and a new one arrives with the next safe request.
+ */
+let csrfFromHeader: string | null = null
+
+/** The token to submit: whichever source is available, the cookie first. */
+export function csrfToken(): string | null {
+  return readCookie(CSRF_COOKIE) ?? csrfFromHeader
+}
+
+/** Records the token from any response that carried one. */
+export function rememberCsrf(res: Response): void {
+  const token = res.headers.get(CSRF_HEADER)
+  if (token) csrfFromHeader = token
+}
+
+/**
+ * Makes sure a CSRF token is known before a mutating request from someone who is not signed in.
+ * Signing in mints one; a visitor gets theirs from any safe request (the API returns it in both the
+ * `bf_csrf` cookie and the `X-CSRF-Token` header).
  */
 export async function ensureCsrfToken(): Promise<void> {
-  if (readCookie(CSRF_COOKIE)) return
+  if (csrfToken()) return
   try {
     const res = await fetch(`${API_BASE_URL}/config/public`, {
       credentials: 'include',
       headers: { Accept: 'application/json' },
     })
+    rememberCsrf(res)
     await res.text().catch(() => '')
   } catch {
     // The request that follows reports the failure; nothing useful to add here.
@@ -269,13 +311,15 @@ export async function apiRequest<T>(path: string, options: RequestOptions = {}):
     body = JSON.stringify(options.body)
   }
   if (MUTATING_METHODS.has(method)) {
-    const csrf = readCookie(CSRF_COOKIE)
+    const csrf = csrfToken()
     if (csrf) headers[CSRF_HEADER] = csrf
   }
 
   let res: Response
   try {
     res = await fetch(url, { method, headers, body, credentials: 'include', signal: options.signal })
+    // Every response may carry a fresh token; cross-origin this is the only way to learn it.
+    rememberCsrf(res)
   } catch (e) {
     if (e instanceof DOMException && e.name === 'AbortError') {
       throw new ApiError({ status: 0, code: 'aborted', message: 'Request was cancelled.' })

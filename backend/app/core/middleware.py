@@ -169,16 +169,23 @@ class CSRFMiddleware(BaseHTTPMiddleware):
                     },
                 )
         response = await call_next(request)
-        if request.method in SAFE_METHODS and not request.cookies.get(CSRF_COOKIE):
-            # Readable by JavaScript on purpose: the token must be echoed in the X-CSRF-Token header.
-            response.set_cookie(
-                CSRF_COOKIE,
-                generate_token(24),
-                max_age=settings.refresh_token_ttl,
-                httponly=False,
-                path="/",
-                secure=settings.cookie_secure,
-                samesite=settings.cookie_samesite,
-                domain=settings.cookie_domain,
-            )
+        if request.method in SAFE_METHODS:
+            token = request.cookies.get(CSRF_COOKIE)
+            if not token:
+                token = generate_token(24)
+                # Readable by JavaScript on purpose: the token must be echoed in the X-CSRF-Token header.
+                response.set_cookie(
+                    CSRF_COOKIE,
+                    token,
+                    max_age=settings.refresh_token_ttl,
+                    httponly=False,
+                    path="/",
+                    secure=settings.cookie_secure,
+                    samesite=settings.cookie_samesite,
+                    domain=settings.cookie_domain,
+                )
+            # Also returned as a header, because a frontend served from another origin cannot read this
+            # API's cookie out of document.cookie and would have nothing to submit back. CORS only lets
+            # the configured origins read it (see `expose_headers`), so a third-party page still cannot.
+            response.headers[CSRF_HEADER] = token
         return response

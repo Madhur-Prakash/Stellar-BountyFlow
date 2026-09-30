@@ -52,7 +52,11 @@ def create_app() -> FastAPI:
         allow_credentials=True,
         allow_methods=["GET", "POST", "PATCH", "PUT", "DELETE", "OPTIONS"],
         allow_headers=["Content-Type", CSRF_HEADER, "X-Request-ID", "X-Correlation-ID"],
-        expose_headers=["X-Request-ID"],
+        # The CSRF token is echoed in a header as well as the cookie: a frontend on another origin
+        # cannot read the API's cookie from document.cookie, so the cookie alone leaves it unable to
+        # complete the double submit. Only origins in the allow-list above can read this, so an
+        # attacker's page still cannot obtain the token.
+        expose_headers=["X-Request-ID", CSRF_HEADER],
         max_age=600,
     )
     app.add_middleware(BodySizeLimitMiddleware, max_bytes=settings.max_request_body_bytes)
