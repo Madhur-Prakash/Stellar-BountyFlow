@@ -167,10 +167,14 @@ export function FeedbackLauncher() {
         }}
         onPointerDown={(e) => {
           if (e.pointerType === 'mouse' && e.button !== 0) return
+          // Cleared per press: a drag that ends off the button fires no click, and a stale flag here
+          // would swallow the next real one.
+          wasDragged.current = false
           const box = e.currentTarget.getBoundingClientRect()
           drag.current = { id: e.pointerId, dx: e.clientX - box.left, dy: e.clientY - box.top, moved: false }
           latest.current = { x: box.left, y: box.top }
-          e.currentTarget.setPointerCapture(e.pointerId)
+          // Guarded: pointer capture keeps the drag alive outside the button, but jsdom has no such method.
+          e.currentTarget.setPointerCapture?.(e.pointerId)
         }}
         onPointerMove={(e) => {
           const d = drag.current

@@ -1,9 +1,10 @@
-import { screen, waitFor, within } from '@testing-library/react'
+import { act, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
 
 import { jsonResponse, makeMe } from '@/test/fixtures'
 import { renderWithProviders } from '@/test/render'
+import { useUiPrefs } from '@/stores/ui-prefs'
 
 import { FeedbackLauncher } from './FeedbackLauncher'
 
@@ -21,6 +22,8 @@ beforeAll(async () => {
 }, 30_000)
 
 beforeEach(() => {
+  // The position is persisted, so each test starts from the default corner.
+  useUiPrefs.getState().resetFeedbackPos()
   fetchMock.mockReset()
   fetchMock.mockImplementation(async (url) => {
     if (url.includes('/feedback')) return jsonResponse({ id: 'f_1' }, { status: 201 })
@@ -40,7 +43,58 @@ async function open(opts: Parameters<typeof renderWithProviders>[1] = {}) {
   return { user, button, dialog }
 }
 
+/** Drags the button by dispatching the pointer sequence jsdom does not synthesise from userEvent. */
+function dragBy(button: HTMLElement, dx: number, dy: number) {
+  const box = button.getBoundingClientRect()
+  const from = { clientX: box.left + 10, clientY: box.top + 10 }
+  const opts = { bubbles: true, pointerId: 1, pointerType: 'mouse', button: 0 }
+  button.dispatchEvent(new PointerEvent('pointerdown', { ...opts, ...from }))
+  button.dispatchEvent(
+    new PointerEvent('pointermove', { ...opts, clientX: from.clientX + dx, clientY: from.clientY + dy }),
+  )
+  button.dispatchEvent(
+    new PointerEvent('pointerup', { ...opts, clientX: from.clientX + dx, clientY: from.clientY + dy }),
+  )
+}
+
 describe('FeedbackLauncher', () => {
+  it('stays where it is dragged, and remembers it', async () => {
+    const user = userEvent.setup()
+    renderWithProviders(<FeedbackLauncher />, { me: null })
+    const button = screen.getByRole('button', { name: 'Feedback' })
+
+    // Before it is moved it hangs off the bottom-right corner rather than a fixed coordinate.
+    expect(button.style.left).toBe('')
+    expect(button.style.right).not.toBe('')
+
+    await act(async () => dragBy(button, -300, -200))
+    await waitFor(() => expect(button.style.left).not.toBe(''))
+    expect(button.style.top).not.toBe('')
+    expect(button.style.right).toBe('')
+    expect(useUiPrefs.getState().feedbackPos).not.toBeNull()
+
+    // The drag must not be read as a request to open the dialog.
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
+
+    // And it still opens on a real click.
+    await user.click(button)
+    expect(await screen.findByRole('dialog', undefined, { timeout: 5_000 })).toBeInTheDocument()
+  })
+
+  it('can be moved and put back from the keyboard', async () => {
+    const user = userEvent.setup()
+    renderWithProviders(<FeedbackLauncher />, { me: null })
+    const button = screen.getByRole('button', { name: 'Feedback' })
+    button.focus()
+
+    await user.keyboard('{Alt>}{ArrowLeft}{/Alt}')
+    await waitFor(() => expect(useUiPrefs.getState().feedbackPos).not.toBeNull())
+
+    await user.keyboard('{Alt>}0{/Alt}')
+    await waitFor(() => expect(useUiPrefs.getState().feedbackPos).toBeNull())
+    expect(button.style.left).toBe('')
+  })
+
   it('opens the dialog from the floating button and closes it back onto the button', async () => {
     const { user, button, dialog } = await open()
     expect(within(dialog).getByRole('heading', { name: 'Send feedback' })).toBeInTheDocument()

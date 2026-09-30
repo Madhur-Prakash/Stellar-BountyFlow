@@ -213,13 +213,18 @@ Rust, Soroban SDK 28, interface **v2**. Full interface, state machine and error 
 |---|---|---|
 | ![Dashboard](docs/screenshots/dashboard-desktop.png) | ![Chain action](docs/screenshots/chain-action-desktop.png) | ![Mobile](docs/screenshots/marketplace-mobile.png) |
 
-### Walkthrough & deck
+### Walkthrough & pitch deck
 
-| Asset | What it is |
-|---|---|
-| [Product walkthrough](BountyFlow-Product-Walkthrough.mp4) | A narrated 3-minute recording of the running app: marketplace, a bounty, the escrow state machine, the workspace, funding, and feedback |
-| [Pitch deck](BountyFlow-Pitch-Deck.pptx) · [PDF](BountyFlow-Pitch-Deck.pdf) | Problem, solution, market, architecture, growth and roadmap in seven slides |
-| [LinkedIn carousel](BountyFlow-LinkedIn-Carousel.pdf) | The same story as eight square slides, sized for a document post |
+The walkthrough is a recording of the running application, driven through the real UI — nothing is mocked or
+animated. GitHub does not stream video from a repository path, so that link downloads the file rather than
+playing it here; the PDFs open in the browser.
+
+| Asset | Format | What it covers |
+|---|---|---|
+| **[Product walkthrough](BountyFlow-Product-Walkthrough.mp4)** | MP4 · 3 min 22 s · 1080p, narrated | Seven chapters: the landing page, finding work, a bounty in detail, the escrow state machine, the workspace, funding an escrow, and sending feedback |
+| **[Pitch deck (PDF)](BountyFlow-Pitch-Deck.pdf)** | PDF · 7 slides · 16:9 | Problem, solution, how a bounty moves, market opportunity, architecture, growth strategy, roadmap |
+| **[Pitch deck (PowerPoint)](BountyFlow-Pitch-Deck.pptx)** | PPTX · 7 slides · 16:9 | The same deck, editable |
+| **[LinkedIn carousel](BountyFlow-LinkedIn-Carousel.pdf)** | PDF · 8 slides · square | The same story sized for a document post, where a 16:9 deck reads small on a phone |
 
 ## Architecture
 
