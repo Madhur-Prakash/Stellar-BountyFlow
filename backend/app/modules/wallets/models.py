@@ -29,13 +29,15 @@ class PasskeyWallet(UUIDPrimaryKey, Timestamps, Base):
     sponsor from the passkey-kit wallet WASM. Ownership is still proven separately (SEP-45) before the address
     is linked as a wallet."""
 
-    __tablename__ = "passkey_wallets"
+    __tablename__ = "bountyflow_passkey_wallets"
     __table_args__ = (
-        UniqueConstraint("network", "contract_id", name="uq_passkey_wallets_network_contract"),
-        UniqueConstraint("network", "key_id", name="uq_passkey_wallets_network_key"),
+        UniqueConstraint("network", "contract_id", name="uq_bountyflow_passkey_wallets_network_contract"),
+        UniqueConstraint("network", "key_id", name="uq_bountyflow_passkey_wallets_network_key"),
     )
 
-    user_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), index=True)
+    user_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("bountyflow_users.id", ondelete="CASCADE"), index=True
+    )
     network: Mapped[str] = mapped_column(String(16), nullable=False)
     contract_id: Mapped[str] = mapped_column(String(56), nullable=False)
     key_id: Mapped[str] = mapped_column(String(1400), nullable=False)  # base64url WebAuthn credential id
@@ -66,19 +68,21 @@ class SponsorshipStatus(StrEnum):
 class SponsoredTransaction(UUIDPrimaryKey, Timestamps, Base):
     """Every transaction whose network fee the platform sponsor paid (or bid to pay). Never deleted."""
 
-    __tablename__ = "sponsored_transactions"
+    __tablename__ = "bountyflow_sponsored_transactions"
     __table_args__ = (
-        UniqueConstraint("network", "envelope_hash", name="uq_sponsored_transactions_network_envelope"),
-        Index("ix_sponsored_transactions_user_created", "user_id", "created_at"),
-        Index("ix_sponsored_transactions_created", "created_at"),
+        UniqueConstraint(
+            "network", "envelope_hash", name="uq_bountyflow_sponsored_transactions_network_envelope"
+        ),
+        Index("ix_bountyflow_sponsored_transactions_user_created", "user_id", "created_at"),
+        Index("ix_bountyflow_sponsored_transactions_created", "created_at"),
     )
 
-    user_id: Mapped[uuid.UUID | None] = mapped_column(ForeignKey("users.id", ondelete="SET NULL"))
+    user_id: Mapped[uuid.UUID | None] = mapped_column(ForeignKey("bountyflow_users.id", ondelete="SET NULL"))
     blockchain_transaction_id: Mapped[uuid.UUID | None] = mapped_column(
-        ForeignKey("blockchain_transactions.id", ondelete="SET NULL"), index=True
+        ForeignKey("bountyflow_blockchain_transactions.id", ondelete="SET NULL"), index=True
     )
     passkey_wallet_id: Mapped[uuid.UUID | None] = mapped_column(
-        ForeignKey("passkey_wallets.id", ondelete="SET NULL"), index=True
+        ForeignKey("bountyflow_passkey_wallets.id", ondelete="SET NULL"), index=True
     )
     kind: Mapped[SponsorshipKind] = mapped_column(
         str_enum(SponsorshipKind, "sponsorship_kind"), nullable=False

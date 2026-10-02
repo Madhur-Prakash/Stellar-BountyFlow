@@ -27,11 +27,12 @@ store, never in the repository.
 ## Versions and routing
 
 v1 had no admin and no upgrade entry point, so v2 is a new contract rather than an upgrade. Each
-`bounty_escrows` row stores the `contract_id` and `contract_version` of the contract its escrow lives on, and every
-call for that escrow goes to that contract (`soroban.on_contract`). Escrows created before v2 keep working on v1
-with the v1 feature set (whole-position payouts, one arbiter). New escrows are created on `SOROBAN_CONTRACT_ID`.
-The backend reads `version()` from that contract and only uses the v2 interface when it answers `2`
-(`app/modules/escrow/config.py`), so pointing `SOROBAN_CONTRACT_ID` at a v1 contract turns the v2 features off.
+`bountyflow_bounty_escrows` row stores the `contract_id` and `contract_version` of the contract its escrow lives on,
+and every call for that escrow goes to that contract (`soroban.on_contract`). Escrows created before v2 keep working
+on v1 with the v1 feature set (whole-position payouts, one arbiter). New escrows are created on
+`SOROBAN_CONTRACT_ID`. The backend reads `version()` from that contract and only uses the v2 interface when it
+answers `2` (`app/modules/escrow/config.py`), so pointing `SOROBAN_CONTRACT_ID` at a v1 contract turns the v2
+features off.
 
 From v2 on the contract is upgradeable: `upgrade(new_wasm_hash)` keeps the contract id and all escrows. Only the
 admin set at deployment can call it, and every upgrade emits `contract_upgraded`.
@@ -39,9 +40,9 @@ admin set at deployment can call it, and every upgrade emits `contract_upgraded`
 ## Model
 
 - One escrow per bounty, keyed by `BytesN<32>` = `sha256("bountyflow:bounty:" || bounty_uuid || random_salt)`.
-  The id is random (so nobody can pre-create a bounty's escrow) and stored in `bounty_escrows.onchain_bounty_id`.
-  The backend only trusts an on-chain escrow whose terms match a creation it prepared (see
-  [security.md](security.md)).
+  The id is random (so nobody can pre-create a bounty's escrow) and stored in
+  `bountyflow_bounty_escrows.onchain_bounty_id`. The backend only trusts an on-chain escrow whose terms match a
+  creation it prepared (see [security.md](security.md)).
 - `reward_per_position × positions = required_amount`. Funding may be partial (a creation with an initial deposit,
   then `fund`). The escrow becomes `Funded` only when fully funded.
 - Native XLM moves through the **Stellar Asset Contract** using the standard token interface. Any SAC-compatible
@@ -87,8 +88,9 @@ See `contracts/README.md` → *Trust assumptions and limitations* for the comple
 `PayoutItem` are encoded as Soroban structs and enums. `transactions.py` builds, simulates, prepares and submits the
 call against the escrow's own contract id. `verification.py` checks signed envelopes and decodes results.
 `reconciliation.py` maps the contract's `Escrow` struct (including the arbiter set, threshold, review window, dispute
-round and milestones) onto `bounty_escrows` and `bounty_milestones`. Read-only calls (`get_escrow`, `assignment`,
-`review`, `resolution_votes`, `version`) are made through simulation, and nothing is submitted for them.
+round and milestones) onto `bountyflow_bounty_escrows` and `bountyflow_bounty_milestones`. Read-only calls
+(`get_escrow`, `assignment`, `review`, `resolution_votes`, `version`) are made through simulation, and nothing is
+submitted for them.
 
 The v2 actions (`MILESTONE_PAYOUT`, `BATCH_PAYOUT`, `SUBMIT_WORK`, `REQUEST_CHANGES`, `REJECT_SUBMISSION`, `CLAIM`,
 `DISPUTE_VOTE`) go through the same prepare → sign → submit → verify pipeline as the v1 ones

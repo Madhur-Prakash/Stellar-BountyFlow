@@ -1,7 +1,7 @@
 # Kafka lag, DLQ replay and the outbox
 
-Domain events are written to `outbox_events` in the same transaction as the state change. The worker's outbox
-relay publishes them to Kafka. Consumers apply their effects and deduplicate on `processed_events`.
+Domain events are written to `bountyflow_outbox_events` in the same transaction as the state change. The worker's
+outbox relay publishes them to Kafka. Consumers apply their effects and deduplicate on `bountyflow_processed_events`.
 
 Two different backlogs, with different causes and different fixes:
 
@@ -116,7 +116,7 @@ Check first whether the effect already happened:
 
 ```sql
 -- Did any consumer already process this event_id?
-SELECT consumer, created_at FROM processed_events WHERE event_id = '<event_id from the envelope>';
+SELECT consumer, created_at FROM bountyflow_processed_events WHERE event_id = '<event_id from the envelope>';
 ```
 
 Then replay. Produce the **envelope**, one JSON object per line, with the aggregate id as the key so partition
@@ -157,7 +157,7 @@ should always be zero. The log line is `outbox_event_dead_lettered`.
 ```sql
 -- What was given up on, and why.
 SELECT id, topic, event_type, aggregate_type, aggregate_id, retry_count, created_at, published_at, last_error
-FROM outbox_events
+FROM bountyflow_outbox_events
 WHERE published_at IS NOT NULL AND retry_count >= 25
 ORDER BY created_at
 LIMIT 50;
@@ -166,7 +166,7 @@ LIMIT 50;
 ```sql
 -- Group the errors: one shared cause is much more likely than 30 unrelated ones.
 SELECT left(last_error, 120) AS error, count(*)
-FROM outbox_events
+FROM bountyflow_outbox_events
 WHERE published_at IS NOT NULL AND retry_count >= 25
 GROUP BY 1 ORDER BY 2 DESC;
 ```
@@ -176,12 +176,12 @@ resetting `retry_count` gives it a fresh 25 attempts:
 
 ```sql
 -- One row, by id. Prefer this.
-UPDATE outbox_events
+UPDATE bountyflow_outbox_events
 SET published_at = NULL, retry_count = 0
 WHERE id = '<outbox event uuid>';
 
 -- A whole batch that shared one cause. Read them with the SELECT above first.
-UPDATE outbox_events
+UPDATE bountyflow_outbox_events
 SET published_at = NULL, retry_count = 0
 WHERE published_at IS NOT NULL
   AND retry_count >= 25

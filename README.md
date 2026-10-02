@@ -559,9 +559,9 @@ are all in **[docs/user-onboarding.md](docs/user-onboarding.md)** — that page 
 in the same commit as the form does. Responses are exported from the Sheet with **File → Download → Microsoft
 Excel** and committed, so the record survives independently of the Google account that owns it.
 
-In-product feedback is a separate stream, kept separate on purpose: it lives in the `feedback` table and is
-triaged at `/admin/feedback`. Both use the same four categories — Bug, Idea, Praise, Other — so they read
-together without being merged into one sheet where it would stop being clear which evidence came from where.
+In-product feedback is a separate stream, kept separate on purpose: it lives in the `bountyflow_feedback` table and
+is triaged at `/admin/feedback`. Both use the same four categories — Bug, Idea, Praise, Other — so they read together
+without being merged into one sheet where it would stop being clear which evidence came from where.
 
 The form asks for a **public key only**. No question on it, and no part of BountyFlow, ever asks for a secret key
 or a recovery phrase.

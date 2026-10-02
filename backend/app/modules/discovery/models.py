@@ -35,10 +35,12 @@ class MatchDelivery(StrEnum):
 class SavedSearch(UUIDPrimaryKey, Timestamps, Base):
     """A marketplace query (text, every filter and the sort) a user keeps, with its alert settings."""
 
-    __tablename__ = "saved_searches"
-    __table_args__ = (Index("ix_saved_searches_digest_due", "alert_frequency", "next_digest_at"),)
+    __tablename__ = "bountyflow_saved_searches"
+    __table_args__ = (Index("ix_bountyflow_saved_searches_digest_due", "alert_frequency", "next_digest_at"),)
 
-    user_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), index=True)
+    user_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("bountyflow_users.id", ondelete="CASCADE"), index=True
+    )
     name: Mapped[str] = mapped_column(String(80), nullable=False)
     # SavedSearchFilters: the marketplace filters, with the deadline kept as a rolling window.
     filters: Mapped[dict[str, Any]] = mapped_column(JSONB, nullable=False, default=dict)
@@ -62,12 +64,12 @@ class SavedSearch(UUIDPrimaryKey, Timestamps, Base):
 class SavedSearchMatch(Base):
     """One bounty that matched one saved search. The primary key deduplicates alerts per (search, bounty)."""
 
-    __tablename__ = "saved_search_matches"
+    __tablename__ = "bountyflow_saved_search_matches"
     __table_args__ = (
-        Index("ix_saved_search_matches_search_matched", "saved_search_id", "matched_at"),
+        Index("ix_bountyflow_saved_search_matches_search_matched", "saved_search_id", "matched_at"),
         # The digest job only ever reads the matches it has not delivered yet.
         Index(
-            "ix_saved_search_matches_pending",
+            "ix_bountyflow_saved_search_matches_pending",
             "saved_search_id",
             "matched_at",
             postgresql_where=text("delivery = 'PENDING'"),
@@ -75,10 +77,10 @@ class SavedSearchMatch(Base):
     )
 
     saved_search_id: Mapped[uuid.UUID] = mapped_column(
-        ForeignKey("saved_searches.id", ondelete="CASCADE"), primary_key=True
+        ForeignKey("bountyflow_saved_searches.id", ondelete="CASCADE"), primary_key=True
     )
     bounty_id: Mapped[uuid.UUID] = mapped_column(
-        ForeignKey("bounties.id", ondelete="CASCADE"), primary_key=True, index=True
+        ForeignKey("bountyflow_bounties.id", ondelete="CASCADE"), primary_key=True, index=True
     )
     matched_at: Mapped[datetime] = mapped_column(server_default=func.now(), nullable=False)
     trigger_event: Mapped[str] = mapped_column(String(64), nullable=False)
@@ -92,7 +94,7 @@ class SavedSearchMatch(Base):
 class SkillNode(Base):
     """A normalised skill in the graph: how many documents (bounties, profiles) carry it, and its raw spellings."""
 
-    __tablename__ = "skill_nodes"
+    __tablename__ = "bountyflow_skill_nodes"
 
     skill: Mapped[str] = mapped_column(String(40), primary_key=True)
     doc_count: Mapped[int] = mapped_column(Integer, nullable=False)
@@ -104,7 +106,7 @@ class SkillNode(Base):
 class SkillEdge(Base):
     """A weighted co-occurrence edge, stored in both directions so neighbours are one indexed lookup."""
 
-    __tablename__ = "skill_edges"
+    __tablename__ = "bountyflow_skill_edges"
 
     skill: Mapped[str] = mapped_column(String(40), primary_key=True)
     related: Mapped[str] = mapped_column(String(40), primary_key=True)

@@ -85,7 +85,7 @@ https://docs.google.com/spreadsheets/d/SPREADSHEET_ID/export?format=xlsx
 Re-export whenever a meaningful batch of responses lands. Committing the workbook means the record survives
 independently of the Google account that owns the Sheet.
 
-In-product feedback is a **separate** stream and is not merged into this file: it lives in the `feedback`
+In-product feedback is a **separate** stream and is not merged into this file: it lives in the `bountyflow_feedback`
 table and is triaged in the admin console at `/admin/feedback`. Form answers and in-app notes use the same
 four categories, so they can be read together without being mixed into one sheet, where it would stop being
 clear which evidence came from where.

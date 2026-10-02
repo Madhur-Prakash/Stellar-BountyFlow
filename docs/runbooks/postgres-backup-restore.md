@@ -158,7 +158,7 @@ Run all four. A restore that has not been verified is a guess.
 
 ```bash
 # 1. The schema is at the revision the code expects.
-docker compose exec -T postgres psql -U bountyflow -d bountyflow_restore -c "SELECT * FROM alembic_version;"
+docker compose exec -T postgres psql -U bountyflow -d bountyflow_restore -c "SELECT * FROM bountyflow_alembic_version;"
 
 # The same question from the application's side, which is what actually matters at boot:
 cd backend && uv run alembic current
@@ -166,29 +166,29 @@ cd backend && uv run alembic current
 
 ```sql
 -- 2. Row counts for the tables that carry money and identity.
-SELECT 'users' AS t, count(*) FROM users
-UNION ALL SELECT 'bounties', count(*) FROM bounties
-UNION ALL SELECT 'bounty_escrows', count(*) FROM bounty_escrows
-UNION ALL SELECT 'blockchain_transactions', count(*) FROM blockchain_transactions
-UNION ALL SELECT 'payment_records', count(*) FROM payment_records
-UNION ALL SELECT 'wallets', count(*) FROM wallets
-UNION ALL SELECT 'outbox_events', count(*) FROM outbox_events
-UNION ALL SELECT 'processed_events', count(*) FROM processed_events
-UNION ALL SELECT 'audit_logs', count(*) FROM audit_logs
+SELECT 'users' AS t, count(*) FROM bountyflow_users
+UNION ALL SELECT 'bounties', count(*) FROM bountyflow_bounties
+UNION ALL SELECT 'bounty_escrows', count(*) FROM bountyflow_bounty_escrows
+UNION ALL SELECT 'blockchain_transactions', count(*) FROM bountyflow_blockchain_transactions
+UNION ALL SELECT 'payment_records', count(*) FROM bountyflow_payment_records
+UNION ALL SELECT 'wallets', count(*) FROM bountyflow_wallets
+UNION ALL SELECT 'outbox_events', count(*) FROM bountyflow_outbox_events
+UNION ALL SELECT 'processed_events', count(*) FROM bountyflow_processed_events
+UNION ALL SELECT 'audit_logs', count(*) FROM bountyflow_audit_logs
 ORDER BY 1;
 ```
 
 ```sql
 -- 3. Money adds up the way the CHECK constraint says it must, and nothing is negative.
 SELECT count(*) AS broken
-FROM bounty_escrows
+FROM bountyflow_bounty_escrows
 WHERE paid_out_amount + refunded_amount > funded_amount
    OR funded_amount < 0;
 -- Expect 0.
 
 -- 4. Every live escrow still has its on-chain id and contract, so it can be reconciled.
 SELECT count(*) AS unreconcilable
-FROM bounty_escrows
+FROM bountyflow_bounty_escrows
 WHERE state <> 'NOT_CREATED'
   AND (onchain_bounty_id IS NULL OR contract_id IS NULL);
 -- Expect 0.
@@ -205,7 +205,7 @@ notifications. Those are gone. Tell the affected users.
 
 ## Losing Redis
 
-Redis holds only ephemeral state. Everything in it is namespaced `bf:v1:`.
+Redis holds only ephemeral state. Everything in it is namespaced `bountyflow:v1:`.
 
 | What is lost | Effect | Recovers |
 |---|---|---|
@@ -214,8 +214,8 @@ Redis holds only ephemeral state. Everything in it is namespaced `bf:v1:`.
 | Wallet ownership challenges (SEP-10 / SEP-53 / SEP-45) | In-flight verifications fail. Challenges fail **closed** without Redis, so nothing is verified unsafely. | The user requests a new challenge. |
 | Periodic job locks | While Redis is down, jobs fail closed and are **skipped** rather than run unguarded, so settlement stops. | Automatically when Redis returns. |
 | Transaction locks and idempotency keys | A concurrent double submit is no longer caught in Redis. The database's unique and partial-unique indexes and the contract still prevent double effects. | By itself. |
-| Worker heartbeats (`bf:v1:worker:heartbeat:*`) | `bountyflow_workers_alive` reads 0 and `BountyFlowNoWorkersAlive` fires even though the worker is fine. | Within ~10 s of Redis returning. |
-| The ops snapshots: job health (`bf:v1:ops:jobs`), consumer lag (`bf:v1:ops:kafka-lag`), the last reconciliation audit (`bf:v1:ops:reconciliation`), sanctions list status (`bf:v1:ops:sanctions-list`) | `/metrics` loses those gauges and `/admin/ops/status` comes back mostly empty. Run counters restart from zero. | As each job runs again: seconds for the fast ones, up to 10 minutes for the audit, up to `SANCTIONS_LIST_REFRESH_SECONDS` for the list status. |
+| Worker heartbeats (`bountyflow:v1:worker:heartbeat:*`) | `bountyflow_workers_alive` reads 0 and `BountyFlowNoWorkersAlive` fires even though the worker is fine. | Within ~10 s of Redis returning. |
+| The ops snapshots: job health (`bountyflow:v1:ops:jobs`), consumer lag (`bountyflow:v1:ops:kafka-lag`), the last reconciliation audit (`bountyflow:v1:ops:reconciliation`), sanctions list status (`bountyflow:v1:ops:sanctions-list`) | `/metrics` loses those gauges and `/admin/ops/status` comes back mostly empty. Run counters restart from zero. | As each job runs again: seconds for the fast ones, up to 10 minutes for the audit, up to `SANCTIONS_LIST_REFRESH_SECONDS` for the list status. |
 | Skill graph cache | Recommendations are slower until the `skill-graph` job runs. | Next run (`DISCOVERY_GRAPH_REFRESH_SECONDS`, 1800 s). |
 
 **No financial state is lost.** Escrows, transactions, payments, sessions, notifications and the outbox all live
@@ -233,7 +233,7 @@ Re-warming, in order:
 4. Confirm `bountyflow_chain_transactions_pending` is draining: the `tx-reconciliation` job was skipped for the
    whole outage, so there may be a small backlog of unverified transactions.
 5. Sanctions list status is empty until the next `sanctions-list-refresh` run. Screening itself is unaffected —
-   it matches against `screening_entries` in PostgreSQL, not against Redis.
+   it matches against `bountyflow_screening_entries` in PostgreSQL, not against Redis.
 
 Do not "warm" the caches by hand. They fill on demand and the marketplace uses a generation counter, so there is
 nothing to prime.

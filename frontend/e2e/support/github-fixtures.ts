@@ -59,7 +59,7 @@ export async function registerFixtureGist(
   userId = GITHUB_USER_ID,
 ): Promise<void> {
   const value = JSON.stringify({ owner_login: login, owner_id: userId, content })
-  await send([['SET', `bf:v1:github:fixture-gist:${gistId.toLowerCase()}`, value, 'EX', '3600']])
+  await send([['SET', `bountyflow:v1:github:fixture-gist:${gistId.toLowerCase()}`, value, 'EX', '3600']])
 }
 
 export const gistUrl = (gistId: string, login = GITHUB_LOGIN) =>

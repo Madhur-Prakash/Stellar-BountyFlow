@@ -114,7 +114,7 @@ a Vite dev server with the test wallet enabled. Infra (Postgres, Redis, Mailpit)
 |---|---|---|
 | `E2E_BASE_URL` | `http://localhost:5174` | Frontend under test (`PW_BASE_URL` is still honoured) |
 | `E2E_MAILPIT_URL` | `http://localhost:8025` | Mailpit HTTP API used to read verification and reset emails |
-| `E2E_REDIS_URL` | `redis://localhost:6379/5` | The Redis database the API under test uses (its `REDIS_URL`); the harness clears only the `bf:v1:rl:*` rate-limit counters before each sign-in so the suite does not hit 429s. Against the docker compose stack (and in CI) this is `redis://localhost:6379/0`. Global setup stops with an error if it points at a different database than the API. Never point it at a shared production index. |
+| `E2E_REDIS_URL` | `redis://localhost:6379/5` | The Redis database the API under test uses (its `REDIS_URL`); the harness clears only the `bountyflow:v1:rl:*` rate-limit counters before each sign-in so the suite does not hit 429s. Against the docker compose stack (and in CI) this is `redis://localhost:6379/0`. Global setup stops with an error if it points at a different database than the API. Never point it at a shared production index. |
 | `E2E_FRIENDBOT_URL` / `E2E_HORIZON_URL` | Testnet defaults | Account funding and the "account exists" check |
 | `E2E_SEED_PASSWORD` | `BountyFlow!2026` | Password of the seeded accounts; must match the backend `SEED_USER_PASSWORD` |
 | `E2E_WORKERS` | `4` (`2` in CI) | Playwright workers |

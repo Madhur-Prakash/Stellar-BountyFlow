@@ -151,8 +151,8 @@ collects **every** problem and refuses startup with the full list, so one pass f
 
 A contract id in `deploy/audited-deployments.json` counts only when its entry carries an `audit` with a
 `report_url`; an id on its own is not evidence of a review. Escrows created on an earlier escrow contract keep
-using it (`bounty_escrows.contract_id`), so superseding a contract does not strand existing escrows — but the
-new id must be audited before it can be configured.
+using it (`bountyflow_bounty_escrows.contract_id`), so superseding a contract does not strand existing escrows — but
+the new id must be audited before it can be configured.
 
 Also, and not enforceable in code:
 

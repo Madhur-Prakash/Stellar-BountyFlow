@@ -22,35 +22,35 @@ class CredentialKind(StrEnum):
 
 
 class IssuedCredential(UUIDPrimaryKey, CreatedAt, Base):
-    __tablename__ = "verifiable_credentials"
+    __tablename__ = "bountyflow_verifiable_credentials"
     __table_args__ = (
-        Index("ix_verifiable_credentials_user_kind", "user_id", "kind"),
+        Index("ix_bountyflow_verifiable_credentials_user_kind", "user_id", "kind"),
         # The export reads a user's standing credentials; anonymisation revokes exactly those.
         Index(
-            "ix_verifiable_credentials_user_standing",
+            "ix_bountyflow_verifiable_credentials_user_standing",
             "user_id",
             postgresql_where=text("revoked_at IS NULL"),
         ),
         # At most one standing completion credential per attestation (re-issuing returns it).
         Index(
-            "uq_verifiable_credentials_active_completion",
+            "uq_bountyflow_verifiable_credentials_active_completion",
             "attestation_id",
             unique=True,
             postgresql_where=text("kind = 'COMPLETION' AND revoked_at IS NULL"),
         ),
         # The public revocation status list is built from one issuer's revoked indexes.
         Index(
-            "ix_verifiable_credentials_revoked",
+            "ix_bountyflow_verifiable_credentials_revoked",
             "issuer_did",
             "status_index",
             postgresql_where=text("revoked_at IS NOT NULL"),
         ),
     )
 
-    user_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("users.id", ondelete="RESTRICT"))
+    user_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("bountyflow_users.id", ondelete="RESTRICT"))
     kind: Mapped[CredentialKind] = mapped_column(str_enum(CredentialKind, "credential_kind"), nullable=False)
     attestation_id: Mapped[uuid.UUID | None] = mapped_column(
-        ForeignKey("completion_attestations.id", ondelete="RESTRICT")
+        ForeignKey("bountyflow_completion_attestations.id", ondelete="RESTRICT")
     )
     # Attestation row ids a summary covers (a completion credential covers only ``attestation_id``).
     attestation_ids: Mapped[list[str]] = mapped_column(JSONB, nullable=False, default=list)

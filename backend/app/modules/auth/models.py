@@ -12,9 +12,11 @@ from app.db.base import Base, CreatedAt, UUIDPrimaryKey
 
 
 class UserSession(UUIDPrimaryKey, CreatedAt, Base):
-    __tablename__ = "user_sessions"
+    __tablename__ = "bountyflow_user_sessions"
 
-    user_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), index=True)
+    user_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("bountyflow_users.id", ondelete="CASCADE"), index=True
+    )
     refresh_token_hash: Mapped[str] = mapped_column(String(64), nullable=False, unique=True)
     # The hash of the refresh token that was rotated away. Presenting it again signals token theft.
     previous_token_hash: Mapped[str | None] = mapped_column(String(64), index=True)
@@ -27,18 +29,22 @@ class UserSession(UUIDPrimaryKey, CreatedAt, Base):
 
 
 class EmailVerificationToken(UUIDPrimaryKey, CreatedAt, Base):
-    __tablename__ = "email_verification_tokens"
+    __tablename__ = "bountyflow_email_verification_tokens"
 
-    user_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), index=True)
+    user_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("bountyflow_users.id", ondelete="CASCADE"), index=True
+    )
     token_hash: Mapped[str] = mapped_column(String(64), nullable=False, unique=True)
     expires_at: Mapped[datetime] = mapped_column(nullable=False)
     used_at: Mapped[datetime | None]
 
 
 class PasswordResetToken(UUIDPrimaryKey, CreatedAt, Base):
-    __tablename__ = "password_reset_tokens"
+    __tablename__ = "bountyflow_password_reset_tokens"
 
-    user_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), index=True)
+    user_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("bountyflow_users.id", ondelete="CASCADE"), index=True
+    )
     token_hash: Mapped[str] = mapped_column(String(64), nullable=False, unique=True)
     expires_at: Mapped[datetime] = mapped_column(nullable=False)
     used_at: Mapped[datetime | None]

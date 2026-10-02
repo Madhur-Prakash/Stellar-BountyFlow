@@ -15,7 +15,7 @@ class DailyMetric(Timestamps, Base):
     """One row per (day, metric). Values are recomputed idempotently from source tables, never incremented
     blindly, so event redelivery cannot double-count."""
 
-    __tablename__ = "daily_metrics"
+    __tablename__ = "bountyflow_daily_metrics"
 
     day: Mapped[date] = mapped_column(Date, primary_key=True)
     # Per-asset payout volume uses "payout_volume:CODE:ISSUER" (plain "payout_volume" is XLM), hence 128.

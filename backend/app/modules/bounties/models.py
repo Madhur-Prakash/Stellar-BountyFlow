@@ -68,7 +68,7 @@ class Visibility(StrEnum):
 
 
 class Bounty(UUIDPrimaryKey, Timestamps, Base):
-    __tablename__ = "bounties"
+    __tablename__ = "bountyflow_bounties"
     __table_args__ = (
         CheckConstraint("reward_amount > 0", name="reward_positive"),
         CheckConstraint("positions_available >= 1 AND positions_available <= 100", name="positions_range"),
@@ -81,14 +81,18 @@ class Bounty(UUIDPrimaryKey, Timestamps, Base):
             "OR application_deadline <= completion_deadline",
             name="deadline_order",
         ),
-        Index("ix_bounties_search_vector", "search_vector", postgresql_using="gin"),
-        Index("ix_bounties_status_published", "status", "published_at"),
-        Index("ix_bounties_requester_status", "requester_id", "status"),
+        Index("ix_bountyflow_bounties_search_vector", "search_vector", postgresql_using="gin"),
+        Index("ix_bountyflow_bounties_status_published", "status", "published_at"),
+        Index("ix_bountyflow_bounties_requester_status", "requester_id", "status"),
         # Marketplace default sort: newest by coalesce(published_at, created_at).
-        Index("ix_bounties_listed_at", func.coalesce(text("published_at"), text("created_at")).desc()),
+        Index(
+            "ix_bountyflow_bounties_listed_at", func.coalesce(text("published_at"), text("created_at")).desc()
+        ),
     )
 
-    requester_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("users.id", ondelete="RESTRICT"), index=True)
+    requester_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("bountyflow_users.id", ondelete="RESTRICT"), index=True
+    )
     title: Mapped[str] = mapped_column(String(140), nullable=False)
     slug: Mapped[str] = mapped_column(String(180), nullable=False, unique=True)
     short_description: Mapped[str] = mapped_column(String(280), nullable=False)
@@ -174,51 +178,62 @@ class Bounty(UUIDPrimaryKey, Timestamps, Base):
 
 
 class BountyTag(UUIDPrimaryKey, Base):
-    __tablename__ = "bounty_tags"
+    __tablename__ = "bountyflow_bounty_tags"
     __table_args__ = (
         UniqueConstraint("bounty_id", "tag"),
         # Recommendations match on the normalised name, which the plain index cannot serve.
-        Index("ix_bounty_tags_normalized", text(r"regexp_replace(lower(btrim(tag)), '[\s_-]+', ' ', 'g')")),
+        Index(
+            "ix_bountyflow_bounty_tags_normalized",
+            text(r"regexp_replace(lower(btrim(tag)), '[\s_-]+', ' ', 'g')"),
+        ),
     )
 
-    bounty_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("bounties.id", ondelete="CASCADE"), index=True)
+    bounty_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("bountyflow_bounties.id", ondelete="CASCADE"), index=True
+    )
     tag: Mapped[str] = mapped_column(String(40), nullable=False, index=True)
 
     bounty: Mapped[Bounty] = relationship(back_populates="tags")
 
 
 class BountySkill(UUIDPrimaryKey, Base):
-    __tablename__ = "bounty_skills"
+    __tablename__ = "bountyflow_bounty_skills"
     __table_args__ = (
         UniqueConstraint("bounty_id", "skill_name"),
         # Recommendations match on the normalised name, which the plain index cannot serve.
         Index(
-            "ix_bounty_skills_normalized",
+            "ix_bountyflow_bounty_skills_normalized",
             text(r"regexp_replace(lower(btrim(skill_name)), '[\s_-]+', ' ', 'g')"),
         ),
     )
 
-    bounty_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("bounties.id", ondelete="CASCADE"), index=True)
+    bounty_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("bountyflow_bounties.id", ondelete="CASCADE"), index=True
+    )
     skill_name: Mapped[str] = mapped_column(String(40), nullable=False, index=True)
 
     bounty: Mapped[Bounty] = relationship(back_populates="skills")
 
 
 class BountyBookmark(UUIDPrimaryKey, CreatedAt, Base):
-    __tablename__ = "bounty_bookmarks"
+    __tablename__ = "bountyflow_bounty_bookmarks"
     __table_args__ = (UniqueConstraint("user_id", "bounty_id"),)
 
-    user_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), index=True)
-    bounty_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("bounties.id", ondelete="CASCADE"), index=True)
+    user_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("bountyflow_users.id", ondelete="CASCADE"), index=True
+    )
+    bounty_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("bountyflow_bounties.id", ondelete="CASCADE"), index=True
+    )
 
 
 class BountyViewDaily(Base):
     """Daily unique-ish view counter (deduplicated per viewer per day in Redis) for the popularity metric."""
 
-    __tablename__ = "bounty_view_daily"
+    __tablename__ = "bountyflow_bounty_view_daily"
 
     bounty_id: Mapped[uuid.UUID] = mapped_column(
-        ForeignKey("bounties.id", ondelete="CASCADE"), primary_key=True
+        ForeignKey("bountyflow_bounties.id", ondelete="CASCADE"), primary_key=True
     )
     day: Mapped[date] = mapped_column(Date, primary_key=True)
     views: Mapped[int] = mapped_column(Integer, nullable=False, default=0)

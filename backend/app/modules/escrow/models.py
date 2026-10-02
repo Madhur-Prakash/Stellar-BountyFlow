@@ -33,16 +33,18 @@ class BountyMilestone(UUIDPrimaryKey, Timestamps, Base):
     """One milestone of a single-position bounty. ``position`` is the milestone's index in the escrow contract.
     ``status`` only leaves OPEN after the payout was verified on-chain."""
 
-    __tablename__ = "bounty_milestones"
+    __tablename__ = "bountyflow_bounty_milestones"
     __table_args__ = (
-        UniqueConstraint("bounty_id", "position", name="uq_bounty_milestones_bounty_position"),
+        UniqueConstraint("bounty_id", "position", name="uq_bountyflow_bounty_milestones_bounty_position"),
         CheckConstraint("amount > 0", name="amount_positive"),
         CheckConstraint("position >= 0 AND position < 20", name="position_range"),
         # The data export joins a requester's bounties and reads their milestones in order.
-        Index("ix_bounty_milestones_bounty_position", "bounty_id", "position"),
+        Index("ix_bountyflow_bounty_milestones_bounty_position", "bounty_id", "position"),
     )
 
-    bounty_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("bounties.id", ondelete="CASCADE"), index=True)
+    bounty_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("bountyflow_bounties.id", ondelete="CASCADE"), index=True
+    )
     position: Mapped[int] = mapped_column(SmallInteger, nullable=False)
     title: Mapped[str] = mapped_column(String(140), nullable=False)
     description: Mapped[str | None] = mapped_column(Text)
@@ -55,10 +57,10 @@ class BountyMilestone(UUIDPrimaryKey, Timestamps, Base):
     # is a cycle, so this key is added after the tables exist.
     payout_transaction_id: Mapped[uuid.UUID | None] = mapped_column(
         ForeignKey(
-            "blockchain_transactions.id",
+            "bountyflow_blockchain_transactions.id",
             ondelete="SET NULL",
             use_alter=True,
-            name="fk_bounty_milestones_payout_tx_blockchain_transactions",
+            name="fk_bountyflow_bounty_milestones_payout_tx_blockchain_tx",
         )
     )
 
@@ -67,17 +69,21 @@ class DisputeVote(UUIDPrimaryKey, Timestamps, Base):
     """An arbiter's approval of a dispute resolution, recorded once the vote transaction is confirmed and the
     contract reports the vote (or its execution). The contract is authoritative; this is its mirror."""
 
-    __tablename__ = "dispute_votes"
+    __tablename__ = "bountyflow_dispute_votes"
     __table_args__ = (
-        UniqueConstraint("dispute_id", "arbiter_address", "round", name="uq_dispute_votes_arbiter_round"),
+        UniqueConstraint(
+            "dispute_id", "arbiter_address", "round", name="uq_bountyflow_dispute_votes_arbiter_round"
+        ),
     )
 
-    dispute_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("disputes.id", ondelete="CASCADE"), index=True)
-    bounty_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("bounties.id", ondelete="CASCADE"))
+    dispute_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("bountyflow_disputes.id", ondelete="CASCADE"), index=True
+    )
+    bounty_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("bountyflow_bounties.id", ondelete="CASCADE"))
     arbiter_address: Mapped[str] = mapped_column(String(56), nullable=False)
-    voter_id: Mapped[uuid.UUID | None] = mapped_column(ForeignKey("users.id", ondelete="SET NULL"))
+    voter_id: Mapped[uuid.UUID | None] = mapped_column(ForeignKey("bountyflow_users.id", ondelete="SET NULL"))
     round: Mapped[int] = mapped_column(Integer, nullable=False)
     contributor_amount: Mapped[Decimal] = mapped_column(MONEY, nullable=False)
     transaction_id: Mapped[uuid.UUID | None] = mapped_column(
-        ForeignKey("blockchain_transactions.id", ondelete="SET NULL")
+        ForeignKey("bountyflow_blockchain_transactions.id", ondelete="SET NULL")
     )

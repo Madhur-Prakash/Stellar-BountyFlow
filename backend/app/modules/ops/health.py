@@ -12,14 +12,15 @@ import json
 import time
 from typing import Any
 
+from app.cache import keys
 from app.cache.redis import get_redis
 from app.core.logging import get_logger
 
 logger = get_logger(__name__)
 
-JOBS_KEY = "bf:v1:ops:jobs"
-KAFKA_LAG_KEY = "bf:v1:ops:kafka-lag"
-RECONCILIATION_KEY = "bf:v1:ops:reconciliation"
+JOBS_KEY = f"{keys.PREFIX}:ops:jobs"
+KAFKA_LAG_KEY = f"{keys.PREFIX}:ops:kafka-lag"
+RECONCILIATION_KEY = f"{keys.PREFIX}:ops:reconciliation"
 
 
 async def record_job_run(name: str, started_at: float, duration: float, error: BaseException | None) -> None:
@@ -93,9 +94,9 @@ async def worker_heartbeats() -> dict[str, float]:
     """Seconds since each worker's last heartbeat (the heartbeat key expires after 30 s without one)."""
     try:
         redis = get_redis()
-        keys = [k async for k in redis.scan_iter(match="bf:v1:worker:heartbeat:*", count=100)]
+        pattern = f"{keys.PREFIX}:worker:heartbeat:*"
         out: dict[str, float] = {}
-        for key in keys:
+        async for key in redis.scan_iter(match=pattern, count=100):
             raw = await redis.get(key)
             if not raw:
                 continue

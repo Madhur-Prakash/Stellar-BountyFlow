@@ -62,7 +62,7 @@ silently finds nothing. If `getLatestLedger` is not moving, treat it as down and
 | Reads of already-confirmed state. | The `reconciliation-audit` job, which stops early and reports the error. |
 
 **Prepare fails cleanly.** The prepare step simulates the call before anything is recorded, so an unreachable RPC
-means no `blockchain_transactions` row is created and no state is changed. There is nothing to clean up
+means no `bountyflow_blockchain_transactions` row is created and no state is changed. There is nothing to clean up
 afterwards.
 
 Transactions already `SUBMITTED` are the only real exposure: they may have landed on-chain while we cannot read
@@ -123,7 +123,7 @@ bountyflow_chain_transaction_oldest_pending_age_seconds
 ```sql
 -- Oldest still-unverified submissions. This should shrink within a few minutes of the RPC returning.
 SELECT transaction_type, count(*), min(submitted_at) AS oldest
-FROM blockchain_transactions
+FROM bountyflow_blockchain_transactions
 WHERE status = 'SUBMITTED'
 GROUP BY transaction_type
 ORDER BY oldest;
@@ -144,4 +144,5 @@ can leave a backlog. See [kafka-lag-and-dlq.md](kafka-lag-and-dlq.md).
 - **Do not run `POST /admin/bounties/{id}/reconcile` during the outage.** It reads the contract; with no RPC it
   cannot, and it is the wrong tool for an outage anyway.
 - **Do not switch networks.** Never point a deployment at a different Stellar network to "get it working".
-- **Do not clear `blockchain_transactions` rows.** They are never deleted; failures keep their `failure_reason`.
+- **Do not clear `bountyflow_blockchain_transactions` rows.** They are never deleted; failures keep their
+  `failure_reason`.

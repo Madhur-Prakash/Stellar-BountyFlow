@@ -84,7 +84,7 @@ class PaymentStatus(StrEnum):
 
 
 class BountyEscrow(UUIDPrimaryKey, Timestamps, Base):
-    __tablename__ = "bounty_escrows"
+    __tablename__ = "bountyflow_bounty_escrows"
     __table_args__ = (
         CheckConstraint(
             "funded_amount >= 0 AND paid_out_amount >= 0 AND refunded_amount >= 0", name="amounts"
@@ -92,7 +92,9 @@ class BountyEscrow(UUIDPrimaryKey, Timestamps, Base):
         CheckConstraint("paid_out_amount + refunded_amount <= funded_amount", name="conservation"),
     )
 
-    bounty_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("bounties.id", ondelete="RESTRICT"), unique=True)
+    bounty_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("bountyflow_bounties.id", ondelete="RESTRICT"), unique=True
+    )
     contract_id: Mapped[str | None] = mapped_column(String(56))
     network: Mapped[str] = mapped_column(String(16), nullable=False)
     onchain_bounty_id: Mapped[str] = mapped_column(String(64), nullable=False, unique=True)  # hex BytesN<32>
@@ -125,17 +127,21 @@ class BountyEscrow(UUIDPrimaryKey, Timestamps, Base):
 
 
 class BlockchainTransaction(UUIDPrimaryKey, CreatedAt, Base):
-    __tablename__ = "blockchain_transactions"
+    __tablename__ = "bountyflow_blockchain_transactions"
     __table_args__ = (
-        UniqueConstraint("network", "transaction_hash", name="uq_blockchain_transactions_network_hash"),
-        Index("ix_blockchain_tx_status", "status"),
-        Index("ix_blockchain_tx_bounty_created", "bounty_id", "created_at"),
+        UniqueConstraint(
+            "network", "transaction_hash", name="uq_bountyflow_blockchain_transactions_network_hash"
+        ),
+        Index("ix_bountyflow_blockchain_tx_status", "status"),
+        Index("ix_bountyflow_blockchain_tx_bounty_created", "bounty_id", "created_at"),
     )
 
     bounty_id: Mapped[uuid.UUID | None] = mapped_column(
-        ForeignKey("bounties.id", ondelete="RESTRICT"), index=True
+        ForeignKey("bountyflow_bounties.id", ondelete="RESTRICT"), index=True
     )
-    user_id: Mapped[uuid.UUID | None] = mapped_column(ForeignKey("users.id", ondelete="SET NULL"), index=True)
+    user_id: Mapped[uuid.UUID | None] = mapped_column(
+        ForeignKey("bountyflow_users.id", ondelete="SET NULL"), index=True
+    )
     transaction_hash: Mapped[str | None] = mapped_column(String(80))
     transaction_type: Mapped[TxType] = mapped_column(str_enum(TxType, "tx_type"), nullable=False)
     network: Mapped[str] = mapped_column(String(16), nullable=False)
@@ -157,46 +163,54 @@ class BlockchainTransaction(UUIDPrimaryKey, CreatedAt, Base):
     verification_metadata: Mapped[dict[str, Any]] = mapped_column(JSONB, nullable=False, default=dict)
     # Links to the domain object this transaction settles.
     submission_id: Mapped[uuid.UUID | None] = mapped_column(
-        ForeignKey("bounty_submissions.id", ondelete="SET NULL"), index=True
+        ForeignKey("bountyflow_bounty_submissions.id", ondelete="SET NULL"), index=True
     )
     assignment_id: Mapped[uuid.UUID | None] = mapped_column(
-        ForeignKey("bounty_assignments.id", ondelete="SET NULL"), index=True
+        ForeignKey("bountyflow_bounty_assignments.id", ondelete="SET NULL"), index=True
     )
-    dispute_id: Mapped[uuid.UUID | None] = mapped_column(ForeignKey("disputes.id", ondelete="SET NULL"))
+    dispute_id: Mapped[uuid.UUID | None] = mapped_column(
+        ForeignKey("bountyflow_disputes.id", ondelete="SET NULL")
+    )
 
     bounty: Mapped[Bounty | None] = relationship(lazy="joined")
     user: Mapped[User | None] = relationship(lazy="joined")
 
 
 class PaymentRecord(UUIDPrimaryKey, CreatedAt, Base):
-    __tablename__ = "payment_records"
+    __tablename__ = "bountyflow_payment_records"
     __table_args__ = (
         # One payout per approved submission; a contributor is paid at most once per bounty, or once per
         # milestone on a milestone bounty.
-        UniqueConstraint("submission_id", name="uq_payment_records_submission"),
+        UniqueConstraint("submission_id", name="uq_bountyflow_payment_records_submission"),
         Index(
-            "uq_payment_records_bounty_contributor",
+            "uq_bountyflow_payment_records_bounty_contributor",
             "bounty_id",
             "contributor_id",
             unique=True,
             postgresql_where=text("milestone_id IS NULL"),
         ),
         Index(
-            "uq_payment_records_milestone",
+            "uq_bountyflow_payment_records_milestone",
             "milestone_id",
             unique=True,
             postgresql_where=text("milestone_id IS NOT NULL"),
         ),
     )
 
-    bounty_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("bounties.id", ondelete="RESTRICT"), index=True)
-    contributor_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("users.id", ondelete="RESTRICT"), index=True)
-    submission_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("bounty_submissions.id", ondelete="RESTRICT"))
+    bounty_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("bountyflow_bounties.id", ondelete="RESTRICT"), index=True
+    )
+    contributor_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("bountyflow_users.id", ondelete="RESTRICT"), index=True
+    )
+    submission_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("bountyflow_bounty_submissions.id", ondelete="RESTRICT")
+    )
     blockchain_transaction_id: Mapped[uuid.UUID | None] = mapped_column(
-        ForeignKey("blockchain_transactions.id", ondelete="SET NULL")
+        ForeignKey("bountyflow_blockchain_transactions.id", ondelete="SET NULL")
     )
     milestone_id: Mapped[uuid.UUID | None] = mapped_column(
-        ForeignKey("bounty_milestones.id", ondelete="RESTRICT")
+        ForeignKey("bountyflow_bounty_milestones.id", ondelete="RESTRICT")
     )
     amount: Mapped[Decimal] = mapped_column(MONEY, nullable=False)
     asset_identifier: Mapped[str] = mapped_column(String(80), nullable=False)

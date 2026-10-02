@@ -44,11 +44,11 @@ class AssetOperationStatus(StrEnum):
 
 
 class RewardAsset(UUIDPrimaryKey, Timestamps, Base):
-    __tablename__ = "reward_assets"
+    __tablename__ = "bountyflow_reward_assets"
     __table_args__ = (
-        UniqueConstraint("network", "identifier", name="uq_reward_assets_network_identifier"),
-        UniqueConstraint("network", "contract_id", name="uq_reward_assets_network_contract"),
-        Index("ix_reward_assets_network_enabled", "network", "is_enabled"),
+        UniqueConstraint("network", "identifier", name="uq_bountyflow_reward_assets_network_identifier"),
+        UniqueConstraint("network", "contract_id", name="uq_bountyflow_reward_assets_network_contract"),
+        Index("ix_bountyflow_reward_assets_network_enabled", "network", "is_enabled"),
     )
 
     network: Mapped[str] = mapped_column(String(16), nullable=False)
@@ -69,20 +69,22 @@ class RewardAsset(UUIDPrimaryKey, Timestamps, Base):
     is_default: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False, server_default="false")
     sort_order: Mapped[int] = mapped_column(Integer, nullable=False, default=100, server_default="100")
     verified_at: Mapped[datetime | None]
-    created_by_id: Mapped[uuid.UUID | None] = mapped_column(ForeignKey("users.id", ondelete="SET NULL"))
+    created_by_id: Mapped[uuid.UUID | None] = mapped_column(
+        ForeignKey("bountyflow_users.id", ondelete="SET NULL")
+    )
 
 
 class AssetOperation(UUIDPrimaryKey, CreatedAt, Base):
-    __tablename__ = "asset_operations"
+    __tablename__ = "bountyflow_asset_operations"
     __table_args__ = (
-        UniqueConstraint("network", "transaction_hash", name="uq_asset_operations_network_hash"),
-        Index("ix_asset_operations_user_created", "user_id", "created_at"),
-        Index("ix_asset_operations_status", "status"),
+        UniqueConstraint("network", "transaction_hash", name="uq_bountyflow_asset_operations_network_hash"),
+        Index("ix_bountyflow_asset_operations_user_created", "user_id", "created_at"),
+        Index("ix_bountyflow_asset_operations_status", "status"),
     )
 
-    user_id: Mapped[uuid.UUID | None] = mapped_column(ForeignKey("users.id", ondelete="SET NULL"))
+    user_id: Mapped[uuid.UUID | None] = mapped_column(ForeignKey("bountyflow_users.id", ondelete="SET NULL"))
     asset_id: Mapped[uuid.UUID] = mapped_column(
-        ForeignKey("reward_assets.id", ondelete="RESTRICT"), index=True
+        ForeignKey("bountyflow_reward_assets.id", ondelete="RESTRICT"), index=True
     )
     kind: Mapped[AssetOperationKind] = mapped_column(
         str_enum(AssetOperationKind, "asset_operation_kind"), nullable=False
@@ -99,7 +101,7 @@ class AssetOperation(UUIDPrimaryKey, CreatedAt, Base):
     submitted_xdr: Mapped[str | None] = mapped_column(Text)
     # The sponsored_transactions row when the platform paid this operation's network fee.
     sponsorship_id: Mapped[uuid.UUID | None] = mapped_column(
-        ForeignKey("sponsored_transactions.id", ondelete="SET NULL")
+        ForeignKey("bountyflow_sponsored_transactions.id", ondelete="SET NULL")
     )
     fee_stroops: Mapped[int | None] = mapped_column(Integer)
     expires_at: Mapped[datetime | None]

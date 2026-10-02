@@ -40,7 +40,7 @@ for repository access.
    is stored alongside the login, so a later GitHub rename never silently re-points the link.
 
 A GitHub account can be linked to only one BountyFlow account (409 `github_account_taken`), enforced by a unique
-constraint on `github_accounts.github_id`. Unlinking is immediate (`DELETE /github/account`).
+constraint on `bountyflow_github_accounts.github_id`. Unlinking is immediate (`DELETE /github/account`).
 
 **OAuth** is offered as well when `GITHUB_CLIENT_ID` and `GITHUB_CLIENT_SECRET` are set: a single-use `state`
 bound to the user, the code exchanged server-side, the access token used once to read `/user` and then dropped —

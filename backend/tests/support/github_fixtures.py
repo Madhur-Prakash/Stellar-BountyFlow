@@ -7,7 +7,7 @@ public gist and a user. Unknown paths answer GitHub's real 404 body. ETags are h
 
 Gists that prove account ownership are never recorded from a real person: tests register one with
 ``register_gist``, which builds a response from the recorded gist's shape with the owner and content they need.
-Registered gists live in Redis (``bf:v1:github:fixture-gist:{id}``), so the Playwright suite can register one for
+Registered gists live in Redis (``bountyflow:v1:github:fixture-gist:{id}``), so the Playwright suite can register one for
 the API it drives. Only used when ``GITHUB_FIXTURE_TRANSPORT`` is on (development/test) or injected by tests.
 """
 

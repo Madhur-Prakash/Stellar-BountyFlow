@@ -59,7 +59,7 @@ async def _claim(
         attempts=1,
     )
     upsert = stmt.on_conflict_do_update(
-        constraint="uq_email_deliveries_idempotency",
+        constraint="uq_bountyflow_email_deliveries_idempotency",
         set_={"attempts": EmailDelivery.attempts + 1, "status": EmailStatus.PENDING, "to_address": to},
         where=EmailDelivery.status != EmailStatus.SENT,
     ).returning(EmailDelivery.id)

@@ -41,7 +41,7 @@ async def insert_notification(
             payload=payload,
             source_event_id=source_event_id,
         )
-        .on_conflict_do_nothing(constraint="uq_notifications_user_event")
+        .on_conflict_do_nothing(constraint="uq_bountyflow_notifications_user_event")
         .returning(Notification)
     )
     return (await session.scalars(stmt)).first()

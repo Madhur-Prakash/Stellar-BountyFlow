@@ -127,7 +127,7 @@ async def _record(
             source=source,
             request_id=get_context().get("request_id"),
         )
-        .on_conflict_do_nothing(constraint="uq_legal_acceptances_user_version")
+        .on_conflict_do_nothing(constraint="uq_bountyflow_legal_acceptances_user_version")
         .returning(LegalAcceptance.id)
     )
     return (await session.execute(stmt)).scalar_one_or_none() is not None

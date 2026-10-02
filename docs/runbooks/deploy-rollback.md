@@ -155,6 +155,8 @@ Everything here was read from `backend/migrations/versions/`.
 | `0009_discovery` | Adds `saved_searches`, `saved_search_matches`, `skill_nodes`, `skill_edges` and the normalised-skill expression indexes. | No | **Yes** — drops them. The skill graph rebuilds itself; saved searches do not. |
 | `0010_collaboration` | Adds `bounty_qa_posts`, `bounty_qa_votes`, `github_accounts`, `submission_pull_requests`, `bounties.require_merged_pr`. | No | **Yes** — drops them, losing every Q&A post and GitHub link. |
 | `0011_mainnet_readiness` | Adds `data_exports`, `account_deletion_requests`, `screening_entries`, `legal_document_versions`, `legal_acceptances`. | No | **Yes** — drops them, losing sanctions entries and recorded legal acceptances. |
+| `0012_feedback` | Adds `feedback`. | No | **Yes** — drops it, losing every note sent from the form. |
+| `0013_namespace_tables` | Renames all 50 tables, and their indexes and constraints, to the `bountyflow_` prefix. | No | No — renames them back. |
 
 Read it this way:
 

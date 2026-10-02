@@ -265,7 +265,7 @@ async def enqueue(
     # row is still queued, and never touch a row that is already on-chain.
     await session.execute(
         insert.on_conflict_do_update(
-            constraint="uq_completion_attestations_bounty_contributor",
+            constraint="uq_bountyflow_completion_attestations_bounty_contributor",
             set_={
                 "amount": insert.excluded.amount,
                 "payments_count": insert.excluded.payments_count,

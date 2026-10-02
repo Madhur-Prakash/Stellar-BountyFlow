@@ -18,20 +18,20 @@ class BountyQAPost(UUIDPrimaryKey, Timestamps, Base):
     Posts are soft-deleted (``deleted_at``, body cleared) so a thread keeps its shape, and moderators hide
     them (``hidden_at``) without destroying the evidence a report points at."""
 
-    __tablename__ = "bounty_qa_posts"
+    __tablename__ = "bountyflow_bounty_qa_posts"
     __table_args__ = (
-        Index("ix_bounty_qa_posts_bounty_thread", "bounty_id", "parent_id", "created_at"),
+        Index("ix_bountyflow_bounty_qa_posts_bounty_thread", "bounty_id", "parent_id", "created_at"),
         # The data export and the anonymiser both walk one author's posts oldest first.
-        Index("ix_bounty_qa_posts_author_created", "author_id", "created_at"),
+        Index("ix_bountyflow_bounty_qa_posts_author_created", "author_id", "created_at"),
         # Counting the questions shown on a bounty card or its detail page.
         Index(
-            "ix_bounty_qa_posts_visible_questions",
+            "ix_bountyflow_bounty_qa_posts_visible_questions",
             "bounty_id",
             postgresql_where=text("parent_id IS NULL AND deleted_at IS NULL AND hidden_at IS NULL"),
         ),
         # At most one accepted reply per question.
         Index(
-            "uq_bounty_qa_posts_accepted_reply",
+            "uq_bountyflow_bounty_qa_posts_accepted_reply",
             "parent_id",
             unique=True,
             postgresql_where=text("is_accepted"),
@@ -41,10 +41,14 @@ class BountyQAPost(UUIDPrimaryKey, Timestamps, Base):
         CheckConstraint("upvotes_count >= 0", name="upvotes_non_negative"),
     )
 
-    bounty_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("bounties.id", ondelete="CASCADE"), index=True)
-    author_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), index=True)
+    bounty_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("bountyflow_bounties.id", ondelete="CASCADE"), index=True
+    )
+    author_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("bountyflow_users.id", ondelete="CASCADE"), index=True
+    )
     parent_id: Mapped[uuid.UUID | None] = mapped_column(
-        ForeignKey("bounty_qa_posts.id", ondelete="CASCADE"), index=True
+        ForeignKey("bountyflow_bounty_qa_posts.id", ondelete="CASCADE"), index=True
     )
     body: Mapped[str] = mapped_column(Text, nullable=False)
     is_pinned: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False, server_default="false")
@@ -53,7 +57,9 @@ class BountyQAPost(UUIDPrimaryKey, Timestamps, Base):
     edited_at: Mapped[datetime | None]
     deleted_at: Mapped[datetime | None]
     hidden_at: Mapped[datetime | None]
-    hidden_by_id: Mapped[uuid.UUID | None] = mapped_column(ForeignKey("users.id", ondelete="SET NULL"))
+    hidden_by_id: Mapped[uuid.UUID | None] = mapped_column(
+        ForeignKey("bountyflow_users.id", ondelete="SET NULL")
+    )
     hidden_reason: Mapped[str | None] = mapped_column(Text)
 
     author: Mapped[User] = relationship(foreign_keys=[author_id], lazy="joined", innerjoin=True)
@@ -70,11 +76,11 @@ class BountyQAPost(UUIDPrimaryKey, Timestamps, Base):
 class BountyQAVote(CreatedAt, Base):
     """One upvote per user per post ("most helpful" sort)."""
 
-    __tablename__ = "bounty_qa_votes"
+    __tablename__ = "bountyflow_bounty_qa_votes"
 
     post_id: Mapped[uuid.UUID] = mapped_column(
-        ForeignKey("bounty_qa_posts.id", ondelete="CASCADE"), primary_key=True
+        ForeignKey("bountyflow_bounty_qa_posts.id", ondelete="CASCADE"), primary_key=True
     )
     user_id: Mapped[uuid.UUID] = mapped_column(
-        ForeignKey("users.id", ondelete="CASCADE"), primary_key=True, index=True
+        ForeignKey("bountyflow_users.id", ondelete="CASCADE"), primary_key=True, index=True
     )

@@ -190,8 +190,8 @@ v1 (`CDX6FN2MIGLHCMUJOU6C7FYP3QTNDL6BVIPEG4B5HAUEPU7NI4SFY4CY`) has no admin and
 is why v2 is a new contract rather than an upgrade of v1. Escrows created on v1 **stay on v1 and keep working**,
 with the v1 feature set: whole-position payouts and a single arbiter.
 
-This is why the backend must keep resolving a contract id **per escrow**. Every `bounty_escrows` row stores its
-own `contract_id` and `contract_version`, and every call for that escrow goes to that contract
+This is why the backend must keep resolving a contract id **per escrow**. Every `bountyflow_bounty_escrows` row
+stores its own `contract_id` and `contract_version`, and every call for that escrow goes to that contract
 (`soroban.on_contract`). `SOROBAN_CONTRACT_ID` decides only where **new** escrows are created.
 
 Consequences to keep in mind:
@@ -199,8 +199,8 @@ Consequences to keep in mind:
 - Upgrading the v2 contract does not touch v1 escrows at all. They are a different contract.
 - A v2-only action on a v1 escrow is refused by the API with `409 invalid_state_transition` and an explanation.
   That is correct, not a bug to route around.
-- Never rewrite `bounty_escrows.contract_id` to "migrate" an escrow. The money is in the other contract; the
-  row would then point at an escrow that does not exist.
+-  - Never rewrite `bountyflow_bounty_escrows.contract_id` to "migrate" an escrow. The money is in the other
+  contract; the row would then point at an escrow that does not exist.
 - The mainnet guard checks the **configured** ids, not per-escrow ones, for exactly this reason.
 
 Deploying a v3 would follow the same shape: deploy it, point `SOROBAN_CONTRACT_ID` at it for new escrows, and

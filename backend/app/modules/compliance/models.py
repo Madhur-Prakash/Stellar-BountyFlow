@@ -46,13 +46,15 @@ class DataExport(UUIDPrimaryKey, CreatedAt, Base):
     """A requested copy of a user's personal data. The worker builds the archive (gzip-compressed JSON) and
     stores it here until it expires; expiry clears the archive."""
 
-    __tablename__ = "data_exports"
+    __tablename__ = "bountyflow_data_exports"
     __table_args__ = (
-        Index("ix_data_exports_user_created", "user_id", "created_at"),
-        Index("ix_data_exports_status", "status"),
+        Index("ix_bountyflow_data_exports_user_created", "user_id", "created_at"),
+        Index("ix_bountyflow_data_exports_status", "status"),
     )
 
-    user_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
+    user_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("bountyflow_users.id", ondelete="CASCADE"), nullable=False
+    )
     status: Mapped[ExportStatus] = mapped_column(
         str_enum(ExportStatus, "export_status"), nullable=False, default=ExportStatus.PENDING
     )
@@ -72,20 +74,20 @@ class AccountDeletionRequest(UUIDPrimaryKey, CreatedAt, Base):
     """A request to delete an account. It waits out a grace period (cancellable), then the worker anonymises the
     account once nothing blocks it (funded escrows, open disputes, unsettled work)."""
 
-    __tablename__ = "account_deletion_requests"
+    __tablename__ = "bountyflow_account_deletion_requests"
     __table_args__ = (
         # At most one scheduled deletion per user.
         Index(
-            "uq_account_deletion_requests_one_scheduled",
+            "uq_bountyflow_account_deletion_requests_one_scheduled",
             "user_id",
             unique=True,
             postgresql_where="status = 'SCHEDULED'",
         ),
-        Index("ix_account_deletion_requests_status_due", "status", "scheduled_for"),
+        Index("ix_bountyflow_account_deletion_requests_status_due", "status", "scheduled_for"),
     )
 
     user_id: Mapped[uuid.UUID] = mapped_column(
-        ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True
+        ForeignKey("bountyflow_users.id", ondelete="CASCADE"), nullable=False, index=True
     )
     status: Mapped[DeletionStatus] = mapped_column(
         str_enum(DeletionStatus, "deletion_status"), nullable=False, default=DeletionStatus.SCHEDULED
@@ -104,16 +106,16 @@ class AccountDeletionRequest(UUIDPrimaryKey, CreatedAt, Base):
 class ScreeningEntry(UUIDPrimaryKey, CreatedAt, Base):
     """A Stellar address that must not be used on BountyFlow. Removed entries are kept for the record."""
 
-    __tablename__ = "screening_entries"
+    __tablename__ = "bountyflow_screening_entries"
     __table_args__ = (
         Index(
-            "uq_screening_entries_active",
+            "uq_bountyflow_screening_entries_active",
             "address",
             "source",
             unique=True,
             postgresql_where="removed_at IS NULL",
         ),
-        Index("ix_screening_entries_address", "address"),
+        Index("ix_bountyflow_screening_entries_address", "address"),
     )
 
     address: Mapped[str] = mapped_column(String(56), nullable=False)
@@ -122,9 +124,13 @@ class ScreeningEntry(UUIDPrimaryKey, CreatedAt, Base):
     )
     list_name: Mapped[str] = mapped_column(String(120), nullable=False)
     reason: Mapped[str | None] = mapped_column(Text)
-    added_by_id: Mapped[uuid.UUID | None] = mapped_column(ForeignKey("users.id", ondelete="SET NULL"))
+    added_by_id: Mapped[uuid.UUID | None] = mapped_column(
+        ForeignKey("bountyflow_users.id", ondelete="SET NULL")
+    )
     removed_at: Mapped[datetime | None]
-    removed_by_id: Mapped[uuid.UUID | None] = mapped_column(ForeignKey("users.id", ondelete="SET NULL"))
+    removed_by_id: Mapped[uuid.UUID | None] = mapped_column(
+        ForeignKey("bountyflow_users.id", ondelete="SET NULL")
+    )
     removal_note: Mapped[str | None] = mapped_column(Text)
 
 
@@ -132,32 +138,40 @@ class LegalDocumentVersion(UUIDPrimaryKey, CreatedAt, Base):
     """A published version of the terms or the privacy notice. A version scheduled for the future can be
     withdrawn until it takes effect; versions are never deleted."""
 
-    __tablename__ = "legal_document_versions"
+    __tablename__ = "bountyflow_legal_document_versions"
     __table_args__ = (
-        UniqueConstraint("document", "version", name="uq_legal_document_versions_document_version"),
-        Index("ix_legal_document_versions_document_effective", "document", "effective_at"),
+        UniqueConstraint(
+            "document", "version", name="uq_bountyflow_legal_document_versions_document_version"
+        ),
+        Index("ix_bountyflow_legal_document_versions_document_effective", "document", "effective_at"),
     )
 
     document: Mapped[LegalDocument] = mapped_column(str_enum(LegalDocument, "legal_document"), nullable=False)
     version: Mapped[str] = mapped_column(String(32), nullable=False)
     summary: Mapped[str] = mapped_column(Text, nullable=False)
     effective_at: Mapped[datetime] = mapped_column(nullable=False)
-    published_by_id: Mapped[uuid.UUID | None] = mapped_column(ForeignKey("users.id", ondelete="SET NULL"))
+    published_by_id: Mapped[uuid.UUID | None] = mapped_column(
+        ForeignKey("bountyflow_users.id", ondelete="SET NULL")
+    )
     withdrawn_at: Mapped[datetime | None]
-    withdrawn_by_id: Mapped[uuid.UUID | None] = mapped_column(ForeignKey("users.id", ondelete="SET NULL"))
+    withdrawn_by_id: Mapped[uuid.UUID | None] = mapped_column(
+        ForeignKey("bountyflow_users.id", ondelete="SET NULL")
+    )
 
 
 class LegalAcceptance(UUIDPrimaryKey, Base):
     """A user's acceptance of one legal document version (append-only)."""
 
-    __tablename__ = "legal_acceptances"
-    __table_args__ = (UniqueConstraint("user_id", "version_id", name="uq_legal_acceptances_user_version"),)
+    __tablename__ = "bountyflow_legal_acceptances"
+    __table_args__ = (
+        UniqueConstraint("user_id", "version_id", name="uq_bountyflow_legal_acceptances_user_version"),
+    )
 
     user_id: Mapped[uuid.UUID] = mapped_column(
-        ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True
+        ForeignKey("bountyflow_users.id", ondelete="CASCADE"), nullable=False, index=True
     )
     version_id: Mapped[uuid.UUID] = mapped_column(
-        ForeignKey("legal_document_versions.id", ondelete="RESTRICT"), nullable=False
+        ForeignKey("bountyflow_legal_document_versions.id", ondelete="RESTRICT"), nullable=False
     )
     document: Mapped[LegalDocument] = mapped_column(str_enum(LegalDocument, "legal_document"), nullable=False)
     accepted_at: Mapped[datetime] = mapped_column(server_default=func.now(), nullable=False)

@@ -26,7 +26,7 @@ class WalletVerificationStatus(StrEnum):
 
 
 class User(UUIDPrimaryKey, Timestamps, Base):
-    __tablename__ = "users"
+    __tablename__ = "bountyflow_users"
 
     email: Mapped[str] = mapped_column(String(320), nullable=False)
     normalized_email: Mapped[str] = mapped_column(String(320), nullable=False, unique=True)
@@ -65,28 +65,30 @@ class User(UUIDPrimaryKey, Timestamps, Base):
 
 
 class UserSkill(UUIDPrimaryKey, Base):
-    __tablename__ = "user_skills"
+    __tablename__ = "bountyflow_user_skills"
     __table_args__ = (
         UniqueConstraint("user_id", "skill_name"),
         # Recommendations match on the normalised name, which the plain index cannot serve.
         Index(
-            "ix_user_skills_normalized",
+            "ix_bountyflow_user_skills_normalized",
             text(r"regexp_replace(lower(btrim(skill_name)), '[\s_-]+', ' ', 'g')"),
         ),
     )
 
-    user_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), index=True)
+    user_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("bountyflow_users.id", ondelete="CASCADE"), index=True
+    )
     skill_name: Mapped[str] = mapped_column(String(40), nullable=False, index=True)
 
     user: Mapped[User] = relationship(back_populates="skills")
 
 
 class Wallet(UUIDPrimaryKey, CreatedAt, Base):
-    __tablename__ = "wallets"
+    __tablename__ = "bountyflow_wallets"
     __table_args__ = (
         # One verified owner per address per network; the same user can't add an address twice.
         Index(
-            "uq_wallets_active_address_network",
+            "uq_bountyflow_wallets_active_address_network",
             "public_address",
             "network",
             unique=True,
@@ -94,7 +96,9 @@ class Wallet(UUIDPrimaryKey, CreatedAt, Base):
         ),
     )
 
-    user_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), index=True)
+    user_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("bountyflow_users.id", ondelete="CASCADE"), index=True
+    )
     public_address: Mapped[str] = mapped_column(String(56), nullable=False, index=True)
     network: Mapped[str] = mapped_column(String(16), nullable=False)
     verification_status: Mapped[WalletVerificationStatus] = mapped_column(

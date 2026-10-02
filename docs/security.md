@@ -33,9 +33,9 @@ suite in `backend/tests/integration/security/`.
 | Asset | Where it lives | Why it matters |
 |---|---|---|
 | Escrowed funds (XLM) | Soroban escrow contract | Contributors' rewards and requesters' deposits |
-| Financial records | `bounty_escrows`, `blockchain_transactions`, `payment_records` | Shown as "funded", "paid", reputation totals |
-| Accounts and sessions | `users`, `user_sessions`, cookies | Account takeover leads to chain actions with the victim's verified wallet |
-| Wallet-to-account links | `wallets` | Payout destinations are derived from them |
+| Financial records | `bountyflow_bounty_escrows`, `bountyflow_blockchain_transactions`, `bountyflow_payment_records` | Shown as "funded", "paid", reputation totals |
+| Accounts and sessions | `bountyflow_users`, `bountyflow_user_sessions`, cookies | Account takeover leads to chain actions with the victim's verified wallet |
+| Wallet-to-account links | `bountyflow_wallets` | Payout destinations are derived from them |
 | Private content | Applications (review notes), submissions, disputes, drafts, notifications | Confidentiality between parties |
 | Server secrets | `JWT_SECRET`, `WALLET_CHALLENGE_SIGNING_SECRET`, SMTP and DB credentials | Token forgery, wallet-proof forgery |
 | Sponsor balance | `STELLAR_SPONSOR_SECRET`'s account | Pays other people's network fees; a drained sponsor stops passkey wallets working |
@@ -209,7 +209,7 @@ The sponsor pays for other people's transactions, so it is a spendable asset. De
   caller is not the bounty's requester. Requester-side calls, which move money out of escrow, are never
   sponsored. Trustline sponsorship is limited to the assets in `SPONSOR_ALLOWED_ASSETS`.
 - **Caps**: a per-transaction fee ceiling, and a per-user daily count and fee budget counted from
-  `sponsored_transactions` under a per-user advisory lock taken in the same transaction as the insert, so
+  `bountyflow_sponsored_transactions` under a per-user advisory lock taken in the same transaction as the insert, so
   concurrent submissions cannot both pass the cap.
 - **Floor**: sponsorship stops below `SPONSOR_MIN_BALANCE_XLM` and the admin console warns below
   `SPONSOR_LOW_BALANCE_XLM`. Every sponsored transaction is recorded with the fee the network actually charged.
@@ -252,7 +252,7 @@ Every chain action follows **prepare → sign → submit → verify** (`app/modu
 
 | Step | Checks |
 |---|---|
-| Prepare | Permission, ownership and domain state. The signing wallet must be a verified wallet of the caller (except `RESOLVE_DISPUTE`, which must equal the escrow's arbiter). The escrow is read from chain and **its authenticity is verified** (below). Amounts come from the bounty (`reward × positions`; a partial deposit may only be ≤ the remaining amount), and payout destinations are the contributor's address locked on-chain by `ASSIGN`, else their current verified wallet. The call is simulated; the unsigned XDR, its hash and the arguments are stored on a `blockchain_transactions` row. |
+| Prepare | Permission, ownership and domain state. The signing wallet must be a verified wallet of the caller (except `RESOLVE_DISPUTE`, which must equal the escrow's arbiter). The escrow is read from chain and **its authenticity is verified** (below). Amounts come from the bounty (`reward × positions`; a partial deposit may only be ≤ the remaining amount), and payout destinations are the contributor's address locked on-chain by `ASSIGN`, else their current verified wallet. The call is simulated; the unsigned XDR, its hash and the arguments are stored on a `bountyflow_blockchain_transactions` row. |
 | Sign | In the browser wallet. The server never holds user keys. |
 | Submit | Only the row's creator. The tx must be `SIGNATURE_REQUIRED` and not expired. It must have been prepared for the configured network (SEC-08). The envelope must decode for the configured passphrase, its hash must equal the prepared hash (signatures do not change it, so any modified transaction is refused), its source must be the prepared source, and it must carry a valid ed25519 signature from that source. The row is locked `FOR UPDATE`, so concurrent submits serialise and repeats are idempotent. |
 | Verify | Worker, sweep job or client poll. Only a network `SUCCESS` is followed by reading the escrow back from the contract, and only an **authentic** escrow is applied. Payouts are confirmed only when the contract reports the contributor's assignment as `Paid`. |
@@ -266,15 +266,15 @@ deadline) equal the arguments of a `create_escrow` that BountyFlow itself prepar
 (`matches_prepared_creation`, `_escrow_is_authentic`). A foreign escrow is never reconciled into the database and
 never used to settle funding, payouts or refunds. Admin reconcile answers 409 `escrow_unverified`.
 
-Escrow ids are `sha256("bountyflow:bounty:" || uuid || 16 random bytes)`, stored in `bounty_escrows`, so they
-cannot be predicted from the public bounty id. If a foreign escrow still occupies the id before BountyFlow ever
-saw its own escrow (the id became visible after a prepare), the requester's next `FUND` moves the bounty to a
-fresh id, so squatting gains nothing.
+Escrow ids are `sha256("bountyflow:bounty:" || uuid || 16 random bytes)`, stored in `bountyflow_bounty_escrows`, so
+they cannot be predicted from the public bounty id. If a foreign escrow still occupies the id before BountyFlow ever
+saw its own escrow (the id became visible after a prepare), the requester's next `FUND` moves the bounty to a fresh
+id, so squatting gains nothing.
 
 ### Double-spend and duplicate-payout defences
 
-- Database: `payment_records` is unique per submission and per (bounty, contributor), and
-  `blockchain_transactions` is unique per (network, hash). The row lock on the transaction serialises
+- Database: `bountyflow_payment_records` is unique per submission and per (bounty, contributor), and
+  `bountyflow_blockchain_transactions` is unique per (network, hash). The row lock on the transaction serialises
   submit/verify. `CHECK paid_out + refunded <= funded` holds on escrows.
 - Contract: an address is paid at most once per escrow (`AlreadyPaid`, persistent storage that is archived but
   never deleted), positions are bounded, and all arithmetic is checked.
@@ -338,8 +338,8 @@ See `contracts/README.md` for the full interface.
     bytes before they reach PostgreSQL.
 - **SQL:** ORM and bound parameters only. The only `text()` calls are constant (`SELECT 1`, advisory locks).
   Free-text search escapes LIKE wildcards (SEC-07). The full-text search uses `websearch_to_tsquery`.
-- **JSONB:** `bounties.metadata` only holds validated `links` and server-set keys. Transaction and notification
-  metadata is server-generated.
+- **JSONB:** `bountyflow_bounties.metadata` only holds validated `links` and server-set keys. Transaction and
+  notification metadata is server-generated.
 - **Trace headers:** `X-Request-ID` / `X-Correlation-ID` are accepted only if they match
   `[A-Za-z0-9._:-]{8,64}`; otherwise they are replaced (SEC-11).
 
@@ -391,7 +391,7 @@ BountyFlow reads only **public** data from the GitHub REST API and never writes 
    user (10 and 20 per 15 minutes). If Redis is unavailable, linking fails **closed** (503).
 4. The verified **numeric GitHub id** is stored, not just the login, so renaming the GitHub account (or someone
    else later taking that username) cannot silently re-point an established link. A unique constraint on
-   `github_accounts.github_id` means one GitHub account maps to at most one BountyFlow account.
+   `bountyflow_github_accounts.github_id` means one GitHub account maps to at most one BountyFlow account.
 5. Gist responses are never cached — the user creates the gist moments before the check.
 
 OAuth is optional and only offered when both `GITHUB_CLIENT_ID` and `GITHUB_CLIENT_SECRET` are set. Its `state`

@@ -32,16 +32,18 @@ class FeedbackStatus(StrEnum):
 
 
 class Feedback(UUIDPrimaryKey, CreatedAt, Base):
-    __tablename__ = "feedback"
+    __tablename__ = "bountyflow_feedback"
     __table_args__ = (
         # The queue is always newest first: unfiltered, by status, and by kind.
-        Index("ix_feedback_created", "created_at"),
-        Index("ix_feedback_status_created", "status", "created_at"),
-        Index("ix_feedback_kind_created", "kind", "created_at"),
+        Index("ix_bountyflow_feedback_created", "created_at"),
+        Index("ix_bountyflow_feedback_status_created", "status", "created_at"),
+        Index("ix_bountyflow_feedback_kind_created", "kind", "created_at"),
     )
 
     # SET NULL rather than CASCADE: a closed account's note stays readable, without its author.
-    user_id: Mapped[uuid.UUID | None] = mapped_column(ForeignKey("users.id", ondelete="SET NULL"), index=True)
+    user_id: Mapped[uuid.UUID | None] = mapped_column(
+        ForeignKey("bountyflow_users.id", ondelete="SET NULL"), index=True
+    )
     # Only ever filled for a signed-out sender who chose to leave one.
     email: Mapped[str | None] = mapped_column(String(320))
     kind: Mapped[FeedbackKind] = mapped_column(str_enum(FeedbackKind, "feedback_kind"), nullable=False)
@@ -58,7 +60,9 @@ class Feedback(UUIDPrimaryKey, CreatedAt, Base):
     user_agent: Mapped[str | None] = mapped_column(String(400))
 
     handled_at: Mapped[datetime | None]
-    handled_by_id: Mapped[uuid.UUID | None] = mapped_column(ForeignKey("users.id", ondelete="SET NULL"))
+    handled_by_id: Mapped[uuid.UUID | None] = mapped_column(
+        ForeignKey("bountyflow_users.id", ondelete="SET NULL")
+    )
     handled_note: Mapped[str | None] = mapped_column(Text)
 
     sender: Mapped[User | None] = relationship(foreign_keys=[user_id], lazy="joined")

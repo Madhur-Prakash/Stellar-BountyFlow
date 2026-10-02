@@ -626,7 +626,7 @@ async def _plan(session: AsyncSession, user: User, bounty: Bounty, req: PrepareR
     raise ValidationFailed(f"Unsupported action {action}.")
 
 
-_TX_HASH_CONSTRAINT = "uq_blockchain_transactions_network_hash"
+_TX_HASH_CONSTRAINT = "uq_bountyflow_blockchain_transactions_network_hash"
 
 
 async def _reuse_identical_transaction(

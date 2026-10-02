@@ -46,9 +46,11 @@ class PullRequestVerification(StrEnum):
 class GitHubAccount(Timestamps, Base):
     """At most one GitHub account per BountyFlow user, and one BountyFlow user per GitHub account."""
 
-    __tablename__ = "github_accounts"
+    __tablename__ = "bountyflow_github_accounts"
 
-    user_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), primary_key=True)
+    user_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("bountyflow_users.id", ondelete="CASCADE"), primary_key=True
+    )
     github_id: Mapped[int] = mapped_column(BigInteger, nullable=False, unique=True)
     login: Mapped[str] = mapped_column(String(39), nullable=False)
     avatar_url: Mapped[str | None] = mapped_column(String(500))
@@ -64,17 +66,21 @@ class SubmissionPullRequest(UUIDPrimaryKey, Timestamps, Base):
     """A pull request linked to a submission and its latest verification snapshot. Open pull requests are
     re-checked on a schedule (worker), on demand, and on webhook deliveries until they are merged or closed."""
 
-    __tablename__ = "submission_pull_requests"
+    __tablename__ = "bountyflow_submission_pull_requests"
     __table_args__ = (
         UniqueConstraint(
-            "submission_id", "repo_owner", "repo_name", "number", name="uq_submission_pull_requests_pr"
+            "submission_id",
+            "repo_owner",
+            "repo_name",
+            "number",
+            name="uq_bountyflow_submission_pull_requests_pr",
         ),
-        Index("ix_submission_pull_requests_repo_number", "repo_owner", "repo_name", "number"),
-        Index("ix_submission_pull_requests_next_check_at", "next_check_at"),
+        Index("ix_bountyflow_submission_pull_requests_repo_number", "repo_owner", "repo_name", "number"),
+        Index("ix_bountyflow_submission_pull_requests_next_check_at", "next_check_at"),
     )
 
     submission_id: Mapped[uuid.UUID] = mapped_column(
-        ForeignKey("bounty_submissions.id", ondelete="CASCADE"), index=True
+        ForeignKey("bountyflow_bounty_submissions.id", ondelete="CASCADE"), index=True
     )
     url: Mapped[str] = mapped_column(String(500), nullable=False)
     # Lower-cased from the URL; GitHub owner and repository names are case-insensitive.

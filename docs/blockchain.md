@@ -22,8 +22,8 @@
 | `ESCROW_MIN_REVIEW_WINDOW_SECONDS` / `ESCROW_MAX_REVIEW_WINDOW_SECONDS` | `86400` / `2592000` (1 to 30 days). The minimum can go down to 60 for a Testnet test stack; production refuses anything under a day, and the contract enforces its own deployment minimum. |
 
 Escrows created on the v1 contract (`CDX6FN2MIGLHCMUJOU6C7FYP3QTNDL6BVIPEG4B5HAUEPU7NI4SFY4CY`) stay on it: every
-`bounty_escrows` row records its `contract_id` and `contract_version`, and each call goes to that contract. See
-[smart-contracts.md](smart-contracts.md#versions-and-routing).
+`bountyflow_bounty_escrows` row records its `contract_id` and `contract_version`, and each call goes to that
+contract. See [smart-contracts.md](smart-contracts.md#versions-and-routing).
 
 Settings are validated at startup. For example, `BLOCKCHAIN_MODE=testnet` with a mainnet passphrase is rejected.
 There is no offline or simulated mode: every chain action is a real Stellar transaction. The active network is served at `GET /api/v1/config/public` and
@@ -55,7 +55,8 @@ so it is single use even when verification fails. Nothing is ever submitted to t
 `POST /wallets/challenge {public_address, method?}` issues one (the method defaults to SEP-45 for `C…`
 addresses and SEP-10 otherwise); `POST /wallets/verify` answers it with `signed_challenge_xdr`, `signed_message`
 or `signed_authorization_entries`, plus the `wallet_app` that signed. The wallet row records which app verified
-it (`wallets.wallet_app`) and how (`wallets.proof_method`), and the wallet settings page shows both.
+it (`bountyflow_wallets.wallet_app`) and how (`bountyflow_wallets.proof_method`), and the wallet settings page shows
+both.
 
 An address can be verified by only one account per network. `POST /wallets/{id}/primary` chooses which verified
 wallet payouts go to.
@@ -117,7 +118,7 @@ Escrow payouts to a `C…` address and funding from one need nothing special fro
 
 A platform sponsor account (`STELLAR_SPONSOR_SECRET`, Testnet public key
 `GA2H4I5DEBKXY6AERRHVXO2YL2FDIQTJK7K65577H724EANX4TBQ4BGQ`) pays network fees so a contributor never needs XLM
-to be paid. Two mechanisms, both recorded in `sponsored_transactions`:
+to be paid. Two mechanisms, both recorded in `bountyflow_sponsored_transactions`:
 
 - **Fee bump** — the user's signed transaction is wrapped in a `FeeBumpTransaction` sourced by the sponsor. The
   inner transaction is untouched, so the hash BountyFlow tracks does not change, and both hashes find it on RPC
@@ -135,7 +136,7 @@ Policy, checked again at submission and failing closed (`app/blockchain/sponsors
 | Caller | Not the bounty's requester. Smart wallets are exempt: they can only transact through the sponsor at all. |
 | Trustlines | `change_trust` to an asset in `SPONSOR_ALLOWED_ASSETS`. |
 | Fee | At most `SPONSOR_MAX_FEE_STROOPS`. |
-| Daily cap | Per user and UTC day: `SPONSOR_DAILY_TX_LIMIT` transactions and `SPONSOR_DAILY_FEE_LIMIT_STROOPS`, counted from `sponsored_transactions` under a per-user advisory lock. |
+| Daily cap | Per user and UTC day: `SPONSOR_DAILY_TX_LIMIT` transactions and `SPONSOR_DAILY_FEE_LIMIT_STROOPS`, counted from `bountyflow_sponsored_transactions` under a per-user advisory lock. |
 | Balance | Above `SPONSOR_MIN_BALANCE_XLM`; the admin console warns below `SPONSOR_LOW_BALANCE_XLM`. |
 
 A refused fee bump never blocks the action: the user simply pays their own fee. A refused **relay** does stop the
@@ -152,7 +153,7 @@ A bounty is paid in one **reward asset**. Every amount BountyFlow stores carries
 Escrows move every asset the same way, through its **Stellar Asset Contract** (SAC): the token interface the
 escrow contract already calls for XLM.
 
-The **registry** (`reward_assets`, one row per network) decides what a bounty may be created in:
+The **registry** (`bountyflow_reward_assets`, one row per network) decides what a bounty may be created in:
 
 | Column | Meaning |
 |---|---|
@@ -214,7 +215,7 @@ prepare ──► SIGNATURE_REQUIRED ──sign in wallet──► submit ──
 1. **Prepare** (`POST /bounties/{id}/chain/prepare` or the `funding/` and `payouts/` aliases). The server validates
    domain rules and the caller's *verified* wallet, builds an `InvokeHostFunction` with that wallet as the source
    account, **simulates** it (so contract errors surface before signing), assembles footprint, auth and resource
-   fees, and records a `blockchain_transactions` row with the transaction hash.
+   fees, and records a `bountyflow_blockchain_transactions` row with the transaction hash.
 2. **Sign.** Freighter signs the exact XDR.
 3. **Submit** (`POST /transactions/{id}/submit`). The server checks that the signed envelope's hash equals the
    prepared hash (signatures do not change the hash), that its source is the expected wallet, and that a valid

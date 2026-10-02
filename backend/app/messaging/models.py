@@ -14,9 +14,11 @@ from app.db.base import Base, CreatedAt, UUIDPrimaryKey
 
 
 class OutboxEvent(UUIDPrimaryKey, CreatedAt, Base):
-    __tablename__ = "outbox_events"
+    __tablename__ = "bountyflow_outbox_events"
     __table_args__ = (
-        Index("ix_outbox_unpublished", "created_at", postgresql_where=text("published_at IS NULL")),
+        Index(
+            "ix_bountyflow_outbox_unpublished", "created_at", postgresql_where=text("published_at IS NULL")
+        ),
     )
 
     topic: Mapped[str] = mapped_column(String(80), nullable=False)
@@ -32,7 +34,7 @@ class OutboxEvent(UUIDPrimaryKey, CreatedAt, Base):
 class ProcessedEvent(CreatedAt, Base):
     """Records (consumer, event_id) pairs so redelivered Kafka messages are processed at most once."""
 
-    __tablename__ = "processed_events"
+    __tablename__ = "bountyflow_processed_events"
 
     consumer: Mapped[str] = mapped_column(String(64), primary_key=True)
     event_id: Mapped[uuid.UUID] = mapped_column(primary_key=True)

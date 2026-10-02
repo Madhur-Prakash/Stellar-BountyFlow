@@ -75,9 +75,10 @@ segment it needed. A gap in the archive is the single most common reason PITR fa
 Run every query in the verification section of
 [postgres-backup-restore.md](postgres-backup-restore.md) against the restored database, and record the results:
 
-- `alembic_version` matches the revision the deployed code expects.
-- Row counts for `users`, `bounties`, `bounty_escrows`, `blockchain_transactions`, `payment_records`, `wallets`,
-  `outbox_events`, `processed_events`, `audit_logs`.
+- `bountyflow_alembic_version` matches the revision the deployed code expects.
+- Row counts for `bountyflow_users`, `bountyflow_bounties`, `bountyflow_bounty_escrows`,
+  `bountyflow_blockchain_transactions`, `bountyflow_payment_records`, `bountyflow_wallets`,
+  `bountyflow_outbox_events`, `bountyflow_processed_events`, `bountyflow_audit_logs`.
 - The money invariant (`paid_out_amount + refunded_amount > funded_amount`) returns 0.
 - Every live escrow still has `onchain_bounty_id` and `contract_id`.
 

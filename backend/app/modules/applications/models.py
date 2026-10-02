@@ -30,21 +30,25 @@ class AssignmentStatus(StrEnum):
 
 
 class BountyApplication(UUIDPrimaryKey, Timestamps, Base):
-    __tablename__ = "bounty_applications"
+    __tablename__ = "bountyflow_bounty_applications"
     __table_args__ = (
         # At most one live application per contributor per bounty (enforced by the database).
         Index(
-            "uq_applications_one_active",
+            "uq_bountyflow_applications_one_active",
             "bounty_id",
             "contributor_id",
             unique=True,
             postgresql_where="status IN ('PENDING', 'ACCEPTED')",
         ),
-        Index("ix_applications_bounty_status", "bounty_id", "status"),
+        Index("ix_bountyflow_applications_bounty_status", "bounty_id", "status"),
     )
 
-    bounty_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("bounties.id", ondelete="CASCADE"), index=True)
-    contributor_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), index=True)
+    bounty_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("bountyflow_bounties.id", ondelete="CASCADE"), index=True
+    )
+    contributor_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("bountyflow_users.id", ondelete="CASCADE"), index=True
+    )
     cover_message: Mapped[str] = mapped_column(Text, nullable=False)
     relevant_experience: Mapped[str | None] = mapped_column(Text)
     work_samples: Mapped[list[str]] = mapped_column(ARRAY(String(500)), nullable=False, server_default="{}")
@@ -52,7 +56,9 @@ class BountyApplication(UUIDPrimaryKey, Timestamps, Base):
         str_enum(ApplicationStatus, "application_status"), nullable=False, default=ApplicationStatus.PENDING
     )
     review_note: Mapped[str | None] = mapped_column(Text)
-    reviewed_by_id: Mapped[uuid.UUID | None] = mapped_column(ForeignKey("users.id", ondelete="SET NULL"))
+    reviewed_by_id: Mapped[uuid.UUID | None] = mapped_column(
+        ForeignKey("bountyflow_users.id", ondelete="SET NULL")
+    )
     reviewed_at: Mapped[datetime | None]
 
     bounty: Mapped[Bounty] = relationship(lazy="joined", innerjoin=True)
@@ -60,10 +66,10 @@ class BountyApplication(UUIDPrimaryKey, Timestamps, Base):
 
 
 class BountyAssignment(UUIDPrimaryKey, Base):
-    __tablename__ = "bounty_assignments"
+    __tablename__ = "bountyflow_bounty_assignments"
     __table_args__ = (
         Index(
-            "uq_assignments_one_live",
+            "uq_bountyflow_assignments_one_live",
             "bounty_id",
             "contributor_id",
             unique=True,
@@ -71,10 +77,14 @@ class BountyAssignment(UUIDPrimaryKey, Base):
         ),
     )
 
-    bounty_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("bounties.id", ondelete="CASCADE"), index=True)
-    contributor_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), index=True)
+    bounty_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("bountyflow_bounties.id", ondelete="CASCADE"), index=True
+    )
+    contributor_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("bountyflow_users.id", ondelete="CASCADE"), index=True
+    )
     application_id: Mapped[uuid.UUID] = mapped_column(
-        ForeignKey("bounty_applications.id", ondelete="CASCADE"), unique=True
+        ForeignKey("bountyflow_bounty_applications.id", ondelete="CASCADE"), unique=True
     )
     status: Mapped[AssignmentStatus] = mapped_column(
         str_enum(AssignmentStatus, "assignment_status"), nullable=False, default=AssignmentStatus.ACTIVE

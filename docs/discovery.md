@@ -20,8 +20,8 @@ contributor has shown they work on.
 ## Saved searches
 
 A saved search stores a marketplace query exactly as the user left it: the text, every filter, and the sort
-(`saved_searches.filters`, a JSONB document validated by `SavedSearchFilters`). That schema **subclasses the
-marketplace's own `MarketplaceFilters`**, so a filter added to the marketplace — the asset filter, for example —
+(`bountyflow_saved_searches.filters`, a JSONB document validated by `SavedSearchFilters`). That schema **subclasses
+the marketplace's own `MarketplaceFilters`**, so a filter added to the marketplace — the asset filter, for example —
 is captured by saved searches with no change here.
 
 One field differs. A saved deadline is a **rolling window** (`deadline_within_days`) rather than the fixed
@@ -59,9 +59,9 @@ processed-event marker, so the handler is idempotent and can never half-apply.
 
 Each saved search has a frequency (`INSTANT`, `DAILY`, `WEEKLY`, `OFF`), a pause switch, and two channels
 (in-app, email). Channels are subject to the user's notification preferences: the email worker re-checks
-`SAVED_SEARCH_MATCH` against `notification_preferences` at send time, so the global email switch and the per-type
-switch both still apply. Choosing email on a saved search is an explicit opt-in, so it turns that type's email
-preference on.
+`SAVED_SEARCH_MATCH` against `bountyflow_notification_preferences` at send time, so the global email switch and the
+per-type switch both still apply. Choosing email on a saved search is an explicit opt-in, so it turns that type's
+email preference on.
 
 | Frequency | What happens |
 |---|---|
@@ -111,9 +111,9 @@ raw PMI does. Only positive associations are kept, each node keeps its 20 strong
 stored in both directions so a lookup is one indexed read.
 
 The graph is rebuilt from source on a schedule (`DISCOVERY_GRAPH_REFRESH_SECONDS`, 30 minutes by default) by the
-`skill-graph` worker job, written to `skill_nodes` / `skill_edges` under a Postgres advisory lock, and cached in
-Redis for six hours. Readers take the Redis copy, fall back to the tables, and only compute in memory on a fresh
-install before the worker's first run.
+`skill-graph` worker job, written to `bountyflow_skill_nodes` / `bountyflow_skill_edges` under a Postgres advisory
+lock, and cached in Redis for six hours. Readers take the Redis copy, fall back to the tables, and only compute in
+memory on a fresh install before the worker's first run.
 
 ## Ranking
 
@@ -201,5 +201,5 @@ Both take the usual Redis job lock, so only one worker replica runs each at a ti
 | `DISCOVERY_GRAPH_REFRESH_SECONDS` | `1800` | How often the skill graph is rebuilt. |
 | `DISCOVERY_DIGEST_TRIGGER_ENABLED` | `false` | Enables `POST /admin/discovery/digests/run` (admins only), which sends pending digests immediately. The route answers 404 while it is off, so it does not exist in normal deployments. It is there for operators and for the end-to-end suite. |
 
-Redis keys: `bf:v1:discovery:skill-graph` (the graph, 6 h) and `bf:v1:discovery:recs:<user>:g<gen>:<digest>`
+Redis keys: `bountyflow:v1:discovery:skill-graph` (the graph, 6 h) and `bountyflow:v1:discovery:recs:<user>:g<gen>:<digest>`
 (a user's ranked list, 60 s).

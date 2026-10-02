@@ -67,8 +67,8 @@ must request a new export. Every unsubscribe link already emailed stops working.
 curl -s -o /dev/null -w '%{http_code}\n' -b "bf_access=$OLD" http://127.0.0.1:8000/api/v1/users/me   # 401
 ```
 
-Check `user_sessions` is not the source of truth here — the JWT itself no longer verifies, so the session row is
-never reached.
+Check `bountyflow_user_sessions` is not the source of truth here — the JWT itself no longer verifies, so the session
+row is never reached.
 
 **There is no overlap window.** The verifier holds one secret, and `JWT_ALGORITHM` is pinned to HMAC precisely so
 no asymmetric or `none` confusion is possible. Rotate during a quiet period, or accept the mass sign-out.
@@ -81,7 +81,7 @@ challenges. It never holds funds and nothing it signs is ever submitted to the n
 **Impact:** challenges are issued for one user and one address, stored in Redis, and consumed on the first
 verification attempt (`GETDEL`). A rotation invalidates challenges issued with the old key, so anyone mid-flow
 sees the verification fail and starts again. Already-verified wallets are unaffected: the proof was checked at
-verification time and the result is a row in `wallets`.
+verification time and the result is a row in `bountyflow_wallets`.
 
 SEP-45 (smart wallets) also uses this key for the server's own authorization entry in the challenge pair, so the
 same applies there.
@@ -155,7 +155,7 @@ the API says so.
    references it.
 5. Only after draining, remove the old seed from every store.
 
-`sponsored_transactions` keeps the historical rows; nothing needs migrating. The daily caps
+`bountyflow_sponsored_transactions` keeps the historical rows; nothing needs migrating. The daily caps
 (`SPONSOR_DAILY_TX_LIMIT`, `SPONSOR_DAILY_FEE_LIMIT_STROOPS`) are per user and per UTC day, not per sponsor, so
 they are unaffected.
 
@@ -316,7 +316,8 @@ the worker logs stop reporting rate-limit backoff.
 ### `GITHUB_CLIENT_SECRET`
 
 **Impact:** "Connect with GitHub" (OAuth) stops working while the old and new values disagree. Gist proof is
-unaffected, and accounts already linked stay linked — `github_accounts` records the method and the proof URL.
+unaffected, and accounts already linked stay linked — `bountyflow_github_accounts` records the method and the proof
+URL.
 
 **Steps:** in the OAuth app at <https://github.com/settings/developers>, generate a new client secret, set
 `GITHUB_CLIENT_SECRET`, restart the API, then delete the old secret in GitHub. The callback stays
@@ -341,7 +342,7 @@ few rejected deliveries; they are redelivered.
 **Impact:** every outbound email stops — verification, password reset, notifications, data-export ready,
 deletion notices. The `email-worker` consumer's handler fails and retries with backoff; after
 `WORKER_MAX_RETRIES` the message goes to `email.events.dlq` or `notification.events.dlq`. Emails are unique per
-idempotency key in `email_deliveries`, so a replay after the fix sends each one exactly once.
+idempotency key in `bountyflow_email_deliveries`, so a replay after the fix sends each one exactly once.
 
 **Steps**
 
@@ -352,7 +353,7 @@ idempotency key in `email_deliveries`, so a replay after the fix sends each one 
 5. Replay anything that dead-lettered during the gap ([kafka-lag-and-dlq.md](kafka-lag-and-dlq.md)).
 
 **Verify:** trigger one real email (a password reset for a test account) and confirm it arrives. Check
-`email_deliveries` for the new row.
+`bountyflow_email_deliveries` for the new row.
 
 ## Database credentials
 
@@ -549,7 +550,7 @@ Do not let the first real dispute vote be the first time these keys have voted.
 3. Confirm:
    - the first vote records but does not execute (`bounty.dispute_vote_recorded`, "1 of 2 arbiter approvals");
    - the second vote executes the resolution and the funds move;
-   - `dispute_votes` has one row per arbiter and dispute round, and the escrow's `dispute_round` advanced;
+   - `bountyflow_dispute_votes` has one row per arbiter and dispute round, and the escrow's `dispute_round` advanced;
    - each holder could actually sign with their own device, unaided.
 
 ```bash
@@ -569,7 +570,7 @@ stellar contract invoke --id "$SOROBAN_CONTRACT_ID" \
 
    ```sql
    SELECT bounty_id, onchain_bounty_id, state, arbiter_addresses, arbiter_threshold
-   FROM bounty_escrows
+   FROM bountyflow_bounty_escrows
    WHERE state IN ('AWAITING_FUNDING', 'FUNDED', 'CANCEL_REQUESTED', 'DISPUTED')
      AND '<departing G…>' = ANY (arbiter_addresses);
    ```

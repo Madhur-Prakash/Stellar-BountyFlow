@@ -45,26 +45,32 @@ class ChainCheck(StrEnum):
 
 
 class CompletionAttestation(UUIDPrimaryKey, Timestamps, Base):
-    __tablename__ = "completion_attestations"
+    __tablename__ = "bountyflow_completion_attestations"
     __table_args__ = (
         # One completion per contributor per bounty, however many transfers paid it (milestones, batch legs).
-        UniqueConstraint("bounty_id", "contributor_id", name="uq_completion_attestations_bounty_contributor"),
-        UniqueConstraint("network", "contract_id", "onchain_id", name="uq_completion_attestations_onchain"),
+        UniqueConstraint(
+            "bounty_id", "contributor_id", name="uq_bountyflow_completion_attestations_bounty_contributor"
+        ),
+        UniqueConstraint(
+            "network", "contract_id", "onchain_id", name="uq_bountyflow_completion_attestations_onchain"
+        ),
         CheckConstraint("amount > 0", name="amount_positive"),
         CheckConstraint("payments_count > 0", name="payments_counted"),
-        Index("ix_completion_attestations_contributor_status", "contributor_id", "status"),
-        Index("ix_completion_attestations_due", "status", "next_attempt_at"),
-        Index("ix_completion_attestations_checked", "status", "chain_checked_at"),
+        Index("ix_bountyflow_completion_attestations_contributor_status", "contributor_id", "status"),
+        Index("ix_bountyflow_completion_attestations_due", "status", "next_attempt_at"),
+        Index("ix_bountyflow_completion_attestations_checked", "status", "chain_checked_at"),
     )
 
-    bounty_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("bounties.id", ondelete="RESTRICT"), index=True)
-    contributor_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("users.id", ondelete="RESTRICT"))
+    bounty_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("bountyflow_bounties.id", ondelete="RESTRICT"), index=True
+    )
+    contributor_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("bountyflow_users.id", ondelete="RESTRICT"))
     assignment_id: Mapped[uuid.UUID | None] = mapped_column(
-        ForeignKey("bounty_assignments.id", ondelete="SET NULL")
+        ForeignKey("bountyflow_bounty_assignments.id", ondelete="SET NULL")
     )
     # The transaction whose verification completed the position (the last payment of the completion).
     payout_transaction_id: Mapped[uuid.UUID] = mapped_column(
-        ForeignKey("blockchain_transactions.id", ondelete="RESTRICT"), index=True
+        ForeignKey("bountyflow_blockchain_transactions.id", ondelete="RESTRICT"), index=True
     )
     network: Mapped[str] = mapped_column(String(16), nullable=False)
     contract_id: Mapped[str] = mapped_column(String(56), nullable=False)  # the attestation registry
@@ -99,7 +105,9 @@ class CompletionAttestation(UUIDPrimaryKey, Timestamps, Base):
     revocation_reason: Mapped[str | None] = mapped_column(String(200))
     revocation_tx_hash: Mapped[str | None] = mapped_column(String(64))
     revoked_at: Mapped[datetime | None]
-    revoked_by_id: Mapped[uuid.UUID | None] = mapped_column(ForeignKey("users.id", ondelete="SET NULL"))
+    revoked_by_id: Mapped[uuid.UUID | None] = mapped_column(
+        ForeignKey("bountyflow_users.id", ondelete="SET NULL")
+    )
 
     chain_check: Mapped[ChainCheck | None] = mapped_column(str_enum(ChainCheck, "attestation_chain_check"))
     chain_checked_at: Mapped[datetime | None]

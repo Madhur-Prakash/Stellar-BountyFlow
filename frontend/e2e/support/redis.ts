@@ -54,12 +54,12 @@ return n`
 export const E2E_REDIS_URL = REDIS_URL
 
 /**
- * Clears the API's fixed-window rate-limit counters (`bf:v1:rl:*`) and returns how many it removed, or null
+ * Clears the API's fixed-window rate-limit counters (`bountyflow:v1:rl:*`) and returns how many it removed, or null
  * when Redis could not be reached.
  */
 export async function resetRateLimits(): Promise<number | null> {
   try {
-    const reply = await command([['EVAL', DELETE_BY_PATTERN, '0', 'bf:v1:rl:*']])
+    const reply = await command([['EVAL', DELETE_BY_PATTERN, '0', 'bountyflow:v1:rl:*']])
     const cleared = Number(reply.trim().replace(/^:/, ''))
     return Number.isFinite(cleared) ? cleared : 0
   } catch (e) {

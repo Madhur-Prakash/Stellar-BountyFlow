@@ -47,14 +47,16 @@ class EmailStatus(StrEnum):
 
 
 class Notification(UUIDPrimaryKey, CreatedAt, Base):
-    __tablename__ = "notifications"
+    __tablename__ = "bountyflow_notifications"
     __table_args__ = (
-        Index("ix_notifications_user_created", "user_id", "created_at"),
+        Index("ix_bountyflow_notifications_user_created", "user_id", "created_at"),
         # Idempotency: a domain event produces at most one notification per recipient.
-        UniqueConstraint("user_id", "source_event_id", name="uq_notifications_user_event"),
+        UniqueConstraint("user_id", "source_event_id", name="uq_bountyflow_notifications_user_event"),
     )
 
-    user_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), index=True)
+    user_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("bountyflow_users.id", ondelete="CASCADE"), index=True
+    )
     notification_type: Mapped[NotificationType] = mapped_column(
         str_enum(NotificationType, "notification_type"), nullable=False
     )
@@ -67,9 +69,11 @@ class Notification(UUIDPrimaryKey, CreatedAt, Base):
 
 
 class NotificationPreference(Timestamps, Base):
-    __tablename__ = "notification_preferences"
+    __tablename__ = "bountyflow_notification_preferences"
 
-    user_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), primary_key=True)
+    user_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("bountyflow_users.id", ondelete="CASCADE"), primary_key=True
+    )
     email_enabled: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
     # {"APPLICATION_RECEIVED": {"in_app": true, "email": false}, ...}; missing keys use defaults.
     types: Mapped[dict[str, Any]] = mapped_column(JSONB, nullable=False, default=dict)
@@ -78,10 +82,12 @@ class NotificationPreference(Timestamps, Base):
 class EmailDelivery(UUIDPrimaryKey, CreatedAt, Base):
     """Outgoing email log. Bodies are rendered at send time; secrets (tokens) are never persisted here."""
 
-    __tablename__ = "email_deliveries"
-    __table_args__ = (UniqueConstraint("idempotency_key", name="uq_email_deliveries_idempotency"),)
+    __tablename__ = "bountyflow_email_deliveries"
+    __table_args__ = (UniqueConstraint("idempotency_key", name="uq_bountyflow_email_deliveries_idempotency"),)
 
-    user_id: Mapped[uuid.UUID | None] = mapped_column(ForeignKey("users.id", ondelete="SET NULL"), index=True)
+    user_id: Mapped[uuid.UUID | None] = mapped_column(
+        ForeignKey("bountyflow_users.id", ondelete="SET NULL"), index=True
+    )
     to_address: Mapped[str] = mapped_column(String(320), nullable=False)
     template: Mapped[str] = mapped_column(String(64), nullable=False)
     subject: Mapped[str] = mapped_column(String(200), nullable=False)

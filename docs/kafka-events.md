@@ -4,8 +4,8 @@
 [Documentation](README.md) &middot; [Readme](../README.md) &middot; [Architecture](architecture.md) &middot; [Database](database.md) &middot; [Runbooks](runbooks/README.md)
 <!-- nav -->
 
-Domain events are written to the **transactional outbox** (`outbox_events`) in the same database transaction as
-the state change. The worker's **outbox relay** publishes them to Kafka. Consumers apply their effects
+Domain events are written to the **transactional outbox** (`bountyflow_outbox_events`) in the same database
+transaction as the state change. The worker's **outbox relay** publishes them to Kafka. Consumers apply their effects
 idempotently.
 
 ## Topics
@@ -100,7 +100,7 @@ idempotency tables. This is useful for minimal local setups and tests.
 | Attestation pipeline | 10 s | Signs, submits and verifies queued completion attestations and revocations with the platform attester key. Each step commits before any chain call, so no row lock is held across network I/O. |
 | Attestation backfill | 10 min | Queues attestations for completions that have none (payouts settled before the feature was switched on). |
 | Attestation reconciliation | 30 min | Re-reads confirmed attestations from the registry contract, flags drift and applies revocations made on-chain elsewhere. |
-| Skill graph | 30 min (`DISCOVERY_GRAPH_REFRESH_SECONDS`) | Rebuilds the skill co-occurrence graph from listed bounties and active profiles into `skill_nodes` / `skill_edges`, and caches it in Redis. |
+| Skill graph | 30 min (`DISCOVERY_GRAPH_REFRESH_SECONDS`) | Rebuilds the skill co-occurrence graph from listed bounties and active profiles into `bountyflow_skill_nodes` / `bountyflow_skill_edges`, and caches it in Redis. |
 | GitHub pull requests | 30 s | Re-checks linked pull requests that are due, stops re-checking ones on closed submissions, and stages `submission.pull_request_updated` when one becomes merged or closed. Skips the batch entirely while GitHub's rate limit is backing off. |
 | Saved-search digests | 5 min | Sends the daily and weekly saved-search digests that are due; each frequency runs in its own transaction. |
 | Asset operations | 30 s | Verifies submitted trustline and SAC-deployment transactions. |

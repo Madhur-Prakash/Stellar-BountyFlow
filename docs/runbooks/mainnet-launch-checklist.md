@@ -73,8 +73,8 @@ Each entry looks like this (the shape is described in the file's own `_readme`):
 The `testnet` list in that file is a record only — the guard never consults it, and its entries carry
 `"audit": null`. Only the `mainnet` list gates startup.
 
-Escrows created on an older escrow contract keep serving on it (`bounty_escrows.contract_id`). The guard checks
-the configured id for **new** escrows and leaves per-escrow ids alone — see
+Escrows created on an older escrow contract keep serving on it (`bountyflow_bounty_escrows.contract_id`). The guard
+checks the configured id for **new** escrows and leaves per-escrow ids alone — see
 [contract-upgrade.md](contract-upgrade.md).
 
 ### Arbiters
@@ -197,8 +197,8 @@ The sponsor spends real XLM, so the caps must be deliberate rather than the deve
 - [ ] The sanctions list source is real, reachable, and refreshing: `bountyflow_sanctions_list_configured` is 1,
       `bountyflow_sanctions_list_error` is 0, and `bountyflow_sanctions_list_age_seconds` is under
       `SANCTIONS_LIST_REFRESH_SECONDS`.
-- [ ] Terms and privacy **versions are published** and recorded in `legal_document_versions`, and acceptance is
-      being written to `legal_acceptances`.
+- [ ] Terms and privacy **versions are published** and recorded in `bountyflow_legal_document_versions`, and
+      acceptance is being written to `bountyflow_legal_acceptances`.
 - [ ] The data export flow works end to end on the mainnet deployment: request, build, download,
       and the link expires after `DATA_EXPORT_TTL_HOURS`.
 - [ ] The account deletion flow works, and `ACCOUNT_DELETION_GRACE_DAYS` matches what the privacy policy says.

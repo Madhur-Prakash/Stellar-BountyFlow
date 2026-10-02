@@ -1262,7 +1262,7 @@ async def _record_vote(
             round=vote_round,
             **values,
         )
-        .on_conflict_do_update(constraint="uq_dispute_votes_arbiter_round", set_=values)
+        .on_conflict_do_update(constraint="uq_bountyflow_dispute_votes_arbiter_round", set_=values)
     )
 
 

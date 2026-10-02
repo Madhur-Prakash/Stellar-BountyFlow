@@ -1,7 +1,7 @@
 # Chain versus database drift
 
-The escrow contract is authoritative. `bounty_escrows` is a mirror kept for the UI and for analytics. When they
-disagree, the contract is right and the database is wrong — but *how* it is wrong decides what you do, and one
+The escrow contract is authoritative. `bountyflow_bounty_escrows` is a mirror kept for the UI and for analytics. When
+they disagree, the contract is right and the database is wrong — but *how* it is wrong decides what you do, and one
 case must never be "fixed" by reconciling.
 
 Start at SEV1 and downgrade once you know what drifted.
@@ -71,8 +71,8 @@ SELECT e.bounty_id,
        e.refunded_amount,
        e.last_reconciled_at,
        e.updated_at
-FROM bounty_escrows e
-JOIN bounties b ON b.id = e.bounty_id
+FROM bountyflow_bounty_escrows e
+JOIN bountyflow_bounties b ON b.id = e.bounty_id
 WHERE e.state IN ('AWAITING_FUNDING', 'FUNDED', 'CANCEL_REQUESTED', 'DISPUTED')
 ORDER BY e.last_reconciled_at NULLS FIRST
 LIMIT 50;
@@ -81,7 +81,7 @@ LIMIT 50;
 ```sql
 -- Every chain transaction for one bounty, newest first. Run this before deciding anything.
 SELECT id, transaction_type, status, transaction_hash, submitted_at, confirmed_at, failure_reason
-FROM blockchain_transactions
+FROM bountyflow_blockchain_transactions
 WHERE bounty_id = '<bounty uuid>'
 ORDER BY created_at DESC;
 ```
@@ -90,10 +90,10 @@ ORDER BY created_at DESC;
 -- Escrows whose money has moved on-chain but which have no confirmed transaction recorded: the classic
 -- "verification was missed" shape.
 SELECT e.bounty_id, e.onchain_bounty_id, e.state, e.funded_amount, e.paid_out_amount
-FROM bounty_escrows e
+FROM bountyflow_bounty_escrows e
 WHERE e.state IN ('FUNDED', 'CANCEL_REQUESTED', 'DISPUTED')
   AND NOT EXISTS (
-    SELECT 1 FROM blockchain_transactions t
+    SELECT 1 FROM bountyflow_blockchain_transactions t
     WHERE t.bounty_id = e.bounty_id AND t.status = 'CONFIRMED'
   );
 ```
@@ -151,7 +151,7 @@ Afterwards:
 
 ```sql
 SELECT state, funded_amount, paid_out_amount, refunded_amount, last_reconciled_at
-FROM bounty_escrows WHERE bounty_id = '<bounty uuid>';
+FROM bountyflow_bounty_escrows WHERE bounty_id = '<bounty uuid>';
 ```
 
 and wait for the next audit run (up to 10 minutes) to see `bountyflow_reconciliation_mismatches` drop.
@@ -185,7 +185,7 @@ Do this instead:
 
    ```sql
    SELECT id, transaction_type, status, transaction_hash, created_at
-   FROM blockchain_transactions
+   FROM bountyflow_blockchain_transactions
    WHERE bounty_id = '<bounty uuid>'
    ORDER BY created_at;
    ```
@@ -214,4 +214,4 @@ Escalate immediately, without waiting:
 - Any mismatch that reappears after a successful reconcile. Something is writing the wrong value on every cycle.
 
 Take with you: the `reconciliation` block from `/admin/ops/status`, the `get_escrow` output, the
-`blockchain_transactions` rows for the bounty, and the `escrow_reconciliation_mismatch` log lines.
+`bountyflow_blockchain_transactions` rows for the bounty, and the `escrow_reconciliation_mismatch` log lines.

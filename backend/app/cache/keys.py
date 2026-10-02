@@ -1,6 +1,6 @@
 """Central cache-key strategy and TTLs.
 
-All keys are namespaced ``bf:v1:``. Marketplace list results embed a *generation* number; bumping the
+All keys are namespaced ``bountyflow:v1:``. Marketplace list results embed a *generation* number; bumping the
 generation invalidates every cached list query in O(1) without scanning keys.
 """
 
@@ -10,7 +10,7 @@ import hashlib
 import json
 from typing import Any
 
-PREFIX = "bf:v1"
+PREFIX = "bountyflow:v1"
 
 TTL_MARKETPLACE = 45
 TTL_BOUNTY_DETAIL = 45

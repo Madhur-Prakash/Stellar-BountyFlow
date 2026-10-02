@@ -153,7 +153,7 @@ Useful SQL for a quick read of the state:
 ```sql
 -- Transactions submitted and not yet resolved, oldest first.
 SELECT id, bounty_id, transaction_type, status, submitted_at, transaction_hash
-FROM blockchain_transactions
+FROM bountyflow_blockchain_transactions
 WHERE status = 'SUBMITTED'
 ORDER BY submitted_at
 LIMIT 20;
@@ -162,13 +162,13 @@ LIMIT 20;
 SELECT count(*) FILTER (WHERE published_at IS NULL)                          AS unpublished,
        count(*) FILTER (WHERE published_at IS NOT NULL AND retry_count >= 25) AS dead_lettered,
        min(created_at) FILTER (WHERE published_at IS NULL)                    AS oldest_unpublished
-FROM outbox_events;
+FROM bountyflow_outbox_events;
 
 -- Live escrows and what they hold, by asset.
 SELECT asset_identifier,
        count(*) AS escrows,
        sum(funded_amount - paid_out_amount - refunded_amount) AS held
-FROM bounty_escrows
+FROM bountyflow_bounty_escrows
 WHERE state IN ('AWAITING_FUNDING', 'FUNDED', 'CANCEL_REQUESTED', 'DISPUTED')
 GROUP BY asset_identifier;
 ```

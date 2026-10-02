@@ -22,6 +22,7 @@ from typing import Any, Protocol
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.cache import keys
 from app.cache.redis import get_redis
 from app.core.config import get_settings
 from app.core.exceptions import Conflict, Forbidden, NotFound, ValidationFailed
@@ -40,7 +41,7 @@ BLOCKED_CODE = "screening_blocked"
 
 WALLET_VERIFICATION = "wallet_verification"
 PASSKEY_DEPLOYMENT = "passkey_deployment"
-LIST_STATUS_KEY = "bf:v1:ops:sanctions-list"
+LIST_STATUS_KEY = f"{keys.PREFIX}:ops:sanctions-list"
 
 
 def chain_context(action: str) -> str:

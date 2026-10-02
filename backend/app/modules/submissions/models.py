@@ -34,19 +34,23 @@ class OnchainReviewState(StrEnum):
 
 
 class BountySubmission(UUIDPrimaryKey, Timestamps, Base):
-    __tablename__ = "bounty_submissions"
+    __tablename__ = "bountyflow_bounty_submissions"
     __table_args__ = (
         Index(
-            "ix_bounty_submissions_claimable",
+            "ix_bountyflow_bounty_submissions_claimable",
             "claimable_at",
             postgresql_where=text("onchain_state = 'PENDING' AND claim_notified_at IS NULL"),
         ),
     )
 
-    bounty_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("bounties.id", ondelete="CASCADE"), index=True)
-    contributor_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), index=True)
+    bounty_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("bountyflow_bounties.id", ondelete="CASCADE"), index=True
+    )
+    contributor_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("bountyflow_users.id", ondelete="CASCADE"), index=True
+    )
     assignment_id: Mapped[uuid.UUID] = mapped_column(
-        ForeignKey("bounty_assignments.id", ondelete="CASCADE"), index=True
+        ForeignKey("bountyflow_bounty_assignments.id", ondelete="CASCADE"), index=True
     )
     version: Mapped[int] = mapped_column(Integer, nullable=False, default=1)
     description: Mapped[str] = mapped_column(Text, nullable=False)
@@ -56,12 +60,14 @@ class BountySubmission(UUIDPrimaryKey, Timestamps, Base):
         str_enum(SubmissionStatus, "submission_status"), nullable=False, default=SubmissionStatus.SUBMITTED
     )
     review_feedback: Mapped[str | None] = mapped_column(Text)
-    reviewer_id: Mapped[uuid.UUID | None] = mapped_column(ForeignKey("users.id", ondelete="SET NULL"))
+    reviewer_id: Mapped[uuid.UUID | None] = mapped_column(
+        ForeignKey("bountyflow_users.id", ondelete="SET NULL")
+    )
     reviewed_at: Mapped[datetime | None]
     # Escrow v2: the milestone this work is for, and the mirror of its on-chain review clock (`submit_work`).
     # onchain_state / claimable_at are only written from verified contract state.
     milestone_id: Mapped[uuid.UUID | None] = mapped_column(
-        ForeignKey("bounty_milestones.id", ondelete="SET NULL"), index=True
+        ForeignKey("bountyflow_bounty_milestones.id", ondelete="SET NULL"), index=True
     )
     onchain_state: Mapped[OnchainReviewState | None] = mapped_column(
         str_enum(OnchainReviewState, "onchain_review_state")
@@ -78,11 +84,11 @@ class BountySubmission(UUIDPrimaryKey, Timestamps, Base):
 class SubmissionRevision(UUIDPrimaryKey, CreatedAt, Base):
     """Immutable snapshot of each submitted version."""
 
-    __tablename__ = "submission_revisions"
+    __tablename__ = "bountyflow_submission_revisions"
     __table_args__ = (UniqueConstraint("submission_id", "version"),)
 
     submission_id: Mapped[uuid.UUID] = mapped_column(
-        ForeignKey("bounty_submissions.id", ondelete="CASCADE"), index=True
+        ForeignKey("bountyflow_bounty_submissions.id", ondelete="CASCADE"), index=True
     )
     version: Mapped[int] = mapped_column(Integer, nullable=False)
     description: Mapped[str] = mapped_column(Text, nullable=False)

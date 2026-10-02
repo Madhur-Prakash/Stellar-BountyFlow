@@ -55,17 +55,17 @@ The data inventory, because every later section depends on it. "Personal data" i
 
 | Category | Tables | Contains | Source |
 |---|---|---|---|
-| Identity | `users`, `user_sessions`, `email_verification_tokens`, `password_reset_tokens` | Email, display name, username, password hash, IP and user agent per session | The user |
-| Profile | `users`, `user_skills` | Bio, links, skills, interests, avatar URL | The user |
-| Wallet links | `wallets`, `passkey_wallets` | Stellar addresses (`G…`), smart-wallet contract addresses (`C…`), WebAuthn credential ids | The user, proven by signature |
-| Third-party identity | `github_accounts`, `submission_pull_requests` | GitHub login, numeric id, avatar, PR metadata and verification snapshots | GitHub's public API |
-| Marketplace content | `bounties`, `bounty_milestones`, `bounty_applications`, `bounty_submissions`, `submission_revisions`, `bounty_qa_posts` | Free text written by users | The user |
-| Financial | `bounty_escrows`, `blockchain_transactions`, `payment_records`, `sponsored_transactions` | Amounts, addresses, transaction hashes, ledger sequences | The chain, verified |
-| Reputation | `completion_attestations`, `verifiable_credentials` | Addresses, amounts, completion facts, signed credential documents | Derived from verified payouts |
-| Disputes | `disputes`, `dispute_evidence`, `dispute_votes` | Free text, evidence URLs, arbiter decisions | The parties and moderators |
-| Communications | `notifications`, `email_deliveries`, `notification_preferences` | Titles, messages, recipient addresses | Generated |
-| Discovery | `saved_searches`, `saved_search_matches` | Search filters, alert settings | The user |
-| Governance | `audit_logs`, `outbox_events`, `legal_acceptances`, `screening_entries` | Who did what and when | Generated |
+| Identity | `bountyflow_users`, `bountyflow_user_sessions`, `bountyflow_email_verification_tokens`, `bountyflow_password_reset_tokens` | Email, display name, username, password hash, IP and user agent per session | The user |
+| Profile | `bountyflow_users`, `bountyflow_user_skills` | Bio, links, skills, interests, avatar URL | The user |
+| Wallet links | `bountyflow_wallets`, `bountyflow_passkey_wallets` | Stellar addresses (`G…`), smart-wallet contract addresses (`C…`), WebAuthn credential ids | The user, proven by signature |
+| Third-party identity | `bountyflow_github_accounts`, `bountyflow_submission_pull_requests` | GitHub login, numeric id, avatar, PR metadata and verification snapshots | GitHub's public API |
+| Marketplace content | `bountyflow_bounties`, `bountyflow_bounty_milestones`, `bountyflow_bounty_applications`, `bountyflow_bounty_submissions`, `bountyflow_submission_revisions`, `bountyflow_bounty_qa_posts` | Free text written by users | The user |
+| Financial | `bountyflow_bounty_escrows`, `bountyflow_blockchain_transactions`, `bountyflow_payment_records`, `bountyflow_sponsored_transactions` | Amounts, addresses, transaction hashes, ledger sequences | The chain, verified |
+| Reputation | `bountyflow_completion_attestations`, `bountyflow_verifiable_credentials` | Addresses, amounts, completion facts, signed credential documents | Derived from verified payouts |
+| Disputes | `bountyflow_disputes`, `bountyflow_dispute_evidence`, `bountyflow_dispute_votes` | Free text, evidence URLs, arbiter decisions | The parties and moderators |
+| Communications | `bountyflow_notifications`, `bountyflow_email_deliveries`, `bountyflow_notification_preferences` | Titles, messages, recipient addresses | Generated |
+| Discovery | `bountyflow_saved_searches`, `bountyflow_saved_search_matches` | Search filters, alert settings | The user |
+| Governance | `bountyflow_audit_logs`, `bountyflow_outbox_events`, `bountyflow_legal_acceptances`, `bountyflow_screening_entries` | Who did what and when | Generated |
 
 **On-chain data is different in kind.** Addresses, amounts, transaction hashes and attestations on Stellar are
 public, permanent and outside anyone's control, including ours. No erasure right can reach them. We say this in
@@ -118,7 +118,7 @@ escrow differently. Any market we accept users from needs its own answer.
 ### What we would need for KYC, if the answer is that we need it
 
 Nothing in the current schema does identity verification. A KYC programme would need at minimum: an identity
-provider integration, a verification state on `users`, a risk score, per-user and per-period transaction
+provider integration, a verification state on `bountyflow_users`, a risk score, per-user and per-period transaction
 thresholds, an SAR/STR filing workflow, a named compliance officer, and a retention schedule for identity
 documents that is separate from everything else in this document. None of that exists. It is a project, not a
 setting.
@@ -146,7 +146,7 @@ contract account that receives money exactly like an account id does, so excludi
 ### How it works
 
 - A provider interface (`ScreeningProvider`) with a default `DenylistProvider` that matches against
-  `screening_entries`. A commercial screening API can replace it with `set_provider` and no other change.
+  `bountyflow_screening_entries`. A commercial screening API can replace it with `set_provider` and no other change.
 - Entries come from two places: admins add them by hand with a reason, and the worker's
   `sanctions-list-refresh` job syncs a configured list from `SANCTIONS_LIST_PATH` or `SANCTIONS_LIST_URL`. The
   parser recognises the OFAC SDN export's `Digital Currency Address - XLM` remarks, a JSON array, or one
@@ -257,10 +257,10 @@ none of which exists.
 **Implemented.** Versions of the terms and the privacy notice are records, not a date in a footer.
 
 - Staff publish a version with a short summary of what changed and a date it takes effect
-  (`legal_document_versions`). A version dated in the future is announced in the workspace ahead of time and
-  can be withdrawn until it takes effect.
+  (`bountyflow_legal_document_versions`). A version dated in the future is announced in the workspace ahead of time
+  and can be withdrawn until it takes effect.
 - Once a version is in effect, the workspace is **gated** until the user accepts it. Acceptance is recorded per
-  user per version, with the request id (`legal_acceptances`).
+  user per version, with the request id (`bountyflow_legal_acceptances`).
 - Signing up is acceptance of the versions in effect at that moment; the worker records that explicitly with
   `source="registration"`, so there is no gap between the registration checkbox and the acceptance record.
 - Migration `0011` records the versions already published on the site as the baseline (`2026-09`), so existing
@@ -323,8 +323,8 @@ The platform pays Stellar network fees for some contributor actions (`consent_ca
 
 Three things follow, and all are handled:
 
-- **It is the platform's money.** Every sponsored transaction is recorded in `sponsored_transactions` with the
-  fee charged, and the balance is on the dashboard (`bountyflow_sponsor_balance_xlm`).
+- **It is the platform's money.** Every sponsored transaction is recorded in `bountyflow_sponsored_transactions`
+  with the fee charged, and the balance is on the dashboard (`bountyflow_sponsor_balance_xlm`).
 - **It is abusable.** The controls are an allowlist of contracts and functions, a maximum fee per transaction
   (`SPONSOR_MAX_FEE_STROOPS`), per-user daily transaction and fee caps (`SPONSOR_DAILY_TX_LIMIT`,
   `SPONSOR_DAILY_FEE_LIMIT_STROOPS`), and a balance floor below which sponsoring stops entirely
