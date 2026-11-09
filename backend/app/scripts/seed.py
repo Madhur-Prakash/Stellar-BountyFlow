@@ -26,7 +26,7 @@ from __future__ import annotations
 
 import sys
 import uuid
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from datetime import UTC, datetime, timedelta
 
 from sqlalchemy import func, select, update
@@ -43,7 +43,7 @@ from app.db.session import dispose_engine, get_sessionmaker
 from app.modules.applications import service as application_service
 from app.modules.applications.schemas import ApplicationCreate
 from app.modules.bounties import service as bounty_service
-from app.modules.bounties.models import Bounty, BountyBookmark, Category, Difficulty
+from app.modules.bounties.models import Bounty, BountyBookmark, BountyStatus, Category, Difficulty
 from app.modules.bounties.schemas import BountyCreate
 from app.modules.discovery.models import AlertFrequency, SavedSearch
 from app.modules.discovery.saved_searches import next_digest_time
@@ -4926,13 +4926,60 @@ async def _ensure_user(
     return user
 
 
-async def _seeded_keys(session: AsyncSession) -> set[str]:
+async def _seeded_keys(session: AsyncSession, specs: list[SeedBounty] = BOUNTIES) -> set[str]:
     """The seed keys already in the database, in one query rather than one lookup per bounty."""
-    keys = [b.key for b in BOUNTIES]
+    keys = [b.key for b in specs]
     rows: ScalarResult[str | None] = await session.scalars(
         select(Bounty.metadata_["seed_key"].astext).where(Bounty.metadata_["seed_key"].astext.in_(keys))
     )
     return {key for key in rows.all() if key}
+
+
+async def _refresh_bounty_specs(session: AsyncSession, summary: dict[str, int]) -> list[SeedBounty]:
+    """Create one fresh batch when expired bounties are the majority of the database.
+
+    Existing rows are preserved. A batch is marked in metadata so repeated seed runs do not keep adding rows while
+    the same fresh bounties are still available.
+    """
+    result = await session.execute(
+        select(
+            func.count(Bounty.id),
+            func.count(Bounty.id).filter(Bounty.status == BountyStatus.EXPIRED),
+        )
+    )
+    total_count, expired_count = result.one()
+    if not total_count or expired_count * 2 <= total_count:
+        return []
+
+    active_refresh = await session.scalar(
+        select(func.count(Bounty.id)).where(
+            Bounty.metadata_["seed_refresh"].astext == "true",
+            Bounty.status.in_(
+                [
+                    BountyStatus.OPEN,
+                    BountyStatus.FUNDING_PENDING,
+                    BountyStatus.FUNDED,
+                    BountyStatus.IN_PROGRESS,
+                    BountyStatus.UNDER_REVIEW,
+                ]
+            ),
+        )
+    )
+    if active_refresh:
+        return []
+
+    required = 2 * expired_count - total_count
+    generation = datetime.now(UTC).strftime("%Y%m%d%H%M%S")
+    specs = [
+        replace(
+            BOUNTIES[index % len(BOUNTIES)],
+            key=f"refresh-{generation}-{index}",
+            stage="open",
+            applicants=[],
+        )
+        for index in range(required)
+    ]
+    return specs
 
 
 async def _bounties_by_key(session: AsyncSession) -> dict[str, Bounty]:
@@ -4976,10 +5023,16 @@ async def _ensure_bounty(
     bounty = await session.get(Bounty, detail.id)
     assert bounty is not None
     bounty.is_featured = spec.key in FEATURED_KEYS
-    bounty.metadata_ = {**(bounty.metadata_ or {}), "seed_key": spec.key}
+    bounty.metadata_ = {
+        **(bounty.metadata_ or {}),
+        "seed_key": spec.key,
+        **({"seed_refresh": True} if spec.key.startswith("refresh-") else {}),
+    }
     await session.commit()
     known.add(spec.key)
     summary["bounties_created"] += 1
+    if spec.key.startswith("refresh-"):
+        summary["bounties_refresh_created"] += 1
     if spec.stage == "draft":
         return
     await bounty_service.publish(session, requester, bounty.id)
@@ -5226,6 +5279,8 @@ async def seed() -> dict[str, int]:
         "users_updated": 0,
         "bounties_created": 0,
         "bounties_existing": 0,
+        "bounty_refreshes": 0,
+        "bounties_refresh_created": 0,
         "applications": 0,
         "questions": 0,
         "answers": 0,
@@ -5241,8 +5296,12 @@ async def seed() -> dict[str, int]:
         users: dict[str, User] = {}
         for spec in USERS:
             users[spec.username] = await _ensure_user(session, spec, password_hash, known_users, summary)
-        known = await _seeded_keys(session)
-        for bounty_spec in BOUNTIES:
+        refresh_specs = await _refresh_bounty_specs(session, summary)
+        if refresh_specs:
+            summary["bounty_refreshes"] = 1
+        all_specs = BOUNTIES + refresh_specs
+        known = await _seeded_keys(session, all_specs)
+        for bounty_spec in all_specs:
             try:
                 await _ensure_bounty(session, bounty_spec, users, known, summary)
             except Exception:
@@ -5251,7 +5310,7 @@ async def seed() -> dict[str, int]:
                 # The rollback expired every ORM object in the session, including the cached users; touching
                 # them in the next iteration would lazy-load outside the async context. Reload them.
                 users = await _load_users(session, [spec.username for spec in USERS])
-                known = await _seeded_keys(session)
+                known = await _seeded_keys(session, all_specs)
         # Everything below hangs off the bounties above, so they are re-read once, together.
         bounties = await _bounties_by_key(session)
         await _ensure_questions(session, bounties, users, summary)
