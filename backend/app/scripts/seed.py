@@ -4948,7 +4948,7 @@ async def _refresh_bounty_specs(session: AsyncSession, summary: dict[str, int]) 
         )
     )
     total_count, expired_count = result.one()
-    if not total_count or expired_count * 2 <= total_count:
+    if not total_count or expired_count * 10 <= total_count * 7:
         return []
 
     active_refresh = await session.scalar(
