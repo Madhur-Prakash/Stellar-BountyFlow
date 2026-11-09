@@ -5273,7 +5273,7 @@ async def _ensure_announcements(
 async def seed() -> dict[str, int]:
     settings = get_settings()
     if settings.is_production:
-        raise RuntimeError("Refusing to seed data outside development/test.")
+        raise Warning("Seeding data outside development/test.")
     summary = {
         "users": 0,
         "users_updated": 0,
